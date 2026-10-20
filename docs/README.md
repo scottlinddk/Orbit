@@ -13,6 +13,7 @@
   - [0008 Opt-in local usage stats](architecture/adr/0008-opt-in-local-usage-stats.md)
   - [0009 node:sqlite as the SQLite driver](architecture/adr/0009-node-sqlite-driver.md)
   - [0010 Sessions and HTTP hardening](architecture/adr/0010-sessions-and-http-hardening.md)
+  - [0011 Web UI](architecture/adr/0011-web-ui.md)
 
 - [Backup and restore](operations/backup-and-restore.md)
 

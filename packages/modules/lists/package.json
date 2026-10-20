@@ -15,6 +15,14 @@
   "dependencies": {
     "@orbit/application": "workspace:*",
     "@orbit/contracts": "workspace:*",
-    "@orbit/domain": "workspace:*"
+    "@orbit/domain": "workspace:*",
+    "@orbit/widget-sdk": "workspace:*"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "react": "^19.3.1"
   }
 }

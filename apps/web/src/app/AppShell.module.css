@@ -1,0 +1,50 @@
+.header {
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.bar {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: var(--space-3) var(--gutter);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.brand {
+  font-weight: 700;
+  font-size: 1.25rem;
+  text-decoration: none;
+  color: var(--color-text);
+}
+
+.switcher {
+  display: flex;
+}
+
+.select {
+  font: inherit;
+  padding: var(--space-2) var(--space-3);
+  min-height: 2.5rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  max-width: 14rem;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.user {
+  color: var(--color-text-muted);
+}
+
+.main {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: var(--space-6) var(--gutter);
+}

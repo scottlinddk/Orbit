@@ -10,6 +10,8 @@ export const widgetSchema = z.object({
   config: z.record(z.string(), z.unknown()),
 })
 
+export type WidgetResponse = z.infer<typeof widgetSchema>
+
 export const dashboardSchema = z
   .object({
     id: z.string(),
