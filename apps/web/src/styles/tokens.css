@@ -1,0 +1,48 @@
+/* Design tokens. Components use these variables and never raw colors or sizes. */
+:root {
+  color-scheme: light dark;
+
+  --font-body: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-size-base: 1rem;
+  --line-height: 1.5;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --radius: 0.5rem;
+  --max-width: 72rem;
+  --gutter: 1rem;
+
+  --color-bg: #f6f7fb;
+  --color-surface: #ffffff;
+  --color-text: #1a1d29;
+  --color-text-muted: #565c70;
+  --color-border: #d5d9e5;
+  --color-accent: #3a55e0;
+  --color-accent-text: #ffffff;
+  --color-danger: #b3261e;
+  --color-danger-bg: #fdecea;
+  --color-success-bg: #e8f5ea;
+  --color-focus: #1b3dd1;
+  --shadow: 0 1px 2px rgb(20 24 40 / 8%);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #12141c;
+    --color-surface: #1b1e2a;
+    --color-text: #eceef6;
+    --color-text-muted: #a4aac0;
+    --color-border: #343950;
+    --color-accent: #8da0ff;
+    --color-accent-text: #0e1220;
+    --color-danger: #ff9a92;
+    --color-danger-bg: #3a1c1a;
+    --color-success-bg: #1b3220;
+    --color-focus: #b4c0ff;
+    --shadow: none;
+  }
+}

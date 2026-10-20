@@ -1,0 +1,21 @@
+{
+  "name": "@orbit/widget-sdk",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The contract a widget implements, so modules and the web app agree without importing each other",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "react": "^19.3.1"
+  }
+}

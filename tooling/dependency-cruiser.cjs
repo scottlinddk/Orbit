@@ -122,6 +122,16 @@ const forbidden = [
     to: { path: '^packages/modules/[^/]+/src/web/' },
   },
   {
+    name: 'widget-sdk-is-a-thin-contract',
+    severity: 'error',
+    comment:
+      'The widget contract imports React types only, so every module can depend on it cheaply.',
+    from: { path: '^packages/widget-sdk/src' },
+    to: {
+      pathNot: ['^packages/widget-sdk/src', 'node_modules/react/', 'node_modules/@types/react/'],
+    },
+  },
+  {
     name: 'web-boundary',
     severity: 'error',
     comment:
@@ -156,7 +166,10 @@ const forbidden = [
     name: 'no-orphans-outside-entries',
     severity: 'warn',
     comment: 'Unreferenced source files are probably dead code.',
-    from: { orphan: true, pathNot: ['/index\\.ts$', '/main\\.ts$', '\\.d\\.ts$'] },
+    from: {
+      orphan: true,
+      pathNot: ['/index\\.ts$', '/main\\.tsx?$', '\\.d\\.ts$', '\\.config\\.ts$'],
+    },
     to: {},
   },
 ]
