@@ -8,10 +8,10 @@ Requirements: Node 22 (see `.nvmrc`) and pnpm (the version is pinned in `package
 
 ```sh
 pnpm install
-pnpm check   # lint, format, typecheck, boundary rules, license check
+pnpm check   # lint, format, typecheck, tests, boundary rules, license check
 ```
 
-Run the individual steps with `pnpm lint`, `pnpm format`, `pnpm typecheck`, `pnpm check:boundaries` and `pnpm check:licenses`.
+Run the individual steps with `pnpm lint`, `pnpm format`, `pnpm typecheck`, `pnpm test`, `pnpm check:boundaries` and `pnpm check:licenses`.
 
 ## Architecture rules
 
@@ -27,6 +27,7 @@ If a rule blocks you, the design probably needs a new port, not an exception. Op
 
 ## Pull requests
 
+- Every household-scoped use case must be added to the isolation kit in `packages/testing/src/isolation-kit.ts`. See [ADR 0007](docs/architecture/adr/0007-household-authorization-model.md).
 - Keep PRs focused. Docs and ADR changes are welcome on their own.
 - New decisions that affect structure, security or data handling need an ADR in `docs/architecture/adr/`.
 - Do not add dependencies with licenses outside the allowlist in `tooling/check-licenses.mjs`.

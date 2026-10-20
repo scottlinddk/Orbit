@@ -14,9 +14,10 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "pnpm -r --if-present run typecheck",
+    "test": "vitest run",
     "check:boundaries": "depcruise apps packages --config tooling/dependency-cruiser.cjs",
     "check:licenses": "node tooling/check-licenses.mjs",
-    "check": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm check:boundaries && pnpm check:licenses"
+    "check": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm test && pnpm check:boundaries && pnpm check:licenses"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",
@@ -24,6 +25,7 @@
     "eslint": "^10.13.0",
     "prettier": "^3.9.10",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.72.0"
+    "typescript-eslint": "^8.72.0",
+    "vitest": "^5.0.5"
   }
 }

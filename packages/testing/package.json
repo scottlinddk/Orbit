@@ -12,8 +12,9 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@orbit/domain": "workspace:*",
+    "@orbit/adapter-in-memory": "workspace:*",
+    "@orbit/application": "workspace:*",
     "@orbit/contracts": "workspace:*",
-    "@orbit/application": "workspace:*"
+    "@orbit/domain": "workspace:*"
   }
 }

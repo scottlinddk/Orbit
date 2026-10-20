@@ -33,8 +33,15 @@ const forbidden = [
     severity: 'error',
     comment:
       'packages/domain imports nothing outside itself: no npm packages, no node builtins, no other packages.',
-    from: { path: '^packages/domain/src' },
+    from: { path: '^packages/domain/src', pathNot: '\\.test\\.ts$' },
     to: { pathNot: '^packages/domain/src' },
+  },
+  {
+    name: 'domain-tests-only-vitest',
+    severity: 'error',
+    comment: 'Domain tests may use vitest and the domain itself, nothing else.',
+    from: { path: '^packages/domain/src/.*\\.test\\.ts$' },
+    to: { pathNot: ['^packages/domain/src', 'node_modules/vitest/'] },
   },
   {
     name: 'contracts-only-zod',
@@ -159,6 +166,7 @@ module.exports = {
   forbidden,
   options: {
     doNotFollow: { path: 'node_modules' },
+    combinedDependencies: true,
     tsPreCompilationDeps: true,
     tsConfig: { fileName: 'tsconfig.base.json' },
     exclude: { path: ['/dist/', '/coverage/'] },
