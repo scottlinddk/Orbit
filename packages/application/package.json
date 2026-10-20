@@ -1,0 +1,18 @@
+{
+  "name": "@orbit/application",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Use cases and ports (repository, identity, secret and job interfaces)",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@orbit/domain": "workspace:*",
+    "@orbit/contracts": "workspace:*"
+  }
+}

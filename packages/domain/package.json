@@ -1,0 +1,14 @@
+{
+  "name": "@orbit/domain",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Pure domain model: households, memberships, dashboards, permissions",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  }
+}

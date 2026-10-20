@@ -4,14 +4,14 @@ A modular monolith with ports and adapters. One deployable API process, one work
 
 ## Layers
 
-| Layer | Package | May import |
-|---|---|---|
-| Contracts | `packages/contracts` | zod only |
-| Domain | `packages/domain` | nothing external |
-| Application (use cases, ports) | `packages/application` | `domain`, `contracts` |
-| Adapters | `packages/adapters/*` | `application`, `domain`, vendor SDKs |
-| Composition root, HTTP | `apps/api` | everything, wires adapters from config |
-| Web | `apps/web` | `contracts`, module `web/` entries |
+| Layer                          | Package                | May import                             |
+| ------------------------------ | ---------------------- | -------------------------------------- |
+| Contracts                      | `packages/contracts`   | zod only                               |
+| Domain                         | `packages/domain`      | nothing external                       |
+| Application (use cases, ports) | `packages/application` | `domain`, `contracts`                  |
+| Adapters                       | `packages/adapters/*`  | `application`, `domain`, vendor SDKs   |
+| Composition root, HTTP         | `apps/api`             | everything, wires adapters from config |
+| Web                            | `apps/web`             | `contracts`, module `web/` entries     |
 
 Domain and application code never import SQLite drivers, Google SDKs, or Fastify. This is enforced in CI (ADR 0005).
 

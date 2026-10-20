@@ -1,0 +1,29 @@
+{
+  "name": "orbit",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Open-source, self-hostable personal and household dashboard",
+  "license": "Apache-2.0",
+  "type": "module",
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "pnpm -r --if-present run typecheck",
+    "check:boundaries": "depcruise apps packages --config tooling/dependency-cruiser.cjs",
+    "check:licenses": "node tooling/check-licenses.mjs",
+    "check": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm check:boundaries && pnpm check:licenses"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "dependency-cruiser": "^18.7.0",
+    "eslint": "^10.13.0",
+    "prettier": "^3.9.10",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.72.0"
+  }
+}

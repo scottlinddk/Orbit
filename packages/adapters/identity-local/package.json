@@ -1,0 +1,19 @@
+{
+  "name": "@orbit/adapter-identity-local",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Local accounts: argon2id hashing and server-side sessions",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@orbit/application": "workspace:*",
+    "@orbit/contracts": "workspace:*",
+    "@orbit/domain": "workspace:*"
+  }
+}

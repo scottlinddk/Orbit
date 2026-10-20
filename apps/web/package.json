@@ -1,0 +1,16 @@
+{
+  "name": "@orbit/web",
+  "version": "0.0.0",
+  "private": true,
+  "description": "React single-page app",
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@orbit/contracts": "workspace:*",
+    "@orbit/module-calendar": "workspace:*",
+    "@orbit/module-lists": "workspace:*"
+  }
+}

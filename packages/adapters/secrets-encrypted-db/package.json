@@ -1,0 +1,19 @@
+{
+  "name": "@orbit/adapter-secrets-encrypted-db",
+  "version": "0.0.0",
+  "private": true,
+  "description": "SecretStore that encrypts credentials at rest with an env-supplied master key",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@orbit/domain": "workspace:*",
+    "@orbit/contracts": "workspace:*",
+    "@orbit/application": "workspace:*"
+  }
+}

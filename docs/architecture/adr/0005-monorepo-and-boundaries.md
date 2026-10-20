@@ -3,6 +3,7 @@
 Status: accepted
 
 ## Decision
+
 pnpm workspaces monorepo: `apps/web`, `apps/api`, `packages/{contracts,domain,application,adapters/*,modules/*,integrations/*,testing}`, `deploy`, `docs`, `tooling`.
 
 Dependency rules from the architecture overview are enforced by dependency-cruiser and ESLint in CI. A violation fails the build.
@@ -10,4 +11,11 @@ Dependency rules from the architecture overview are enforced by dependency-cruis
 Each built-in module exposes separate `server` and `web` entries so the SPA never bundles server code.
 
 ## Testing
+
 `packages/testing` holds reusable contract suites (run against every adapter, including the in-memory one) and a household-isolation kit that every protected route must pass.
+
+## Enforcement
+
+Implemented in `tooling/dependency-cruiser.cjs` and run by `pnpm check:boundaries` in CI. Besides the layer rules it fails on circular imports, unresolvable imports and undeclared npm dependencies, so adding a workspace dependency to `package.json` is the only way past a boundary, and that shows up in review.
+
+Boundary rules were verified with deliberate violations during scaffolding. When adding a rule, add a probe the same way.
