@@ -8,5 +8,6 @@
   - [0003 Calendar integrations: ICS/CalDAV and Google](architecture/adr/0003-calendar-integrations.md)
   - [0004 Fastify, zod and OpenAPI](architecture/adr/0004-fastify-zod-openapi.md)
   - [0005 Monorepo layout and enforced dependency rules](architecture/adr/0005-monorepo-and-boundaries.md)
+  - [0006 Apache-2.0 license](architecture/adr/0006-apache-2-license.md)
 
 Open decisions are tracked in [open questions](architecture/open-questions.md).
