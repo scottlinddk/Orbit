@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@orbit/adapter-in-memory": "workspace:*",
+    "@orbit/adapter-persistence-sqlite": "workspace:*",
     "@orbit/application": "workspace:*",
     "@orbit/contracts": "workspace:*",
     "@orbit/domain": "workspace:*"

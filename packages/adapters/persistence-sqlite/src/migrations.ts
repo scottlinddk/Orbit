@@ -1,0 +1,57 @@
+export interface Migration {
+  /** Strictly increasing from 1. Never renumber or edit a migration that has shipped. */
+  readonly version: number
+  readonly name: string
+  readonly sql: string
+}
+
+/**
+ * Forward-only. To change the schema, append a migration.
+ * Cross-aggregate references (dashboards to households, memberships to users) are
+ * deliberately not foreign keys: the application layer owns those rules. Foreign keys
+ * exist only inside an aggregate, so deleting a parent removes its children.
+ */
+export const migrations: readonly Migration[] = [
+  {
+    version: 1,
+    name: 'households-and-dashboards',
+    sql: `
+      CREATE TABLE users (
+        id TEXT PRIMARY KEY,
+        display_name TEXT NOT NULL
+      ) STRICT;
+
+      CREATE TABLE households (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL
+      ) STRICT;
+
+      CREATE TABLE household_members (
+        household_id TEXT NOT NULL REFERENCES households(id) ON DELETE CASCADE,
+        user_id TEXT NOT NULL,
+        role TEXT NOT NULL CHECK (role IN ('owner', 'member')),
+        position INTEGER NOT NULL,
+        PRIMARY KEY (household_id, user_id)
+      ) STRICT;
+      CREATE INDEX household_members_by_user ON household_members(user_id);
+
+      CREATE TABLE dashboards (
+        id TEXT PRIMARY KEY,
+        household_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        columns INTEGER NOT NULL CHECK (columns BETWEEN 1 AND 4)
+      ) STRICT;
+      CREATE INDEX dashboards_by_household ON dashboards(household_id);
+
+      CREATE TABLE dashboard_widgets (
+        id TEXT PRIMARY KEY,
+        dashboard_id TEXT NOT NULL REFERENCES dashboards(id) ON DELETE CASCADE,
+        position INTEGER NOT NULL,
+        type TEXT NOT NULL,
+        span INTEGER NOT NULL CHECK (span >= 1),
+        config TEXT NOT NULL,
+        UNIQUE (dashboard_id, position)
+      ) STRICT;
+    `,
+  },
+]

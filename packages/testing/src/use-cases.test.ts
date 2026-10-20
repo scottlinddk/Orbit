@@ -1,15 +1,18 @@
 import { NotFoundError, type Actor } from '@orbit/application'
 import { InvariantViolation, UserId, type HouseholdId } from '@orbit/domain'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { createInMemorySystem, type TestSystem } from './fixtures.ts'
+import { createInMemorySystem, createSqliteSystem, type TestSystem } from './fixtures.ts'
 
-describe('use cases', () => {
+describe.each([
+  ['in-memory', createInMemorySystem],
+  ['sqlite', createSqliteSystem],
+])('use cases: %s', (_name, create) => {
   let sys: TestSystem
   let alice: Actor
   let household: HouseholdId
 
   beforeEach(async () => {
-    sys = createInMemorySystem()
+    sys = create()
     alice = await sys.newActor('alice')
     household = (await sys.useCases.createHousehold(alice, { name: 'Home' })).id
   })

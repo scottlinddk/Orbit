@@ -4,7 +4,7 @@ Thanks for helping. Orbit is pre-MVP, so the most valuable contributions right n
 
 ## Setup
 
-Requirements: Node 22 (see `.nvmrc`) and pnpm (the version is pinned in `package.json`; `corepack enable` installs it).
+Requirements: Node 22.16 or later (see `.nvmrc`) and pnpm (the version is pinned in `package.json`; `corepack enable` installs it).
 
 ```sh
 pnpm install

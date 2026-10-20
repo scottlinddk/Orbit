@@ -193,6 +193,9 @@ importers:
       '@orbit/adapter-in-memory':
         specifier: workspace:*
         version: link:../adapters/in-memory
+      '@orbit/adapter-persistence-sqlite':
+        specifier: workspace:*
+        version: link:../adapters/persistence-sqlite
       '@orbit/application':
         specifier: workspace:*
         version: link:../application
