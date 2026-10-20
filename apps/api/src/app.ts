@@ -2,6 +2,7 @@ import cookie from '@fastify/cookie'
 import rateLimit from '@fastify/rate-limit'
 import swagger from '@fastify/swagger'
 import { NotFoundError } from '@orbit/application'
+import { z } from 'zod'
 import Fastify, { type FastifyReply, type FastifyServerOptions } from 'fastify'
 import {
   jsonSchemaTransform,
@@ -12,10 +13,12 @@ import {
 } from 'fastify-type-provider-zod'
 import type { Config } from './config.ts'
 import { registerSecurity } from './http/security.ts'
+import { registerWebApp } from './http/web.ts'
 import { createRequireActor } from './http/session.ts'
 import { toProblem } from './problem.ts'
 import { authRoutes } from './routes/auth.ts'
 import { dashboardRoutes } from './routes/dashboards.ts'
+import { errors } from './routes/schemas.ts'
 import { householdRoutes } from './routes/households.ts'
 import type { Services } from './services.ts'
 
@@ -23,6 +26,8 @@ export interface AppOptions {
   services: Services
   config: Config
   logger?: FastifyServerOptions['logger']
+  /** Folder with the built web app. Defaults to config.webDir. */
+  webDir?: string
   /** Limit for login and registration, per client IP. */
   authRateLimit?: { max: number; timeWindow: string }
   /** Limit for everything else, per client IP. */
@@ -86,16 +91,26 @@ export async function buildApp(options: AppOptions) {
       Object.assign(new Error('Rate limit exceeded'), { statusCode: 429 }),
   })
 
-  registerSecurity(app, config)
+  const webDir = options.webDir ?? config.webDir
+  registerSecurity(app, config, { apiPrefix: API_PREFIX, servesWebApp: webDir !== undefined })
 
   app.setErrorHandler((error, request, reply) => {
     const problem = toProblem(error)
     if (problem.status >= 500) request.log.error({ err: error }, 'unhandled error')
     return reply.code(problem.status).type('application/problem+json').send(problem)
   })
-  app.setNotFoundHandler((_request, reply) =>
-    reply.code(404).type('application/problem+json').send(toProblem(new NotFoundError())),
-  )
+  app.setNotFoundHandler((request, reply) => {
+    // A browser navigating to a client-side route (/d/abc) gets the app shell. Anything else
+    // that is missing (an API path, a script, an image) stays a real 404, so a missing script
+    // is never answered with HTML.
+    const navigation =
+      webDir !== undefined &&
+      (request.method === 'GET' || request.method === 'HEAD') &&
+      !request.url.startsWith(API_PREFIX) &&
+      (request.headers.accept ?? '').includes('text/html')
+    if (navigation) return reply.type('text/html; charset=utf-8').sendFile('index.html')
+    return reply.code(404).type('application/problem+json').send(toProblem(new NotFoundError()))
+  })
 
   const requireActor = createRequireActor(services.auth, config)
   const authRateLimitOptions = options.authRateLimit ?? { max: 10, timeWindow: '1 minute' }
@@ -115,10 +130,25 @@ export async function buildApp(options: AppOptions) {
         await protectedScope.register(householdRoutes({ services }))
         await protectedScope.register(dashboardRoutes({ services }))
       })
+      api.get(
+        '/health',
+        {
+          schema: {
+            tags: ['system'],
+            summary: 'Liveness check for containers and monitors',
+            description:
+              'Says the process is up. It does not touch the database and reveals nothing else.',
+            response: { 200: z.object({ status: z.literal('ok') }), 429: errors[429] },
+          },
+        },
+        async () => ({ status: 'ok' as const }),
+      )
       api.get('/openapi.json', { schema: { hide: true } }, async () => app.swagger())
     },
     { prefix: API_PREFIX },
   )
+
+  if (webDir !== undefined) await registerWebApp(app, webDir)
 
   return app
 }

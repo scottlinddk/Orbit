@@ -1,22 +1,11 @@
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { randomUUID } from 'node:crypto'
-import { Argon2PasswordHasher, RandomSessionTokens } from '@orbit/adapter-identity-local'
-import {
-  SqliteAccountRepository,
-  SqliteDashboardRepository,
-  SqliteHouseholdRepository,
-  SqliteSessionStore,
-  SqliteUserRepository,
-  migrate,
-  openDatabase,
-  type Database,
-} from '@orbit/adapter-persistence-sqlite'
+import { migrate, openDatabase, type Database } from '@orbit/adapter-persistence-sqlite'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { buildApp, type App } from './app.ts'
 import { loadConfig } from './config.ts'
-import { assembleServices } from './services.ts'
+import { createSqliteServices } from './composition.ts'
 import { TestClient, PASSWORD } from './test-support.ts'
 
 /** The production wiring from main.ts, minus the network listener: real Argon2, a real SQLite file. */
@@ -31,20 +20,7 @@ describe('production wiring', () => {
     migrate(db)
     app = await buildApp({
       config,
-      services: assembleServices({
-        repos: {
-          users: new SqliteUserRepository(db),
-          accounts: new SqliteAccountRepository(db),
-          sessions: new SqliteSessionStore(db),
-          households: new SqliteHouseholdRepository(db),
-          dashboards: new SqliteDashboardRepository(db),
-        },
-        hasher: new Argon2PasswordHasher(),
-        tokens: new RandomSessionTokens(),
-        clock: { now: () => new Date() },
-        ids: { next: () => randomUUID() },
-        registrationPolicy: config.registration,
-      }),
+      services: createSqliteServices(db, config),
     })
     await app.ready()
   }

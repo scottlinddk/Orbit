@@ -7,6 +7,7 @@ import {
   type User,
 } from '@orbit/domain'
 import type { Actor } from './actor.ts'
+import { NotFoundError } from './errors.ts'
 import type {
   AccountRepository,
   Clock,
@@ -44,6 +45,14 @@ export const MIN_PASSWORD_LENGTH = 12
 export const MAX_PASSWORD_LENGTH = 128
 export const DEFAULT_SESSION_TTL_MS = 14 * 24 * 60 * 60 * 1000
 
+export function assertPasswordPolicy(password: string, username: Username): void {
+  invariant(
+    password.length >= MIN_PASSWORD_LENGTH && password.length <= MAX_PASSWORD_LENGTH,
+    `Password must be ${MIN_PASSWORD_LENGTH} to ${MAX_PASSWORD_LENGTH} characters`,
+  )
+  invariant(password.toLowerCase() !== username, 'Password must not be the same as the username')
+}
+
 export interface AuthDependencies {
   accounts: AccountRepository
   sessions: SessionStore
@@ -80,15 +89,7 @@ export function createAuth(deps: AuthDependencies) {
       displayName?: string | undefined
     }): Promise<User> {
       const username = Username(input.username)
-      invariant(
-        input.password.length >= MIN_PASSWORD_LENGTH &&
-          input.password.length <= MAX_PASSWORD_LENGTH,
-        `Password must be ${MIN_PASSWORD_LENGTH} to ${MAX_PASSWORD_LENGTH} characters`,
-      )
-      invariant(
-        input.password.toLowerCase() !== username,
-        'Password must not be the same as the username',
-      )
+      assertPasswordPolicy(input.password, username)
       const userId = UserId(ids.next())
       const user = createUser({ id: userId, displayName: input.displayName?.trim() || username })
       const passwordHash = await hasher.hash(input.password)
@@ -138,6 +139,20 @@ export function createAuth(deps: AuthDependencies) {
 
     async logout(token: string): Promise<void> {
       await sessions.delete(tokens.hash(token))
+    },
+
+    /**
+     * Operator action, run from the command line on the server, never over HTTP. Sets a new
+     * password and signs the user out everywhere, because whoever caused the reset may have
+     * had the old password or a session.
+     */
+    async resetPassword(input: { username: string; password: string }): Promise<void> {
+      const username = Username(input.username)
+      assertPasswordPolicy(input.password, username)
+      const credential = await accounts.findCredential(username)
+      if (!credential) throw new NotFoundError()
+      await accounts.setPasswordHash(credential.userId, await hasher.hash(input.password))
+      await sessions.deleteForUser(credential.userId)
     },
 
     /** For a periodic housekeeping job. */

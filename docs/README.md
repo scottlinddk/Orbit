@@ -14,7 +14,9 @@
   - [0009 node:sqlite as the SQLite driver](architecture/adr/0009-node-sqlite-driver.md)
   - [0010 Sessions and HTTP hardening](architecture/adr/0010-sessions-and-http-hardening.md)
   - [0011 Web UI](architecture/adr/0011-web-ui.md)
+  - [0012 Docker deployment](architecture/adr/0012-docker-deployment.md)
 
+- [Deploying with Docker](operations/deployment.md)
 - [Backup and restore](operations/backup-and-restore.md)
 
 Open decisions are tracked in [open questions](architecture/open-questions.md).

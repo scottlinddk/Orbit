@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs'
-import { backup } from 'node:sqlite'
+import { DatabaseSync, backup } from 'node:sqlite'
 import type { Database } from './database.ts'
 
 /**
@@ -13,4 +13,14 @@ import type { Database } from './database.ts'
 export async function backupDatabase(db: Database, destination: string): Promise<void> {
   if (existsSync(destination)) throw new Error(`Backup destination already exists: ${destination}`)
   await backup(db, destination)
+
+  // The online backup copies the header, including "this file uses WAL". A WAL database cannot
+  // be opened from a read-only mount and needs side files next to it. Switching the copy to
+  // the classic journal makes the backup one self-contained file that opens anywhere.
+  const copy = new DatabaseSync(destination)
+  try {
+    copy.exec('PRAGMA journal_mode = DELETE')
+  } finally {
+    copy.close()
+  }
 }

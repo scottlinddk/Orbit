@@ -83,5 +83,8 @@ export function toProblem(error: unknown): Problem {
       String(e.message),
     )
   }
+  // A client error raised by a plugin (for example a bad range request). Keep the status,
+  // drop the message, which is not written for users.
+  if (status >= 400 && status < 500) return problem(status, 'bad-request', 'Bad Request')
   return problem(500, 'internal', 'Internal Server Error')
 }

@@ -153,6 +153,16 @@ export function describeAccountContracts(name: string, create: () => Promise<Rep
       )
     })
 
+    it('replaces a password hash, and reports an unknown user', async () => {
+      const a = account('u1', 'alice')
+      await repos.accounts.register(a.user, a.credential, 'open')
+      expect(await repos.accounts.setPasswordHash(a.user.id, 'new-hash')).toBe(true)
+      expect((await repos.accounts.findCredential(Username('alice')))?.passwordHash).toBe(
+        'new-hash',
+      )
+      expect(await repos.accounts.setPasswordHash(UserId('ghost'), 'x')).toBe(false)
+    })
+
     it('lets concurrent registrations of one username produce exactly one account', async () => {
       const attempts = await Promise.all(
         ['u1', 'u2', 'u3', 'u4'].map((id) => {
@@ -213,6 +223,25 @@ export function describeSessionContracts(name: string, create: () => Promise<Rep
       await repos.sessions.delete('t1')
       expect(await repos.sessions.get('t1')).toBeUndefined()
       expect(await repos.sessions.get('t2')).toBeDefined()
+    })
+
+    it("ends one user's sessions and leaves other users' sessions alone", async () => {
+      const other = createUser({ id: UserId('u2'), displayName: 'Bob' })
+      await repos.accounts.register(
+        other,
+        { userId: other.id, username: Username('bobby'), passwordHash: 'h' },
+        'open',
+      )
+      await repos.sessions.create(session('a1', '2026-02-01T00:00:00.000Z'))
+      await repos.sessions.create(session('a2', '2026-02-01T00:00:00.000Z'))
+      await repos.sessions.create({
+        ...session('b1', '2026-02-01T00:00:00.000Z'),
+        userId: other.id,
+      })
+      expect(await repos.sessions.deleteForUser(UserId('u1'))).toBe(2)
+      expect(await repos.sessions.get('a1')).toBeUndefined()
+      expect(await repos.sessions.get('b1')).toBeDefined()
+      expect(await repos.sessions.deleteForUser(UserId('u1'))).toBe(0)
     })
 
     it('purges only expired sessions and reports how many', async () => {

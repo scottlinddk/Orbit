@@ -8,11 +8,12 @@ export type Database = DatabaseSync
  * - WAL: readers do not block the writer. Not applicable to ':memory:'.
  * - busy timeout: a second connection (for example a backup) waits instead of failing at once.
  */
-export function openDatabase(path: string): Database {
-  const db = new DatabaseSync(path)
+export function openDatabase(path: string, options: { readOnly?: boolean } = {}): Database {
+  const db = new DatabaseSync(path, { readOnly: options.readOnly ?? false })
   db.exec('PRAGMA foreign_keys = ON')
   db.exec('PRAGMA busy_timeout = 5000')
-  if (path !== ':memory:') db.exec('PRAGMA journal_mode = WAL')
+  // WAL is a property of the file, set once by the writer. A read-only handle must not change it.
+  if (path !== ':memory:' && !options.readOnly) db.exec('PRAGMA journal_mode = WAL')
   return db
 }
 

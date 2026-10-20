@@ -1911,6 +1911,49 @@
           }
         }
       }
+    },
+    "/api/v1/health": {
+      "get": {
+        "summary": "Liveness check for containers and monitors",
+        "tags": [
+          "system"
+        ],
+        "description": "Says the process is up. It does not touch the database and reveals nothing else.",
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "ok"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "status"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
 }

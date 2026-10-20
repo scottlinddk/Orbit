@@ -23,6 +23,8 @@ export interface AccountRepository {
     policy: RegistrationPolicy,
   ): Promise<RegistrationOutcome>
   findCredential(username: Username): Promise<Credential | undefined>
+  /** Replaces the stored hash. Returns false when the user has no credential. */
+  setPasswordHash(userId: UserId, passwordHash: string): Promise<boolean>
 }
 
 export interface Session {
@@ -38,6 +40,8 @@ export interface SessionStore {
   get(tokenHash: string): Promise<Session | undefined>
   delete(tokenHash: string): Promise<void>
   deleteExpired(now: Date): Promise<number>
+  /** Ends every session of one user. Returns how many were removed. */
+  deleteForUser(userId: UserId): Promise<number>
 }
 
 export interface PasswordHasher {
