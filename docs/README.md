@@ -9,5 +9,7 @@
   - [0004 Fastify, zod and OpenAPI](architecture/adr/0004-fastify-zod-openapi.md)
   - [0005 Monorepo layout and enforced dependency rules](architecture/adr/0005-monorepo-and-boundaries.md)
   - [0006 Apache-2.0 license](architecture/adr/0006-apache-2-license.md)
+  - [0007 Household authorization model](architecture/adr/0007-household-authorization-model.md)
+  - [0008 Opt-in local usage stats](architecture/adr/0008-opt-in-local-usage-stats.md)
 
 Open decisions are tracked in [open questions](architecture/open-questions.md).
