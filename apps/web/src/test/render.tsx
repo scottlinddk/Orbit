@@ -6,6 +6,7 @@ import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach } from 'vitest'
 import { createQueryClient } from '../app/queryClient.ts'
 import { routes } from '../app/routes.tsx'
+import { ThemeProvider } from '../theme/ThemeProvider.tsx'
 
 // The default 1s is too tight when many test files compete for a small CI runner, because the
 // first test of a file also pays for loading the whole app. A slow machine is not a bug.
@@ -18,9 +19,11 @@ export function renderApp(path: string) {
   const queryClient = createQueryClient()
   const router = createMemoryRouter(routes, { initialEntries: [path] })
   const view = render(
-    <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
-    </QueryClientProvider>,
+    <ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>
+    </ThemeProvider>,
   )
   return { ...view, router, queryClient, user: userEvent.setup() }
 }

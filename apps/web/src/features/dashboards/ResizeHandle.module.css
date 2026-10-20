@@ -1,0 +1,31 @@
+.handle {
+  position: absolute;
+  top: 50%;
+  inset-inline-end: calc(var(--space-2) * -1);
+  transform: translateY(-50%);
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 3.25rem;
+  padding: 0;
+  border: var(--field-border-width) solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface-2);
+  color: var(--color-text);
+  cursor: ew-resize;
+  touch-action: none;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 18%);
+}
+
+.handle:hover {
+  background: var(--color-accent);
+  color: var(--color-accent-text);
+}
+
+/* One column on small screens: there is nothing to resize. */
+@media (max-width: 40rem) {
+  .handle {
+    display: none;
+  }
+}

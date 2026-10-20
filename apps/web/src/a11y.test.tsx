@@ -44,8 +44,53 @@ describe('accessibility (axe)', () => {
       'GET /api/v1/dashboards/d1': { body: d },
     })
     const { user } = renderApp('/d/d1')
-    await user.click(await screen.findByRole('button', { name: 'Edit' }))
-    await screen.findByRole('heading', { name: 'Edit dashboard' })
+    await user.click(await screen.findByRole('button', { name: 'Edit layout' }))
+    await screen.findByRole('heading', { name: 'Dashboard settings' })
+    await expectNoA11yViolations()
+  })
+
+  it('dashboard page while a widget with settings is selected', async () => {
+    const d = dashboard({ widgets: [widget('w1', 'budget.transactions', 2)] })
+    stubApi({
+      'GET /api/v1/auth/me': { body: ME },
+      'GET /api/v1/households': { body: { households: [household()] } },
+      'GET /api/v1/households/h1': { body: household() },
+      'GET /api/v1/dashboards/d1': { body: d },
+    })
+    const { user } = renderApp('/d/d1')
+    await user.click(await screen.findByRole('button', { name: 'Edit layout' }))
+    await user.click(await screen.findByRole('button', { name: 'Options for Recent transactions' }))
+    await screen.findByRole('heading', { name: 'Recent transactions options' })
+    await expectNoA11yViolations()
+  })
+
+  it('the budget widgets', async () => {
+    const d = dashboard({
+      widgets: [
+        widget('w1', 'budget.overview', 2),
+        widget('w2', 'budget.cards', 2),
+        widget('w3', 'budget.transactions', 2),
+        widget('w4', 'budget.categories', 2),
+      ],
+    })
+    stubApi({
+      'GET /api/v1/auth/me': { body: ME },
+      'GET /api/v1/households': { body: { households: [household()] } },
+      'GET /api/v1/households/h1': { body: household() },
+      'GET /api/v1/dashboards/d1': { body: d },
+    })
+    renderApp('/d/d1')
+    await screen.findByRole('article', { name: 'Overview' })
+    await expectNoA11yViolations()
+  })
+
+  it('appearance page', async () => {
+    stubApi({
+      'GET /api/v1/auth/me': { body: ME },
+      'GET /api/v1/households': { body: { households: [household()] } },
+    })
+    renderApp('/appearance')
+    await screen.findByRole('heading', { name: 'Appearance', level: 1 })
     await expectNoA11yViolations()
   })
 })

@@ -1,12 +1,20 @@
 .button {
   font: inherit;
+  font-weight: 500;
   padding: var(--space-2) var(--space-4);
-  border-radius: var(--radius);
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
+  border-radius: var(--radius-button);
+  border: var(--field-border-width) var(--border-style) var(--color-border);
+  background: var(--color-surface-2);
   color: var(--color-text);
   cursor: pointer;
-  min-height: 2.5rem;
+  min-height: 2.75rem;
+  transition:
+    background-color 120ms,
+    border-color 120ms;
+}
+
+.button:hover:not(:disabled) {
+  border-color: var(--color-text-muted);
 }
 
 .button:disabled {
@@ -19,6 +27,11 @@
   border-color: var(--color-accent);
   color: var(--color-accent-text);
   font-weight: 600;
+}
+
+.primary:hover:not(:disabled) {
+  border-color: var(--color-accent);
+  filter: brightness(1.12);
 }
 
 .danger {

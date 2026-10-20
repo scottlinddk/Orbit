@@ -1,0 +1,43 @@
+.fields {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.field {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.label {
+  font-weight: 600;
+}
+
+.control {
+  font: inherit;
+  padding: var(--space-2) var(--space-3);
+  min-height: 2.75rem;
+  border-radius: var(--radius-sm);
+  border: var(--field-border-width) var(--border-style) var(--color-border);
+  background: var(--color-surface-2);
+  color: var(--color-text);
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 2.75rem;
+  font-weight: 600;
+}
+
+.check input {
+  width: 1.25rem;
+  height: 1.25rem;
+  accent-color: var(--color-accent);
+}
+
+.help {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}

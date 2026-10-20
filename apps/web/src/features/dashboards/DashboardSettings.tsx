@@ -1,33 +1,24 @@
 import type { DashboardResponse } from '@orbit/contracts'
 import { useState, type FormEvent } from 'react'
-import {
-  useAddWidget,
-  useDeleteDashboard,
-  useRenameDashboard,
-  useSetColumns,
-} from '../../api/dashboards.ts'
+import { useDeleteDashboard, useRenameDashboard, useSetColumns } from '../../api/dashboards.ts'
 import { Alert } from '../../components/Alert.tsx'
 import { Button } from '../../components/Button.tsx'
 import { TextField } from '../../components/TextField.tsx'
-import type { WidgetRegistry } from '../../widgets/registry.ts'
-import styles from './EditPanel.module.css'
+import styles from './Sidebar.module.css'
 
 interface Props {
   dashboard: DashboardResponse
-  registry: WidgetRegistry
   onDeleted: () => void
   onAnnounce: (message: string) => void
 }
 
-export function EditPanel({ dashboard, registry, onDeleted, onAnnounce }: Props) {
+export function DashboardSettings({ dashboard, onDeleted, onAnnounce }: Props) {
   const [name, setName] = useState(dashboard.name)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const rename = useRenameDashboard(dashboard.id)
   const setColumns = useSetColumns(dashboard.id)
-  const addWidget = useAddWidget(dashboard.id)
   const remove = useDeleteDashboard(dashboard.id, dashboard.householdId)
-
-  const error = rename.error ?? setColumns.error ?? addWidget.error ?? remove.error
+  const error = rename.error ?? setColumns.error ?? remove.error
 
   function submitName(event: FormEvent) {
     event.preventDefault()
@@ -35,8 +26,8 @@ export function EditPanel({ dashboard, registry, onDeleted, onAnnounce }: Props)
   }
 
   return (
-    <section className={styles.panel} aria-labelledby="edit-heading">
-      <h2 id="edit-heading">Edit dashboard</h2>
+    <section className={styles.panel} aria-labelledby="settings-heading">
+      <h2 id="settings-heading">Dashboard settings</h2>
       {error ? <Alert>{error.message}</Alert> : null}
 
       <form onSubmit={submitName} className={styles.row}>
@@ -70,34 +61,6 @@ export function EditPanel({ dashboard, registry, onDeleted, onAnnounce }: Props)
           ))}
         </select>
       </div>
-
-      <h3>Add a widget</h3>
-      <ul className={styles.picker}>
-        {registry.all.map((definition) => (
-          <li key={definition.type} className={styles.option}>
-            <div>
-              <strong>{definition.title}</strong>
-              {definition.status === 'preview' ? ' (preview)' : null}
-              <p className={styles.description}>{definition.description}</p>
-            </div>
-            <Button
-              busy={addWidget.isPending && addWidget.variables?.type === definition.type}
-              onClick={() =>
-                addWidget.mutate(
-                  {
-                    type: definition.type,
-                    span: Math.min(definition.defaultSpan, dashboard.columns),
-                  },
-                  { onSuccess: () => onAnnounce(`Added ${definition.title}`) },
-                )
-              }
-              aria-label={`Add ${definition.title}`}
-            >
-              Add
-            </Button>
-          </li>
-        ))}
-      </ul>
 
       <h3>Danger zone</h3>
       {confirmDelete ? (

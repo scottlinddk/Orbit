@@ -1,9 +1,11 @@
 import {
   addWidgetRequestSchema,
+  configureWidgetRequestSchema,
   dashboardSchema,
   idSchema,
   moveWidgetRequestSchema,
   renameDashboardRequestSchema,
+  resizeWidgetRequestSchema,
   setColumnsRequestSchema,
 } from '@orbit/contracts'
 import { DashboardId, WidgetPlacementId, type JsonObject } from '@orbit/domain'
@@ -165,6 +167,51 @@ export const dashboardRoutes =
             DashboardId(request.params.dashboardId),
             WidgetPlacementId(request.params.widgetId),
             request.body.toIndex,
+          ),
+        ),
+    )
+
+    app.put(
+      '/dashboards/:dashboardId/widgets/:widgetId/span',
+      {
+        schema: {
+          ...common,
+          summary: 'Set how many columns a widget occupies',
+          params: widgetParams,
+          body: resizeWidgetRequestSchema,
+          response: { 200: dashboardSchema, ...mutationErrors },
+        },
+      },
+      async (request) =>
+        dashboardResponse(
+          await useCases.resizeWidget(
+            actorOf(request),
+            DashboardId(request.params.dashboardId),
+            WidgetPlacementId(request.params.widgetId),
+            request.body.span,
+          ),
+        ),
+    )
+
+    app.put(
+      '/dashboards/:dashboardId/widgets/:widgetId/config',
+      {
+        schema: {
+          ...common,
+          summary: "Replace a widget's settings",
+          params: widgetParams,
+          body: configureWidgetRequestSchema,
+          response: { 200: dashboardSchema, ...mutationErrors },
+        },
+      },
+      async (request) =>
+        dashboardResponse(
+          await useCases.configureWidget(
+            actorOf(request),
+            DashboardId(request.params.dashboardId),
+            WidgetPlacementId(request.params.widgetId),
+            // widgetConfigSchema has already checked that this is plain, bounded JSON.
+            request.body.config as JsonObject,
           ),
         ),
     )

@@ -1,3 +1,4 @@
+import { widgets as budgetWidgets } from '@orbit/module-budget/web'
 import { widgets as calendarWidgets } from '@orbit/module-calendar/web'
 import { widgets as listsWidgets } from '@orbit/module-lists/web'
 import type { WidgetDefinition } from '@orbit/widget-sdk'
@@ -17,4 +18,4 @@ export function buildRegistry(definitions: readonly WidgetDefinition[]): WidgetR
   return { all: definitions, find: (type) => byType.get(type) }
 }
 
-export const registry = buildRegistry([...calendarWidgets, ...listsWidgets])
+export const registry = buildRegistry([...calendarWidgets, ...listsWidgets, ...budgetWidgets])

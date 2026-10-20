@@ -7,7 +7,8 @@ export interface RecordedCall {
 }
 
 type Reply = { status?: number; body?: unknown }
-type Handler = Reply | ((call: RecordedCall) => Reply)
+/** A function may return a promise, to hold a reply back while a test looks at the UI. */
+type Handler = Reply | ((call: RecordedCall) => Reply | Promise<Reply>)
 
 /**
  * Replaces fetch with canned answers keyed "METHOD /api/v1/path". The UI is exercised through
@@ -34,7 +35,7 @@ export function stubApi(handlers: Record<string, Handler>) {
         unhandled.push(`${method} ${url.pathname}`)
         return new Response('{}', { status: 500 })
       }
-      const reply = typeof handler === 'function' ? handler(call) : handler
+      const reply = typeof handler === 'function' ? await handler(call) : handler
       const status = reply.status ?? 200
       if (status === 204) return new Response(null, { status })
       return new Response(JSON.stringify(reply.body ?? {}), {

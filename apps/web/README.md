@@ -22,6 +22,7 @@ src/
   api/              fetch client (ApiError), query keys, one hooks file per resource
   features/         auth, households, dashboards: pages and their components
   widgets/          registry of module widgets, error boundary
+  theme/            theme schema, presets, CSS variables, font catalog, the Appearance page
   components/       Button, TextField, Alert, Loading, QueryError
   styles/           tokens.css (colors, spacing, light and dark), global.css
   test/             stubbed API, fixtures, render helper, axe helper
@@ -30,7 +31,7 @@ src/
 Rules of thumb:
 
 - Components never call `fetch`. Data goes through the hooks in `api/`, which validate every response with the schemas from `@orbit/contracts`.
-- Colors, spacing and radii come from `styles/tokens.css`. Each component has its own CSS module.
+- Colors, fonts, spacing, radii and borders come from `styles/tokens.css`, and the theme overwrites them at runtime. Each component has its own CSS module. Never use a raw color.
 - A request that returns 401 marks the user signed out and sends them to the login page.
 - A missing resource and one you may not see look the same (404), so the UI says "not found or no access".
 
@@ -41,3 +42,9 @@ Rules of thumb:
 ## Adding a widget
 
 See [`packages/widget-sdk`](../../packages/widget-sdk/README.md). Export a `WidgetDefinition` from your module's `web` entry. It shows up in the picker automatically.
+
+## Theme
+
+The Appearance page (`/appearance`) edits the theme. It is saved in this browser's `localStorage` and applied before React renders. Open any page with `?reset-theme` to forget it.
+
+Fonts are Google Fonts served from this server (Fontsource), because the content security policy allows no third-party fonts. To add one: `pnpm --filter @orbit/web add @fontsource-variable/<name>`, add it to `src/theme/fonts/catalog.ts` and keep the license check green. See [ADR 0013](../../docs/architecture/adr/0013-dashboard-editor-and-theming.md).

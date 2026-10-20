@@ -6,10 +6,12 @@ import {
   MAX_WIDGETS_PER_DASHBOARD,
   WidgetPlacementId,
   addWidget,
+  configureWidget,
   createDashboard,
   moveWidget,
   removeWidget,
   renameDashboard,
+  resizeWidget,
   setColumns,
 } from './index.ts'
 
@@ -89,5 +91,23 @@ describe('dashboard', () => {
 
   it('rejects invalid column counts', () => {
     expect(() => setColumns(empty(), 5 as never)).toThrow(InvariantViolation)
+  })
+
+  it('resizes one widget within the grid and leaves the others alone', () => {
+    const d = addWidget(addWidget(empty(), w('a')), w('b'))
+    const resized = resizeWidget(d, WidgetPlacementId('a'), 3)
+    expect(resized.widgets.map((x) => x.span)).toEqual([3, 1])
+    expect(() => resizeWidget(d, WidgetPlacementId('a'), 4)).toThrow(InvariantViolation)
+    expect(() => resizeWidget(d, WidgetPlacementId('a'), 0)).toThrow(InvariantViolation)
+    expect(() => resizeWidget(d, WidgetPlacementId('a'), 1.5)).toThrow(InvariantViolation)
+    expect(() => resizeWidget(d, WidgetPlacementId('nope'), 2)).toThrow(InvariantViolation)
+  })
+
+  it('replaces the settings of one widget', () => {
+    const d = addWidget(addWidget(empty(), { ...w('a'), config: { days: 3 } }), w('b'))
+    const configured = configureWidget(d, WidgetPlacementId('a'), { days: 7, mode: 'week' })
+    expect(configured.widgets[0]!.config).toEqual({ days: 7, mode: 'week' })
+    expect(configured.widgets[1]!.config).toEqual({})
+    expect(() => configureWidget(d, WidgetPlacementId('nope'), {})).toThrow(InvariantViolation)
   })
 })
