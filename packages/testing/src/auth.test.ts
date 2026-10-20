@@ -6,6 +6,7 @@ import {
 import {
   DEFAULT_SESSION_TTL_MS,
   InvalidCredentialsError,
+  NotFoundError,
   RegistrationClosedError,
   UsernameTakenError,
   createAuth,
@@ -133,6 +134,48 @@ describe.each([
     expect(await auth.authenticate(token)).toBeDefined()
     clock.advance(1)
     expect(await auth.authenticate(token)).toBeUndefined()
+  })
+
+  describe('operator password reset', () => {
+    const NEW = 'a brand new passphrase'
+
+    it('sets a new password, rejects the old one and signs the user out everywhere', async () => {
+      const auth = build()
+      await auth.register({ username: 'alice', password: PASSWORD })
+      const first = await auth.login({ username: 'alice', password: PASSWORD })
+      const second = await auth.login({ username: 'alice', password: PASSWORD })
+      await auth.resetPassword({ username: 'ALICE', password: NEW })
+      expect(await auth.authenticate(first.token)).toBeUndefined()
+      expect(await auth.authenticate(second.token)).toBeUndefined()
+      await expect(auth.login({ username: 'alice', password: PASSWORD })).rejects.toBeInstanceOf(
+        InvalidCredentialsError,
+      )
+      await expect(auth.login({ username: 'alice', password: NEW })).resolves.toBeDefined()
+    })
+
+    it('leaves other users signed in', async () => {
+      const auth = build()
+      await auth.register({ username: 'alice', password: PASSWORD })
+      await auth.register({ username: 'bobby', password: PASSWORD })
+      const bob = await auth.login({ username: 'bobby', password: PASSWORD })
+      await auth.resetPassword({ username: 'alice', password: NEW })
+      expect(await auth.authenticate(bob.token)).toBeDefined()
+    })
+
+    it('applies the same password rules as registration', async () => {
+      const auth = build()
+      await auth.register({ username: 'alice', password: PASSWORD })
+      await expect(
+        auth.resetPassword({ username: 'alice', password: 'short' }),
+      ).rejects.toBeInstanceOf(InvariantViolation)
+      await expect(auth.login({ username: 'alice', password: PASSWORD })).resolves.toBeDefined()
+    })
+
+    it('reports an unknown user', async () => {
+      await expect(
+        build().resetPassword({ username: 'nobody', password: NEW }),
+      ).rejects.toBeInstanceOf(NotFoundError)
+    })
   })
 
   it('purges expired sessions in bulk', async () => {

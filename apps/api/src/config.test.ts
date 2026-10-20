@@ -11,6 +11,7 @@ describe('loadConfig', () => {
       secureCookies: false,
       registration: 'first-user-only',
       trustProxy: false,
+      webDir: undefined,
       logLevel: 'info',
     })
   })
@@ -29,6 +30,7 @@ describe('loadConfig', () => {
       ORBIT_REGISTRATION: 'open',
       ORBIT_TRUST_PROXY: 'true',
       ORBIT_LOG_LEVEL: 'debug',
+      ORBIT_WEB_DIR: '/app/web',
     })
     expect(c).toMatchObject({
       databasePath: '/data/o.sqlite',
@@ -37,6 +39,7 @@ describe('loadConfig', () => {
       registration: 'open',
       trustProxy: true,
       logLevel: 'debug',
+      webDir: '/app/web',
     })
   })
 

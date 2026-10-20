@@ -1,0 +1,30 @@
+# Adds automatic HTTPS with Caddy in front of Orbit.
+# Use:  docker compose -f compose.yaml -f deploy/compose.caddy.yaml up -d
+# Needs ORBIT_DOMAIN (for example orbit.example.com) in the environment or .env.
+# ORBIT_PUBLIC_URL and ORBIT_TRUST_PROXY are set here, so Orbit knows it is behind HTTPS.
+services:
+  orbit:
+    ports: !reset []
+    environment:
+      ORBIT_PUBLIC_URL: https://${ORBIT_DOMAIN:?set ORBIT_DOMAIN}
+      ORBIT_TRUST_PROXY: 'true'
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+    environment:
+      ORBIT_DOMAIN: ${ORBIT_DOMAIN:?set ORBIT_DOMAIN}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      orbit:
+        condition: service_healthy
+
+volumes:
+  caddy-data:
+  caddy-config:

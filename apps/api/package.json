@@ -14,17 +14,13 @@
   "dependencies": {
     "@fastify/cookie": "^11.1.3",
     "@fastify/rate-limit": "^11.2.1",
+    "@fastify/static": "^10.1.6",
     "@fastify/swagger": "^9.9.2",
     "@orbit/adapter-identity-local": "workspace:*",
-    "@orbit/adapter-jobs-sqlite": "workspace:*",
     "@orbit/adapter-persistence-sqlite": "workspace:*",
-    "@orbit/adapter-secrets-encrypted-db": "workspace:*",
     "@orbit/application": "workspace:*",
     "@orbit/contracts": "workspace:*",
     "@orbit/domain": "workspace:*",
-    "@orbit/integration-ics-calendar": "workspace:*",
-    "@orbit/module-calendar": "workspace:*",
-    "@orbit/module-lists": "workspace:*",
     "fastify": "^5.12.7",
     "fastify-type-provider-zod": "^7.0.0",
     "zod": "^4.0.0"

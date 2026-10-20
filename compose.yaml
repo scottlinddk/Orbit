@@ -1,0 +1,30 @@
+# Orbit on one machine. Start with:  docker compose up -d
+# Settings come from the environment or a .env file next to this one (see .env.example).
+services:
+  orbit:
+    build: .
+    image: orbit:local
+    restart: unless-stopped
+    init: true
+    ports:
+      # Loopback only. Put a reverse proxy with HTTPS in front to reach it from elsewhere.
+      - '127.0.0.1:${ORBIT_HOST_PORT:-3000}:3000'
+    environment:
+      # The address people type in the browser. Use https://... behind a proxy.
+      ORBIT_PUBLIC_URL: ${ORBIT_PUBLIC_URL:-http://localhost:3000}
+      ORBIT_REGISTRATION: ${ORBIT_REGISTRATION:-first-user-only}
+      ORBIT_TRUST_PROXY: ${ORBIT_TRUST_PROXY:-false}
+      ORBIT_LOG_LEVEL: ${ORBIT_LOG_LEVEL:-info}
+    volumes:
+      - orbit-data:/data
+    # Nothing writes outside /data, so the rest of the filesystem can be read only.
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  orbit-data:

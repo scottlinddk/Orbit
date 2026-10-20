@@ -208,6 +208,13 @@ export class SqliteAccountRepository implements AccountRepository {
     })
   }
 
+  async setPasswordHash(userId: UserId, passwordHash: string): Promise<boolean> {
+    const result = this.#db
+      .prepare('UPDATE credentials SET password_hash = ? WHERE user_id = ?')
+      .run(passwordHash, userId)
+    return Number(result.changes) > 0
+  }
+
   async findCredential(username: Username): Promise<Credential | undefined> {
     const row = this.#db
       .prepare('SELECT user_id, username, password_hash FROM credentials WHERE username = ?')
@@ -260,6 +267,11 @@ export class SqliteSessionStore implements SessionStore {
 
   async delete(tokenHash: string): Promise<void> {
     this.#db.prepare('DELETE FROM sessions WHERE token_hash = ?').run(tokenHash)
+  }
+
+  async deleteForUser(userId: UserId): Promise<number> {
+    const result = this.#db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId)
+    return Number(result.changes)
   }
 
   async deleteExpired(now: Date): Promise<number> {

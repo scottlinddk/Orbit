@@ -9,6 +9,8 @@ const environment = z.object({
   ORBIT_REGISTRATION: z.enum(['first-user-only', 'open']).default('first-user-only'),
   /** Set to true only behind a reverse proxy you control, so client IPs come from its headers. */
   ORBIT_TRUST_PROXY: z.enum(['true', 'false']).default('false'),
+  /** Folder with the built web app (apps/web/dist). When set, the API serves it too. */
+  ORBIT_WEB_DIR: z.string().min(1).optional(),
   ORBIT_LOG_LEVEL: z
     .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
     .default('info'),
@@ -23,6 +25,7 @@ export interface Config {
   secureCookies: boolean
   registration: 'first-user-only' | 'open'
   trustProxy: boolean
+  webDir: string | undefined
   logLevel: z.infer<typeof environment>['ORBIT_LOG_LEVEL']
 }
 
@@ -49,6 +52,7 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     secureCookies: url.protocol === 'https:',
     registration: e.ORBIT_REGISTRATION,
     trustProxy: e.ORBIT_TRUST_PROXY === 'true',
+    webDir: e.ORBIT_WEB_DIR,
     logLevel: e.ORBIT_LOG_LEVEL,
   }
 }

@@ -20,6 +20,14 @@ export function useMe() {
   })
 }
 
+/**
+ * Whether a user is signed in right now. Data queries wait for it, so signing out cannot make
+ * the screens behind the login page fire one last request that is bound to fail with 401.
+ */
+export function useSignedIn(): boolean {
+  return useMe().data != null
+}
+
 export function useLogin() {
   const queryClient = useQueryClient()
   return useMutation({

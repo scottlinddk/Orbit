@@ -108,6 +108,16 @@ export class InMemoryAccountRepository implements AccountRepository {
   async findCredential(username: Username) {
     return this.#byUsername.get(username)
   }
+
+  async setPasswordHash(userId: UserId, passwordHash: string) {
+    for (const [username, credential] of this.#byUsername) {
+      if (credential.userId === userId) {
+        this.#byUsername.set(username, { ...credential, passwordHash })
+        return true
+      }
+    }
+    return false
+  }
 }
 
 export class InMemorySessionStore implements SessionStore {
@@ -123,6 +133,17 @@ export class InMemorySessionStore implements SessionStore {
 
   async delete(tokenHash: string) {
     this.#byHash.delete(tokenHash)
+  }
+
+  async deleteForUser(userId: UserId) {
+    let removed = 0
+    for (const [hash, session] of this.#byHash) {
+      if (session.userId === userId) {
+        this.#byHash.delete(hash)
+        removed += 1
+      }
+    }
+    return removed
   }
 
   async deleteExpired(now: Date) {

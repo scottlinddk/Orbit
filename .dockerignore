@@ -1,0 +1,17 @@
+.git
+.github
+**/node_modules
+**/dist
+**/coverage
+data
+e2e
+docs
+*.md
+!LICENSE
+**/*.test.ts
+**/*.test.tsx
+.env
+.env.*
+!.env.example
+*.sqlite
+*.sqlite-*

@@ -1,25 +1,29 @@
 import { householdSchema, type HouseholdResponse } from '@orbit/contracts'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
+import { useSignedIn } from './auth.ts'
 import { request } from './client.ts'
 import { keys } from './keys.ts'
 
 const listSchema = z.object({ households: z.array(householdSchema) })
 
 export function useHouseholds() {
+  const signedIn = useSignedIn()
   return useQuery({
+    enabled: signedIn,
     queryKey: keys.households,
     queryFn: async () => (await request('GET', '/households', { schema: listSchema })).households,
   })
 }
 
 export function useHousehold(id: string) {
+  const signedIn = useSignedIn()
   return useQuery({
     queryKey: keys.household(id),
     queryFn: () =>
       request('GET', `/households/${encodeURIComponent(id)}`, { schema: householdSchema }),
     // The dashboard page asks before it knows the household id. Do not request "/households/".
-    enabled: id !== '',
+    enabled: signedIn && id !== '',
     retry: false,
   })
 }

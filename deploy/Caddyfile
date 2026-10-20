@@ -1,0 +1,5 @@
+# Caddy gets and renews the certificate for {$ORBIT_DOMAIN} by itself.
+{$ORBIT_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy orbit:3000
+}

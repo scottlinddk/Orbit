@@ -1,6 +1,7 @@
 import { dashboardSchema, type DashboardResponse } from '@orbit/contracts'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
+import { useSignedIn } from './auth.ts'
 import { request } from './client.ts'
 import { keys } from './keys.ts'
 
@@ -8,7 +9,9 @@ const listSchema = z.object({ dashboards: z.array(dashboardSchema) })
 const enc = encodeURIComponent
 
 export function useDashboards(householdId: string) {
+  const signedIn = useSignedIn()
   return useQuery({
+    enabled: signedIn,
     queryKey: keys.dashboards(householdId),
     queryFn: async () =>
       (await request('GET', `/households/${enc(householdId)}/dashboards`, { schema: listSchema }))
@@ -18,10 +21,11 @@ export function useDashboards(householdId: string) {
 }
 
 export function useDashboard(id: string) {
+  const signedIn = useSignedIn()
   return useQuery({
     queryKey: keys.dashboard(id),
     queryFn: () => request('GET', `/dashboards/${enc(id)}`, { schema: dashboardSchema }),
-    enabled: id !== '',
+    enabled: signedIn && id !== '',
     retry: false,
   })
 }
