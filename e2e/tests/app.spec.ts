@@ -90,14 +90,46 @@ test('a household and a dashboard can be created', async () => {
 })
 
 test('widgets can be added, reordered, resized and removed', async () => {
-  await page.getByRole('button', { name: 'Edit', exact: true }).click()
+  await page.getByRole('button', { name: 'Edit layout' }).click()
   for (const name of ['Today', 'Agenda', 'Shopping list']) {
     await page.getByRole('button', { name: `Add ${name}` }).click()
     await expect(page.getByRole('article', { name })).toBeVisible()
   }
   await expect(page.getByText(/^Week \d+$/)).toBeVisible()
 
+  await page.getByRole('button', { name: 'Options for Shopping list' }).click()
   await page.getByRole('button', { name: 'Move Shopping list earlier' }).click()
+  await expect.poll(titles).toEqual(['Today', 'Shopping list', 'Agenda'])
+
+  // A real drag with the mouse: Agenda is dropped on Today and takes its place.
+  const handle = page.getByRole('button', { name: 'Drag Agenda to reorder' })
+  const target = page.getByRole('article', { name: 'Today' })
+  const from = (await handle.boundingBox())!
+  const to = (await target.boundingBox())!
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 12 })
+  await page.mouse.up()
+  await expect.poll(titles).toEqual(['Agenda', 'Today', 'Shopping list'])
+
+  // Width: drag the handle of Today one column to the right, then widen with the keyboard.
+  const slider = page.getByRole('slider', { name: 'Width of Today' })
+  await expect(slider).toHaveAttribute('aria-valuenow', '1')
+  await slider.focus()
+  await page.keyboard.press('ArrowRight')
+  await expect(slider).toHaveAttribute('aria-valuenow', '2')
+  const grip = (await slider.boundingBox())!
+  const gridBox = (await page.locator('ul[aria-label$="widgets"]').boundingBox())!
+  await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(grip.x - gridBox.width / 2, grip.y + grip.height / 2, { steps: 10 })
+  await page.mouse.up()
+  await expect(slider).toHaveAttribute('aria-valuenow', '1')
+
+  // Put the order back for the steps below.
+  await page.getByRole('button', { name: 'Options for Agenda' }).click()
+  await page.getByRole('button', { name: 'Move Agenda later' }).click()
+  await page.getByRole('button', { name: 'Move Agenda later' }).click()
   await expect.poll(titles).toEqual(['Today', 'Shopping list', 'Agenda'])
 
   await page.getByLabel('Columns').selectOption('2')
@@ -142,6 +174,34 @@ test('a narrow screen shows one column and never scrolls sideways', async () => 
 test('an unknown address inside the app is a friendly page, not a blank one', async () => {
   await page.goto('/nowhere/at/all')
   await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible()
+})
+
+test('a chosen theme and Google font load under the policy and survive a reload', async () => {
+  await page.getByRole('link', { name: 'Appearance' }).click()
+  await page.getByRole('button', { name: 'Forest' }).click()
+  await page.getByLabel('Headings').selectOption('lora')
+  // The font files are same-origin, so the policy allows them. Nothing may come from elsewhere.
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        [...document.fonts].some((f) => f.family.includes('Lora') && f.status === 'loaded'),
+      ),
+    )
+    .toBe(true)
+  const heading = () =>
+    page.evaluate(() =>
+      getComputedStyle(document.documentElement).getPropertyValue('--font-heading'),
+    )
+  expect(await heading()).toContain('Lora Variable')
+
+  await page.reload()
+  await expect(page.getByLabel('Theme name')).toHaveValue('My theme')
+  expect(await heading()).toContain('Lora Variable')
+
+  // ?reset-theme is the way back if a theme ever made the app unreadable.
+  await page.goto('/appearance?reset-theme')
+  await expect(page.getByRole('button', { name: 'Ember', pressed: true })).toBeVisible()
+  await expect(page).toHaveURL(/\/appearance$/)
 })
 
 test('signing out ends the session', async () => {

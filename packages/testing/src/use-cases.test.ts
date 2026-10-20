@@ -48,6 +48,13 @@ describe.each([
       'notes.quick',
     ])
 
+    const widened = await uc.resizeWidget(alice, created.id, moved.widgets[0]!.id, 2)
+    expect(widened.widgets[0]!.span).toBe(2)
+    const configured = await uc.configureWidget(alice, created.id, moved.widgets[0]!.id, {
+      days: 5,
+    })
+    expect(configured.widgets[0]!.config).toEqual({ days: 5 })
+
     const narrowed = await uc.setDashboardColumns(alice, created.id, 1)
     expect(narrowed.widgets.every((w) => w.span === 1)).toBe(true)
 

@@ -4,6 +4,7 @@ import { useAddMember, useRemoveMember } from '../../api/households.ts'
 import { Alert } from '../../components/Alert.tsx'
 import { Button } from '../../components/Button.tsx'
 import { TextField } from '../../components/TextField.tsx'
+import styles from './Household.module.css'
 
 interface Props {
   household: HouseholdResponse
@@ -24,12 +25,12 @@ export function MembersPanel({ household, meId, isOwner }: Props) {
   const error = add.error ?? remove.error
 
   return (
-    <section aria-labelledby="members-heading">
+    <section className={styles.panel} aria-labelledby="members-heading">
       <h2 id="members-heading">Members</h2>
       {error ? <Alert>{error.message}</Alert> : null}
-      <ul style={{ paddingLeft: 'var(--space-6)' }}>
+      <ul className={styles.members}>
         {household.members.map((m, index) => (
-          <li key={m.userId} style={{ marginBottom: 'var(--space-2)' }}>
+          <li key={m.userId} className={styles.member}>
             {m.userId === meId ? 'You' : `Member ${index + 1}`} · {m.role}
             {isOwner && m.userId !== meId ? (
               <>
@@ -48,10 +49,7 @@ export function MembersPanel({ household, meId, isOwner }: Props) {
         ))}
       </ul>
       {isOwner ? (
-        <form
-          onSubmit={submit}
-          style={{ display: 'grid', gap: 'var(--space-3)', maxWidth: '26rem' }}
-        >
+        <form onSubmit={submit} className={styles.form}>
           <TextField
             label="Add a member by username"
             value={username}

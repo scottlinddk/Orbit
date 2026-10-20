@@ -1,0 +1,95 @@
+.card {
+  position: relative;
+  /* Widgets size themselves from the card they are in, so a wide card shows more than a narrow one. */
+  container: widget / inline-size;
+  height: 100%;
+  min-height: 11rem;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: var(--space-4);
+  padding: var(--space-6);
+  background: var(--color-surface);
+  color: var(--color-text);
+  border: var(--border-width) var(--border-style) var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.accent {
+  background: var(--hero-bg);
+  color: var(--color-hero-text);
+  border-color: transparent;
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  flex: 1 1 6rem;
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+.badge {
+  flex: none;
+  font-size: 0.75rem;
+  padding: 0.1em 0.7em;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+  opacity: 0.85;
+}
+
+.tools {
+  margin-inline-start: auto;
+  display: flex;
+  gap: var(--space-1);
+}
+
+.tool {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  border-radius: 50%;
+  border: 0;
+  background: color-mix(in srgb, currentColor 10%, transparent);
+  color: inherit;
+  cursor: pointer;
+}
+
+.tool:hover:not(:disabled),
+.tool[aria-pressed='true'] {
+  background: color-mix(in srgb, currentColor 22%, transparent);
+}
+
+.tool:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.body {
+  min-width: 0;
+  display: grid;
+}
+
+.editing {
+  cursor: pointer;
+  outline: 2px dashed color-mix(in srgb, var(--color-text) 30%, transparent);
+  outline-offset: 3px;
+}
+
+.selected {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 3px;
+}

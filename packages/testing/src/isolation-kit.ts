@@ -56,6 +56,8 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
         addWidget: () => uc().addWidget(as(), dashboardA, { type: 'lists.shopping' }),
         removeWidget: () => uc().removeWidget(as(), dashboardA, widgetA),
         moveWidget: () => uc().moveWidget(as(), dashboardA, widgetA, 0),
+        resizeWidget: () => uc().resizeWidget(as(), dashboardA, widgetA, 2),
+        configureWidget: () => uc().configureWidget(as(), dashboardA, widgetA, { hacked: true }),
         deleteDashboard: () => uc().deleteDashboard(as(), dashboardA),
         // Operations on ids that do not exist must be indistinguishable from foreign ones.
         removeWidgetMissing: () => uc().removeWidget(as(), dashboardA, missingWidget),
@@ -107,6 +109,8 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
         'addWidget',
         'removeWidget',
         'moveWidget',
+        'resizeWidget',
+        'configureWidget',
         'deleteDashboard',
       ]
       it.each(writes)('%s is forbidden and changes nothing', async (op) => {

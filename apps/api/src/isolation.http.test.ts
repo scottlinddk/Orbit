@@ -105,6 +105,19 @@ const cases: Case[] = [
     callMissing: (c) => c.put(`${V1}/dashboards/${GONE}/widgets/${GONE}/position`, { toIndex: 0 }),
     memberAllowed: false,
   },
+  {
+    key: 'put /api/v1/dashboards/{dashboardId}/widgets/{widgetId}/span',
+    call: (c, i) => c.put(`${V1}/dashboards/${i.dashboard}/widgets/${i.widget}/span`, { span: 2 }),
+    callMissing: (c) => c.put(`${V1}/dashboards/${GONE}/widgets/${GONE}/span`, { span: 2 }),
+    memberAllowed: false,
+  },
+  {
+    key: 'put /api/v1/dashboards/{dashboardId}/widgets/{widgetId}/config',
+    call: (c, i) =>
+      c.put(`${V1}/dashboards/${i.dashboard}/widgets/${i.widget}/config`, { config: { a: 1 } }),
+    callMissing: (c) => c.put(`${V1}/dashboards/${GONE}/widgets/${GONE}/config`, { config: {} }),
+    memberAllowed: false,
+  },
 ]
 
 /** Protected operations that take no id belonging to anyone else. They are covered by 401 tests. */

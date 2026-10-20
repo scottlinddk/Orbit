@@ -19,6 +19,13 @@ export const routes: RouteObject[] = [
           { index: true, element: <HomePage /> },
           { path: 'h/:householdId', element: <HouseholdPage /> },
           { path: 'd/:dashboardId', element: <DashboardPage /> },
+          // Rarely opened, and it brings the font catalog and every editor control with it.
+          {
+            path: 'appearance',
+            lazy: async () => ({
+              Component: (await import('../theme/editor/ThemePage.tsx')).ThemePage,
+            }),
+          },
           { path: '*', element: <NotFoundPage /> },
         ],
       },

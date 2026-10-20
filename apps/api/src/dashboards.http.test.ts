@@ -56,6 +56,23 @@ describe.each(['memory', 'sqlite'] as const)(
       ])
       expect(moved.body.widgets[1].config).toEqual({ listName: 'Køb ind', days: 7 })
 
+      const widerId = moved.body.widgets[0].id
+      const wider = await alice.put(`${V1}/dashboards/${d.id}/widgets/${widerId}/span`, { span: 2 })
+      expect(wider.body.widgets[0].span).toBe(2)
+      expect(
+        (await alice.put(`${V1}/dashboards/${d.id}/widgets/${widerId}/span`, { span: 3 })).status,
+      ).toBe(422)
+
+      const configured = await alice.put(`${V1}/dashboards/${d.id}/widgets/${widerId}/config`, {
+        config: { view: 'week' },
+      })
+      expect(configured.body.widgets[0].config).toEqual({ view: 'week' })
+      expect(configured.body.widgets[1].config).toEqual({ listName: 'Køb ind', days: 7 })
+      expect(
+        (await alice.put(`${V1}/dashboards/${d.id}/widgets/${widerId}/config`, { config: 'x' }))
+          .status,
+      ).toBe(400)
+
       const narrow = await alice.put(`${V1}/dashboards/${d.id}/columns`, { columns: 1 })
       expect(narrow.body.widgets.every((w: { span: number }) => w.span === 1)).toBe(true)
 

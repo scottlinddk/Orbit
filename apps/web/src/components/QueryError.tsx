@@ -1,6 +1,7 @@
 import { ApiError } from '../api/client.ts'
 import { Alert } from './Alert.tsx'
 import { Button } from './Button.tsx'
+import styles from './QueryError.module.css'
 
 interface Props {
   error: unknown
@@ -16,7 +17,7 @@ export function QueryError({ error, onRetry }: Props) {
       ? error.message
       : 'Something went wrong.'
   return (
-    <div style={{ display: 'grid', gap: 'var(--space-3)', justifyItems: 'start' }}>
+    <div className={styles.error}>
       <Alert>{message}</Alert>
       {onRetry && !notFound ? <Button onClick={onRetry}>Try again</Button> : null}
     </div>

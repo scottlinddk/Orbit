@@ -40,3 +40,7 @@ export const addWidgetRequestSchema = z.strictObject({
 })
 
 export const moveWidgetRequestSchema = z.strictObject({ toIndex: z.number().int().min(0).max(49) })
+
+export const resizeWidgetRequestSchema = z.strictObject({ span: z.number().int().min(1).max(4) })
+
+export const configureWidgetRequestSchema = z.strictObject({ config: widgetConfigSchema })

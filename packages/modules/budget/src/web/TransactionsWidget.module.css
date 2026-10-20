@@ -1,0 +1,129 @@
+.root {
+  display: grid;
+  gap: var(--space-3, 0.75rem);
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-3, 0.75rem);
+}
+
+.row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+  align-items: center;
+  gap: var(--space-4, 1rem);
+  padding: var(--space-3, 0.75rem) var(--space-4, 1rem);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-2);
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  background: var(--color-bg);
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.who {
+  display: grid;
+  min-width: 0;
+}
+
+.name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.when {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
+.status {
+  font-size: 0.8125rem;
+  padding: 0.25em 0.9em;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.pending {
+  background: var(--color-warning-bg);
+  color: var(--color-warning);
+}
+
+.done {
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+
+.card {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.amount {
+  min-width: 5.5rem;
+  text-align: end;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.out {
+  color: var(--color-danger);
+}
+
+.more {
+  justify-self: start;
+  font: inherit;
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  background: none;
+  border: 0;
+  padding: var(--space-1, 0.25rem) 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* Narrow cards: drop the card number, then wrap the status under the name. */
+@container widget (max-width: 34rem) {
+  .row {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .card {
+    display: none;
+  }
+
+  .status {
+    grid-column: 2;
+    justify-self: start;
+    grid-row: 2;
+  }
+
+  .amount {
+    grid-row: 1;
+    grid-column: 3;
+  }
+}

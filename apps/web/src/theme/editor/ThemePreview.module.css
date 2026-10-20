@@ -1,0 +1,93 @@
+.preview {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.hero {
+  display: grid;
+  gap: var(--space-1);
+  justify-items: start;
+  padding: var(--space-6);
+  border-radius: var(--radius);
+  background: var(--hero-bg);
+  color: var(--color-hero-text);
+  min-height: 9rem;
+}
+
+.heroTitle {
+  font-size: 1.125rem;
+}
+
+.amount {
+  font-family: var(--font-heading);
+  font-size: 2.25rem;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+.chip {
+  padding: 0.15em 0.7em;
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  background: color-mix(in srgb, currentColor 16%, transparent);
+}
+
+.card {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-6);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  border: var(--border-width) var(--border-style) var(--color-border);
+  box-shadow: var(--shadow);
+}
+
+.cardTitle {
+  font-size: 1.125rem;
+}
+
+.cardAmount {
+  font-family: var(--font-heading);
+  font-size: 1.75rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.muted {
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.primary,
+.secondary,
+.field {
+  padding: var(--space-2) var(--space-4);
+  font-size: 0.875rem;
+}
+
+.primary {
+  border-radius: var(--radius-button);
+  background: var(--color-accent);
+  color: var(--color-accent-text);
+  font-weight: 600;
+}
+
+.secondary {
+  border-radius: var(--radius-button);
+  border: var(--field-border-width) var(--border-style) var(--color-border);
+  background: var(--color-surface-2);
+}
+
+.field {
+  border-radius: var(--radius-sm);
+  border: var(--field-border-width) var(--border-style) var(--color-border);
+  background: var(--color-surface-2);
+  color: var(--color-text-muted);
+}

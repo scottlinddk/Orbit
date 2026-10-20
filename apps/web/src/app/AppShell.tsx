@@ -1,9 +1,38 @@
-import { Link, Outlet, useNavigate, useParams } from 'react-router'
+import { NavLink, Link, Outlet, useNavigate, useParams } from 'react-router'
 import { useLogout, useMe } from '../api/auth.ts'
 import { useDashboard } from '../api/dashboards.ts'
 import { useHouseholds } from '../api/households.ts'
 import { Button } from '../components/Button.tsx'
 import styles from './AppShell.module.css'
+
+/** `Emma Larsen` becomes `EL`. Falls back to a dot so the avatar is never empty. */
+export function initials(name: string | undefined): string {
+  const letters = (name ?? '')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((word) => word.charAt(0).toUpperCase())
+    .join('')
+  return letters || '•'
+}
+
+function Logo() {
+  return (
+    <svg viewBox="0 0 32 32" width="28" height="28" aria-hidden="true" focusable="false">
+      <circle cx="16" cy="16" r="5" fill="currentColor" />
+      <ellipse
+        cx="16"
+        cy="16"
+        rx="13"
+        ry="6"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.5"
+        transform="rotate(-28 16 16)"
+      />
+    </svg>
+  )
+}
 
 export function AppShell() {
   const me = useMe()
@@ -14,6 +43,8 @@ export function AppShell() {
   // On a dashboard page the household comes from the (already cached) dashboard.
   const dashboard = useDashboard(params.dashboardId ?? '')
   const householdId = params.householdId ?? dashboard.data?.householdId
+  const linkClass = ({ isActive }: { isActive: boolean }) =>
+    `${styles.link} ${isActive ? styles.active : ''}`
 
   return (
     <>
@@ -22,39 +53,63 @@ export function AppShell() {
       </a>
       <header className={styles.header}>
         <div className={styles.bar}>
-          <Link to="/" className={styles.brand}>
-            Orbit
+          <Link to="/" className={styles.brand} aria-label="Orbit home">
+            <Logo />
+            <span className={styles.brandName}>Orbit</span>
           </Link>
-          {households.data && households.data.length > 0 ? (
-            <div className={styles.switcher}>
-              <label htmlFor="household-switcher" className="visually-hidden">
+
+          <nav aria-label="Main" className={styles.nav}>
+            <NavLink to="/" end className={linkClass}>
+              Home
+            </NavLink>
+            {householdId ? (
+              <NavLink to={`/h/${householdId}`} className={linkClass}>
                 Household
-              </label>
-              <select
-                id="household-switcher"
-                className={styles.select}
-                value={householdId ?? ''}
-                onChange={(event) => {
-                  if (event.target.value) void navigate(`/h/${event.target.value}`)
-                }}
-              >
-                {householdId ? null : <option value="">Choose a household</option>}
-                {households.data.map((h) => (
-                  <option key={h.id} value={h.id}>
-                    {h.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ) : null}
-          <span className={styles.spacer} />
-          <span className={styles.user}>{me.data?.displayName}</span>
-          <Button
-            busy={logout.isPending}
-            onClick={() => logout.mutate(undefined, { onSettled: () => void navigate('/login') })}
-          >
-            Sign out
-          </Button>
+              </NavLink>
+            ) : null}
+            {params.dashboardId && dashboard.data ? (
+              <NavLink to={`/d/${params.dashboardId}`} className={linkClass}>
+                {dashboard.data.name}
+              </NavLink>
+            ) : null}
+            <NavLink to="/appearance" className={linkClass}>
+              Appearance
+            </NavLink>
+          </nav>
+
+          <div className={styles.account}>
+            {households.data && households.data.length > 0 ? (
+              <>
+                <label htmlFor="household-switcher" className="visually-hidden">
+                  Household
+                </label>
+                <select
+                  id="household-switcher"
+                  className={styles.select}
+                  value={householdId ?? ''}
+                  onChange={(event) => {
+                    if (event.target.value) void navigate(`/h/${event.target.value}`)
+                  }}
+                >
+                  {householdId ? null : <option value="">Household…</option>}
+                  {households.data.map((h) => (
+                    <option key={h.id} value={h.id}>
+                      {h.name}
+                    </option>
+                  ))}
+                </select>
+              </>
+            ) : null}
+            <span className={styles.avatar} role="img" aria-label={me.data?.displayName ?? 'You'}>
+              {initials(me.data?.displayName)}
+            </span>
+            <Button
+              busy={logout.isPending}
+              onClick={() => logout.mutate(undefined, { onSettled: () => void navigate('/login') })}
+            >
+              Sign out
+            </Button>
+          </div>
         </div>
       </header>
       <main id="main" className={styles.main}>

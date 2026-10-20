@@ -92,12 +92,66 @@ export function useRemoveWidget(id: string) {
   })
 }
 
+/** The same order the server produces: the widget ends up at `toIndex` in the resulting list. */
+export function moveInList<T extends { id: string }>(
+  widgets: readonly T[],
+  widgetId: string,
+  toIndex: number,
+): T[] {
+  const from = widgets.findIndex((w) => w.id === widgetId)
+  if (from === -1) return [...widgets]
+  const next = [...widgets]
+  const [moved] = next.splice(from, 1)
+  next.splice(toIndex, 0, moved!)
+  return next
+}
+
 export function useMoveWidget(id: string) {
   const cache = useCacheDashboard()
+  const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (input: { widgetId: string; toIndex: number }) =>
       request('PUT', `/dashboards/${enc(id)}/widgets/${enc(input.widgetId)}/position`, {
         body: { toIndex: input.toIndex },
+        schema: dashboardSchema,
+      }),
+    // Show the new order at once, so a dropped card does not jump back while the request runs.
+    onMutate: async ({ widgetId, toIndex }) => {
+      await queryClient.cancelQueries({ queryKey: keys.dashboard(id) })
+      const previous = queryClient.getQueryData<DashboardResponse>(keys.dashboard(id))
+      if (previous) {
+        queryClient.setQueryData<DashboardResponse>(keys.dashboard(id), {
+          ...previous,
+          widgets: moveInList(previous.widgets, widgetId, toIndex),
+        })
+      }
+      return { previous }
+    },
+    onError: (_error, _input, context) => {
+      if (context?.previous) queryClient.setQueryData(keys.dashboard(id), context.previous)
+    },
+    onSuccess: cache,
+  })
+}
+
+export function useResizeWidget(id: string) {
+  const cache = useCacheDashboard()
+  return useMutation({
+    mutationFn: (input: { widgetId: string; span: number }) =>
+      request('PUT', `/dashboards/${enc(id)}/widgets/${enc(input.widgetId)}/span`, {
+        body: { span: input.span },
+        schema: dashboardSchema,
+      }),
+    onSuccess: cache,
+  })
+}
+
+export function useConfigureWidget(id: string) {
+  const cache = useCacheDashboard()
+  return useMutation({
+    mutationFn: (input: { widgetId: string; config: Record<string, unknown> }) =>
+      request('PUT', `/dashboards/${enc(id)}/widgets/${enc(input.widgetId)}/config`, {
+        body: { config: input.config },
         schema: dashboardSchema,
       }),
     onSuccess: cache,

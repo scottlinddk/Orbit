@@ -1,0 +1,207 @@
+.root {
+  display: grid;
+  gap: var(--space-2, 0.5rem);
+  justify-items: start;
+}
+
+.amount {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: clamp(2rem, 5vw, 2.75rem);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.chart {
+  --axis: 2.25rem;
+  position: relative;
+  width: 100%;
+  margin-top: 5rem;
+  display: grid;
+  grid-template-columns: var(--axis) 1fr;
+  grid-template-rows: 9.5rem auto;
+  column-gap: var(--space-2, 0.5rem);
+}
+
+.yAxis {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  opacity: 0.8;
+}
+
+.plot {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 28%, transparent);
+  background-image: linear-gradient(
+    to bottom,
+    color-mix(in srgb, currentColor 14%, transparent) 1px,
+    transparent 1px
+  );
+  background-size: 100% 33.333%;
+}
+
+.month {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-evenly;
+  gap: 1px;
+}
+
+.bar {
+  flex: 0 0 2px;
+  max-width: 3px;
+  background: color-mix(in srgb, currentColor 55%, transparent);
+  border-radius: 1px 1px 0 0;
+}
+
+.active .bar {
+  flex-basis: 3px;
+  background: currentColor;
+}
+
+.tooltip {
+  position: absolute;
+  z-index: 1;
+  bottom: calc(100% - 0.5rem);
+  width: 13.5rem;
+  /* Centered on the month, but never past either end of the chart. */
+  left: clamp(0px, calc(var(--position) * 100% - 6.75rem), calc(100% - 13.5rem));
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 0.15rem 0.5rem;
+  align-items: center;
+  padding: var(--space-3, 0.75rem) var(--space-4, 1rem);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-2);
+  color: var(--color-text);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 22%);
+  font-size: 1.25rem;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.tooltipChange {
+  /* The pill's own tint is invisible on a light bubble, so give it the accent. */
+  background: var(--color-accent);
+  color: var(--color-accent-text);
+  border-radius: 999px;
+}
+
+.tooltipMonth {
+  grid-column: 1 / -1;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
+.months {
+  grid-column: 2;
+  display: flex;
+  padding-top: var(--space-2, 0.5rem);
+}
+
+.monthButton {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0.25rem 0;
+  font: inherit;
+  font-size: 0.75rem;
+  color: inherit;
+  opacity: 0.8;
+  background: none;
+  border: 0;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.monthButton[aria-pressed='true'] {
+  opacity: 1;
+  font-weight: 700;
+}
+
+.monthButton:hover {
+  opacity: 1;
+}
+
+.summary {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+@media (max-width: 40rem) {
+  .monthButton {
+    font-size: 0.625rem;
+  }
+}
+
+.top {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3, 0.75rem);
+}
+
+.period select {
+  font: inherit;
+  font-size: 0.875rem;
+  color: inherit;
+  padding: 0.45em 1em;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, currentColor 16%, transparent);
+  cursor: pointer;
+}
+
+.period option {
+  color: #1a1a1a;
+  background: #fff;
+}
+
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+/* A line from the bubble down to a dot on the selected month. */
+.marker {
+  position: absolute;
+  z-index: 1;
+  left: calc(var(--position) * 100%);
+  bottom: 0;
+  height: calc(100% - 0.5rem);
+  width: 1px;
+  background: color-mix(in srgb, currentColor 55%, transparent);
+  pointer-events: none;
+}
+
+.marker::after {
+  content: '';
+  position: absolute;
+  left: -4px;
+  bottom: calc(var(--level) * 100%);
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 30%, transparent);
+}

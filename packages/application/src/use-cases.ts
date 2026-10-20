@@ -7,6 +7,8 @@ import {
   createDashboard,
   createHousehold,
   moveWidget,
+  configureWidget,
+  resizeWidget,
   removeMember,
   removeWidget,
   renameDashboard,
@@ -189,6 +191,24 @@ export function createUseCases(deps: Dependencies) {
       toIndex: number,
     ): Promise<Dashboard> {
       return updateDashboard(actor, id, (d) => moveWidget(d, widgetId, toIndex))
+    },
+
+    resizeWidget(
+      actor: Actor,
+      id: DashboardId,
+      widgetId: WidgetPlacementId,
+      span: number,
+    ): Promise<Dashboard> {
+      return updateDashboard(actor, id, (d) => resizeWidget(d, widgetId, span))
+    },
+
+    configureWidget(
+      actor: Actor,
+      id: DashboardId,
+      widgetId: WidgetPlacementId,
+      config: JsonObject,
+    ): Promise<Dashboard> {
+      return updateDashboard(actor, id, (d) => configureWidget(d, widgetId, config))
     },
 
     async deleteDashboard(actor: Actor, id: DashboardId): Promise<void> {

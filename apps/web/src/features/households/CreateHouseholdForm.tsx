@@ -4,6 +4,7 @@ import { useCreateHousehold } from '../../api/households.ts'
 import { Alert } from '../../components/Alert.tsx'
 import { Button } from '../../components/Button.tsx'
 import { TextField } from '../../components/TextField.tsx'
+import styles from './Household.module.css'
 
 export function CreateHouseholdForm({ heading }: { heading: string }) {
   const [name, setName] = useState('')
@@ -16,7 +17,7 @@ export function CreateHouseholdForm({ heading }: { heading: string }) {
   }
 
   return (
-    <form onSubmit={submit} style={{ display: 'grid', gap: 'var(--space-3)', maxWidth: '26rem' }}>
+    <form onSubmit={submit} className={`${styles.panel} ${styles.form}`}>
       <h2>{heading}</h2>
       {create.error ? <Alert>{create.error.message}</Alert> : null}
       <TextField

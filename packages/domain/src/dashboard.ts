@@ -111,6 +111,36 @@ export function removeWidget(dashboard: Dashboard, id: WidgetPlacementId): Dashb
   return { ...dashboard, widgets: dashboard.widgets.filter((w) => w.id !== id) }
 }
 
+function withWidget(
+  dashboard: Dashboard,
+  id: WidgetPlacementId,
+  change: (widget: WidgetPlacement) => WidgetPlacement,
+): Dashboard {
+  invariant(
+    dashboard.widgets.some((w) => w.id === id),
+    'Widget is not on the dashboard',
+  )
+  return { ...dashboard, widgets: dashboard.widgets.map((w) => (w.id === id ? change(w) : w)) }
+}
+
+/** Changes how many columns one widget occupies. */
+export function resizeWidget(dashboard: Dashboard, id: WidgetPlacementId, span: number): Dashboard {
+  invariant(
+    Number.isInteger(span) && span >= 1 && span <= dashboard.columns,
+    `Widget span must be a whole number between 1 and ${dashboard.columns}`,
+  )
+  return withWidget(dashboard, id, (w) => ({ ...w, span }))
+}
+
+/** Replaces one widget's settings. Credentials never belong here (see WidgetPlacement). */
+export function configureWidget(
+  dashboard: Dashboard,
+  id: WidgetPlacementId,
+  config: JsonObject,
+): Dashboard {
+  return withWidget(dashboard, id, (w) => ({ ...w, config }))
+}
+
 /** Moves a widget so it ends up at `toIndex` in the resulting order. */
 export function moveWidget(
   dashboard: Dashboard,

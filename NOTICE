@@ -2,3 +2,8 @@ Orbit
 Copyright 2026 The Orbit contributors
 
 This product is licensed under the Apache License, Version 2.0.
+
+The web app bundles Google Fonts, served from this server, through the @fontsource-variable
+packages. They are licensed under the SIL Open Font License, Version 1.1. Each font's copyright
+and the license text are in `licenses/fonts.txt` next to the built web app, and in the packages
+themselves.

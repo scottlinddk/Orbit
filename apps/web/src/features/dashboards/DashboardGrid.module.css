@@ -12,42 +12,23 @@
   min-width: 0;
 }
 
-.card {
-  height: 100%;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
-  padding: var(--space-4);
-  box-shadow: var(--shadow);
-  display: grid;
-  gap: var(--space-3);
-  align-content: start;
+.dragging {
+  opacity: 0.4;
 }
 
-.cardHeader {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
+.dropTarget > * {
+  outline: 3px solid var(--color-accent);
+  outline-offset: 3px;
 }
 
-.title {
-  font-size: 1rem;
-  margin: 0;
-  color: var(--color-text-muted);
-}
-
-.badge {
-  font-size: 0.75rem;
-  padding: 0 var(--space-2);
-  border: 1px solid var(--color-border);
-  border-radius: 999px;
-  color: var(--color-text-muted);
-}
-
-.controls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
+.ghost {
+  padding: var(--space-3) var(--space-6);
+  border-radius: var(--radius-button);
+  background: var(--color-accent);
+  color: var(--color-accent-text);
+  font-weight: 600;
+  box-shadow: 0 10px 30px rgb(0 0 0 / 30%);
+  cursor: grabbing;
 }
 
 /* Small screens: one column, whatever span a widget asked for. */

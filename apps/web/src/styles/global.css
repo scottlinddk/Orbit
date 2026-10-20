@@ -13,17 +13,21 @@ body {
   line-height: var(--line-height);
   color: var(--color-text);
   background: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
 }
 
 h1,
 h2,
 h3 {
-  line-height: 1.25;
+  font-family: var(--font-heading);
+  line-height: 1.2;
+  letter-spacing: -0.02em;
   margin: 0 0 var(--space-3);
 }
 
 a {
-  color: var(--color-accent);
+  color: inherit;
+  text-underline-offset: 3px;
 }
 
 :focus-visible {

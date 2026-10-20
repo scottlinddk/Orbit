@@ -25,8 +25,8 @@ describe('household page', () => {
     renderApp('/h/h1')
     expect(await screen.findByRole('link', { name: 'Week' })).toHaveAttribute('href', '/d/d1')
     expect(screen.getByRole('link', { name: 'Kitchen' })).toHaveAttribute('href', '/d/d2')
-    expect(screen.getByText(/\(1 widget\)/)).toBeInTheDocument()
-    expect(screen.getByText(/\(0 widgets\)/)).toBeInTheDocument()
+    expect(screen.getByText('1 widget')).toBeInTheDocument()
+    expect(screen.getByText('0 widgets')).toBeInTheDocument()
   })
 
   it('lets owners create a dashboard and opens it', async () => {
