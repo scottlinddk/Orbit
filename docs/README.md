@@ -1,0 +1,12 @@
+# Orbit documentation
+
+- [Principles and scope](product/principles-and-scope.md)
+- [Architecture overview](architecture/overview.md)
+- Architecture decision records (ADRs)
+  - [0001 SQLite as the default database](architecture/adr/0001-sqlite-default-database.md)
+  - [0002 Local accounts for authentication](architecture/adr/0002-local-accounts-auth.md)
+  - [0003 Calendar integrations: ICS/CalDAV and Google](architecture/adr/0003-calendar-integrations.md)
+  - [0004 Fastify, zod and OpenAPI](architecture/adr/0004-fastify-zod-openapi.md)
+  - [0005 Monorepo layout and enforced dependency rules](architecture/adr/0005-monorepo-and-boundaries.md)
+
+Open decisions are tracked in [open questions](architecture/open-questions.md).
