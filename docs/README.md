@@ -11,5 +11,8 @@
   - [0006 Apache-2.0 license](architecture/adr/0006-apache-2-license.md)
   - [0007 Household authorization model](architecture/adr/0007-household-authorization-model.md)
   - [0008 Opt-in local usage stats](architecture/adr/0008-opt-in-local-usage-stats.md)
+  - [0009 node:sqlite as the SQLite driver](architecture/adr/0009-node-sqlite-driver.md)
+
+- [Backup and restore](operations/backup-and-restore.md)
 
 Open decisions are tracked in [open questions](architecture/open-questions.md).

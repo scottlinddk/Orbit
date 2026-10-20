@@ -8,7 +8,7 @@ Target users are single households. Postgres adds a second container, credential
 
 ## Decision
 
-SQLite is the default and only MVP database, used through repository ports. WAL mode, foreign keys on, versioned migrations. Driver and query layer (better-sqlite3 with Kysely or Drizzle) are chosen at scaffold time, behind the adapter.
+SQLite is the default and only MVP database, used through repository ports. WAL mode, foreign keys on, versioned migrations. The driver is `node:sqlite` with plain SQL, see ADR 0009.
 
 ## Consequences
 
