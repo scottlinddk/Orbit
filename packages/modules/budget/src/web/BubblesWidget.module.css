@@ -1,0 +1,114 @@
+.root {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* Bubbles: sized by area, packed in a wrapping row. */
+.bubbles {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-3, 0.75rem);
+}
+
+.bubbles .item {
+  --d: max(5.25rem, calc(var(--k) * 34cqw));
+  position: relative;
+  width: var(--d);
+  aspect-ratio: 1;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 0.1rem;
+  padding: 0.5rem;
+  border-radius: 50%;
+  text-align: center;
+  /* A darker tint under a lighter wedge: white text keeps its contrast on the bright part of the gradient. */
+  background:
+    conic-gradient(rgb(255 255 255 / 26%) calc(var(--p) * 1%), transparent 0), rgb(0 0 0 / 24%);
+}
+
+.bubbles .glyph {
+  display: grid;
+}
+
+.bubbles .name {
+  font-size: 0.75rem;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.bubbles .percent {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.bubbles .bar {
+  display: none;
+}
+
+/* List: the same data as rows with a bar. Used when asked for, and whenever the card is narrow. */
+.list {
+  display: grid;
+  gap: var(--space-2, 0.5rem);
+}
+
+.list .item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--space-1, 0.25rem) var(--space-3, 0.75rem);
+  padding: var(--space-2, 0.5rem) var(--space-3, 0.75rem);
+  border-radius: var(--radius-sm);
+  background: rgb(0 0 0 / 22%);
+}
+
+.list .percent {
+  font-weight: 600;
+}
+
+.list .bar {
+  grid-column: 1 / -1;
+  height: 0.375rem;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    currentColor calc(var(--k) * var(--k) * 100%),
+    rgb(255 255 255 / 25%) 0
+  );
+}
+
+@container widget (max-width: 26rem) {
+  .bubbles {
+    display: grid;
+    gap: var(--space-2, 0.5rem);
+  }
+
+  .bubbles .item {
+    width: auto;
+    aspect-ratio: auto;
+    grid-template-columns: auto 1fr auto;
+    justify-items: start;
+    align-items: center;
+    place-content: stretch;
+    gap: var(--space-1, 0.25rem) var(--space-3, 0.75rem);
+    padding: var(--space-2, 0.5rem) var(--space-3, 0.75rem);
+    border-radius: var(--radius-sm);
+    background: rgb(0 0 0 / 22%);
+    text-align: start;
+  }
+
+  .bubbles .bar {
+    display: block;
+    grid-column: 1 / -1;
+    height: 0.375rem;
+    border-radius: 999px;
+    background: linear-gradient(
+      to right,
+      currentColor calc(var(--k) * var(--k) * 100%),
+      rgb(255 255 255 / 25%) 0
+    );
+  }
+}

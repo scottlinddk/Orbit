@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { formatMoney, formatPercent, formatThousands, localeOf, moneyParts } from './format.ts'
+import {
+  formatMoney,
+  formatPercent,
+  formatShare,
+  formatThousands,
+  localeOf,
+  moneyParts,
+} from './format.ts'
 
 describe('formatMoney', () => {
   it('formats in the given currency and locale', () => {
@@ -27,6 +34,13 @@ describe('formatPercent', () => {
     expect(formatPercent(2.46, 'en-US')).toBe('2.46%')
     expect(formatPercent(-1.84, 'en-US')).toBe('1.84%')
     expect(formatPercent(0, 'en-US')).toBe('0.00%')
+  })
+})
+
+describe('formatShare', () => {
+  it('shows one decimal', () => {
+    expect(formatShare(32.8, 'en-US')).toBe('32.8%')
+    expect(formatShare(6.74, 'en-US')).toBe('6.7%')
   })
 })
 

@@ -167,7 +167,7 @@ export const sampleTransactions: readonly Transaction[] = [
   },
 ]
 
-export type CategoryIcon = 'cart' | 'shirt' | 'cup' | 'sport'
+export type CategoryIcon = 'cart' | 'shirt' | 'cup' | 'sport' | 'heart' | 'train'
 
 export interface Category {
   readonly id: string
@@ -183,4 +183,22 @@ export const sampleCategories: readonly Category[] = [
   { id: 'clothes', name: 'Clothes and shoes', icon: 'shirt', amount: 296.65, change: -1.84 },
   { id: 'cafes', name: 'Cafes and restaurants', icon: 'cup', amount: 214.9, change: 0.92 },
   { id: 'sport', name: 'Sport', icon: 'sport', amount: 88, change: -3.1 },
+]
+
+export interface Share {
+  readonly id: string
+  readonly name: string
+  readonly icon: CategoryIcon
+  /** Share of this month's spending, in percent. */
+  readonly percent: number
+}
+
+/** Where the month's money went, biggest first. The rest, about 10 percent, is left out. */
+export const sampleShares: readonly Share[] = [
+  { id: 'groceries', name: 'Groceries', icon: 'cart', percent: 32.8 },
+  { id: 'clothes', name: 'Clothes and shoes', icon: 'shirt', percent: 16.1 },
+  { id: 'cafes', name: 'Cafes and restaurants', icon: 'cup', percent: 14.8 },
+  { id: 'sport', name: 'Sport', icon: 'sport', percent: 11.3 },
+  { id: 'health', name: 'Health', icon: 'heart', percent: 8.4 },
+  { id: 'travel', name: 'Travel', icon: 'train', percent: 6.7 },
 ]

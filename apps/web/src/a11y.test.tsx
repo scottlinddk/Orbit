@@ -71,6 +71,7 @@ describe('accessibility (axe)', () => {
         widget('w2', 'budget.cards', 2),
         widget('w3', 'budget.transactions', 2),
         widget('w4', 'budget.categories', 2),
+        widget('w5', 'budget.bubbles', 2),
       ],
     })
     stubApi({

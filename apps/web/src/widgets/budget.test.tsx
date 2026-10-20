@@ -15,12 +15,13 @@ const mount = (type: string, config: Record<string, unknown> = {}) => {
 }
 
 describe('budget module', () => {
-  it('offers four preview widgets with valid, unique types', () => {
+  it('offers five preview widgets with valid, unique types', () => {
     expect(widgets.map((w) => w.type)).toEqual([
       'budget.overview',
       'budget.cards',
       'budget.transactions',
       'budget.categories',
+      'budget.bubbles',
     ])
     for (const w of widgets) {
       expect(w.type).toMatch(/^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)+$/)
@@ -33,6 +34,7 @@ describe('budget module', () => {
   it('draws the overview and cards as accent cards, and the lists as plain ones', () => {
     expect(find('budget.overview').tone).toBe('accent')
     expect(find('budget.cards').tone).toBe('accent')
+    expect(find('budget.bubbles').tone).toBe('accent')
     expect(find('budget.transactions').tone).toBeUndefined()
     expect(find('budget.categories').tone).toBeUndefined()
   })
@@ -169,5 +171,37 @@ describe('categories widget', () => {
       .getAllByRole('listitem')
       .find((li) => li.textContent?.includes('Clothes'))
     expect(clothes).toHaveTextContent(/down 1\.84% from last month/)
+  })
+})
+
+describe('bubbles widget', () => {
+  it('writes every share as text, biggest first, so nothing depends on judging a size', () => {
+    mount('budget.bubbles')
+    const items = screen.getAllByRole('listitem')
+    expect(items).toHaveLength(6)
+    expect(items[0]).toHaveTextContent('Groceries')
+    expect(items[0]).toHaveTextContent('32.8%')
+    expect(items[5]).toHaveTextContent('Travel')
+    expect(items[5]).toHaveTextContent('6.7%')
+  })
+
+  it('sizes bubbles by area, so the biggest share has factor 1 and the others its square root', () => {
+    mount('budget.bubbles')
+    const factor = (i: number) =>
+      Number(screen.getAllByRole('listitem')[i]!.style.getPropertyValue('--k'))
+    expect(factor(0)).toBeCloseTo(1, 10)
+    expect(factor(1)).toBeCloseTo(Math.sqrt(16.1 / 32.8), 10)
+    expect(factor(5)).toBeLessThan(factor(1))
+  })
+
+  it('offers a list view with the same data', () => {
+    mount('budget.bubbles', { view: 'list' })
+    expect(screen.getAllByRole('listitem')).toHaveLength(6)
+    expect(screen.getByText('Health').closest('li')).toHaveTextContent('8.4%')
+  })
+
+  it('falls back to bubbles for a view it does not know', () => {
+    const { container } = mount('budget.bubbles', { view: 'pie' })
+    expect(container.querySelector('ul')?.className).toMatch(/bubbles/)
   })
 })

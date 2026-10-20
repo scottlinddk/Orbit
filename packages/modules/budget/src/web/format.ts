@@ -53,6 +53,15 @@ export function formatPercent(change: number, locale?: string): string {
   }).format(Math.abs(change) / 100)
 }
 
+/** `32.8%`: one decimal, as shares are shown. */
+export function formatShare(percent: number, locale?: string): string {
+  return new Intl.NumberFormat(locale, {
+    style: 'percent',
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  }).format(percent / 100)
+}
+
 /** Compact axis label: 500 becomes `0.5k`. */
 export function formatThousands(value: number): string {
   return `${(value / 1000).toFixed(1)}k`

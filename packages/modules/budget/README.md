@@ -1,6 +1,6 @@
 # @orbit/module-budget
 
-Built-in household budget module. It ships four widgets that make up a spending overview:
+Built-in household budget module. It ships five widgets that make up a spending overview:
 
 | Type                  | Shows                                         | Settings               |
 | --------------------- | --------------------------------------------- | ---------------------- |
