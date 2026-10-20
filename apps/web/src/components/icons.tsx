@@ -48,3 +48,27 @@ export const ResizeIcon = () => (
     <path d="M9 5v14M15 5v14" />
   </svg>
 )
+
+export const HomeIcon = () => (
+  <svg {...base}>
+    <path d="M4 11 12 4l8 7M6 10v9h12v-9" />
+  </svg>
+)
+
+export const HouseholdIcon = () => (
+  <svg {...base}>
+    <path d="M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM3 19a6 6 0 0 1 12 0M16 5.500a3 3 0 0 1 0 5.500M17 14a6 6 0 0 1 4 5" />
+  </svg>
+)
+
+export const DashboardIcon = () => (
+  <svg {...base}>
+    <path d="M4 4h7v9H4ZM13 4h7v5h-7ZM13 11h7v9h-7ZM4 15h7v5H4Z" />
+  </svg>
+)
+
+export const PaletteIcon = () => (
+  <svg {...base}>
+    <path d="M12 3a9 9 0 1 0 0 18c1.500 0 2-1 1.500-2s0-2.500 1.500-2.500H17a4 4 0 0 0 4-4C21 6.500 17 3 12 3ZM7.500 11h.01M10 7.500h.01M14.500 7.500h.01" />
+  </svg>
+)

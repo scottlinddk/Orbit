@@ -41,3 +41,9 @@ export function CategoryGlyph({ name }: { name: CategoryIcon }) {
     </svg>
   )
 }
+
+export const SwapIcon = () => (
+  <svg {...base}>
+    <path d="M8 4v16M8 20l-3-3M16 20V4M16 4l3 3" />
+  </svg>
+)
