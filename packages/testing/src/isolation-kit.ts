@@ -45,6 +45,8 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
         getHousehold: () => uc().getHousehold(as(), householdA),
         addHouseholdMember: () =>
           uc().addHouseholdMember(as(), householdA, { userId: carol.userId }),
+        addHouseholdMemberByUsername: () =>
+          uc().addHouseholdMemberByUsername(as(), householdA, { username: 'carol' }),
         removeHouseholdMember: () => uc().removeHouseholdMember(as(), householdA, alice.userId),
         createDashboard: () => uc().createDashboard(as(), householdA, { name: 'Intruder' }),
         listDashboards: () => uc().listDashboards(as(), householdA),
@@ -97,6 +99,7 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
 
       const writes = [
         'addHouseholdMember',
+        'addHouseholdMemberByUsername',
         'removeHouseholdMember',
         'createDashboard',
         'renameDashboard',

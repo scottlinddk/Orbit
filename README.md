@@ -4,7 +4,7 @@ Orbit is an open-source, self-hostable dashboard that brings together the inform
 
 ## Status
 
-Pre-MVP. See [docs](docs/README.md) for scope and architecture decisions, and [CONTRIBUTING](CONTRIBUTING.md) to get started.
+Pre-MVP. The API (accounts, households, dashboards) runs; there is no web UI yet. See [apps/api](apps/api/README.md) to try it. See [docs](docs/README.md) for scope and architecture decisions, and [CONTRIBUTING](CONTRIBUTING.md) to get started.
 
 ## License
 

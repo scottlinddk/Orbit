@@ -3,3 +3,4 @@ LICENSE
 node_modules
 dist
 coverage
+apps/api/openapi.json

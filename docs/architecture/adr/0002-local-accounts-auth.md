@@ -15,3 +15,7 @@ Email or username plus password, hashed with argon2id, server-side sessions in a
 ## Consequences
 
 No password reset by email unless SMTP is configured. MVP provides an owner-run CLI reset command instead.
+
+## Update
+
+Implementation details, the password policy, registration policy and CSRF design are in [ADR 0010](0010-sessions-and-http-hardening.md). Registration is closed after the first account by default. The "owner-run CLI reset command" is not built yet.

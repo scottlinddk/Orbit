@@ -1,8 +1,19 @@
-import type { DashboardRepository, HouseholdRepository, UserRepository } from '@orbit/application'
+import type {
+  AccountRepository,
+  Credential,
+  DashboardRepository,
+  HouseholdRepository,
+  RegistrationOutcome,
+  RegistrationPolicy,
+  Session,
+  SessionStore,
+  UserRepository,
+} from '@orbit/application'
 import {
   DashboardId,
   HouseholdId,
   UserId,
+  Username,
   WidgetPlacementId,
   type Columns,
   type Dashboard,
@@ -163,5 +174,98 @@ export class SqliteDashboardRepository implements DashboardRepository {
         config: JSON.parse(String(w.config)) as JsonObject,
       })),
     }
+  }
+}
+
+export class SqliteAccountRepository implements AccountRepository {
+  readonly #db: Database
+
+  constructor(db: Database) {
+    this.#db = db
+  }
+
+  async register(
+    user: User,
+    credential: Credential,
+    policy: RegistrationPolicy,
+  ): Promise<RegistrationOutcome> {
+    // BEGIN IMMEDIATE takes the write lock first, so two registrations cannot both
+    // see an empty instance or the same free username.
+    return inTransaction(this.#db, (): RegistrationOutcome => {
+      const existing = this.#db.prepare('SELECT COUNT(*) AS n FROM credentials').get() as Row
+      if (policy === 'first-user-only' && Number(existing.n) > 0) return 'registration-closed'
+      const taken = this.#db
+        .prepare('SELECT 1 AS found FROM credentials WHERE username = ?')
+        .get(credential.username)
+      if (taken) return 'username-taken'
+      this.#db
+        .prepare('INSERT INTO users (id, display_name) VALUES (?, ?)')
+        .run(user.id, user.displayName)
+      this.#db
+        .prepare('INSERT INTO credentials (user_id, username, password_hash) VALUES (?, ?, ?)')
+        .run(credential.userId, credential.username, credential.passwordHash)
+      return 'created'
+    })
+  }
+
+  async findCredential(username: Username): Promise<Credential | undefined> {
+    const row = this.#db
+      .prepare('SELECT user_id, username, password_hash FROM credentials WHERE username = ?')
+      .get(username) as Row | undefined
+    return (
+      row && {
+        userId: UserId(String(row.user_id)),
+        username: Username(String(row.username)),
+        passwordHash: String(row.password_hash),
+      }
+    )
+  }
+}
+
+export class SqliteSessionStore implements SessionStore {
+  readonly #db: Database
+
+  constructor(db: Database) {
+    this.#db = db
+  }
+
+  async create(session: Session): Promise<void> {
+    this.#db
+      .prepare(
+        'INSERT INTO sessions (token_hash, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)',
+      )
+      .run(
+        session.tokenHash,
+        session.userId,
+        session.createdAt.toISOString(),
+        session.expiresAt.toISOString(),
+      )
+  }
+
+  async get(tokenHash: string): Promise<Session | undefined> {
+    const row = this.#db
+      .prepare(
+        'SELECT token_hash, user_id, created_at, expires_at FROM sessions WHERE token_hash = ?',
+      )
+      .get(tokenHash) as Row | undefined
+    return (
+      row && {
+        tokenHash: String(row.token_hash),
+        userId: UserId(String(row.user_id)),
+        createdAt: new Date(String(row.created_at)),
+        expiresAt: new Date(String(row.expires_at)),
+      }
+    )
+  }
+
+  async delete(tokenHash: string): Promise<void> {
+    this.#db.prepare('DELETE FROM sessions WHERE token_hash = ?').run(tokenHash)
+  }
+
+  async deleteExpired(now: Date): Promise<number> {
+    const result = this.#db
+      .prepare('DELETE FROM sessions WHERE expires_at <= ?')
+      .run(now.toISOString())
+    return Number(result.changes)
   }
 }

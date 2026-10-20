@@ -1,4 +1,11 @@
 import { createSqliteRepositories } from './fixtures.ts'
-import { describeRepositoryContracts } from './repository-contracts.ts'
+import {
+  describeAccountContracts,
+  describeRepositoryContracts,
+  describeSessionContracts,
+} from './repository-contracts.ts'
 
-describeRepositoryContracts('sqlite', async () => createSqliteRepositories())
+const create = async () => createSqliteRepositories()
+describeRepositoryContracts('sqlite', create)
+describeAccountContracts('sqlite', create)
+describeSessionContracts('sqlite', create)

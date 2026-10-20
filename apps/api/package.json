@@ -6,18 +6,31 @@
   "license": "Apache-2.0",
   "type": "module",
   "scripts": {
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "start": "node src/main.ts",
+    "dev": "node --watch src/main.ts",
+    "openapi": "UPDATE_OPENAPI=1 vitest run --root ../.. apps/api/src/openapi.test.ts"
   },
   "dependencies": {
-    "@orbit/domain": "workspace:*",
-    "@orbit/contracts": "workspace:*",
-    "@orbit/application": "workspace:*",
-    "@orbit/adapter-persistence-sqlite": "workspace:*",
+    "@fastify/cookie": "^11.1.3",
+    "@fastify/rate-limit": "^11.2.1",
+    "@fastify/swagger": "^9.9.2",
     "@orbit/adapter-identity-local": "workspace:*",
-    "@orbit/adapter-secrets-encrypted-db": "workspace:*",
     "@orbit/adapter-jobs-sqlite": "workspace:*",
+    "@orbit/adapter-persistence-sqlite": "workspace:*",
+    "@orbit/adapter-secrets-encrypted-db": "workspace:*",
+    "@orbit/application": "workspace:*",
+    "@orbit/contracts": "workspace:*",
+    "@orbit/domain": "workspace:*",
+    "@orbit/integration-ics-calendar": "workspace:*",
     "@orbit/module-calendar": "workspace:*",
     "@orbit/module-lists": "workspace:*",
-    "@orbit/integration-ics-calendar": "workspace:*"
+    "fastify": "^5.12.7",
+    "fastify-type-provider-zod": "^7.0.0",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@orbit/adapter-in-memory": "workspace:*",
+    "@orbit/testing": "workspace:*"
   }
 }

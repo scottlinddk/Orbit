@@ -17,11 +17,13 @@ describe('migrate', () => {
     const db = openDatabase(':memory:')
     expect(migrate(db)).toEqual(migrations.map((m) => m.version))
     expect(tables(db)).toEqual([
+      'credentials',
       'dashboard_widgets',
       'dashboards',
       'household_members',
       'households',
       'schema_migrations',
+      'sessions',
       'users',
     ])
   })
@@ -34,29 +36,21 @@ describe('migrate', () => {
 
   it('applies only the migrations that are pending', () => {
     const db = openDatabase(':memory:')
-    const [first] = migrations
-    migrate(db, [first!])
-    const next = {
-      version: 2,
-      name: 'extra',
-      sql: 'CREATE TABLE extra (id TEXT PRIMARY KEY) STRICT',
-    }
-    expect(migrate(db, [first!, next])).toEqual([2])
-    expect(tables(db)).toContain('extra')
+    migrate(db, migrations.slice(0, 1))
+    expect(migrate(db)).toEqual(migrations.slice(1).map((m) => m.version))
   })
 
   it('rolls back a failing migration and leaves the version untouched', () => {
     const db = openDatabase(':memory:')
-    const [first] = migrations
-    migrate(db, [first!])
+    migrate(db)
     const broken = {
-      version: 2,
+      version: migrations.length + 1,
       name: 'broken',
       sql: 'CREATE TABLE half_done (id TEXT) STRICT; THIS IS NOT SQL;',
     }
-    expect(() => migrate(db, [first!, broken])).toThrow()
+    expect(() => migrate(db, [...migrations, broken])).toThrow()
     expect(tables(db)).not.toContain('half_done')
-    expect(migrate(db, [first!])).toEqual([])
+    expect(migrate(db, migrations)).toEqual([])
   })
 
   it('refuses a database written by a newer Orbit', () => {

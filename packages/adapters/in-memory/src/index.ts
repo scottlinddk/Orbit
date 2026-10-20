@@ -1,10 +1,27 @@
 import type {
+  AccountRepository,
+  Clock,
+  Credential,
   DashboardRepository,
   HouseholdRepository,
   IdGenerator,
+  PasswordHasher,
+  RegistrationOutcome,
+  RegistrationPolicy,
+  Session,
+  SessionStore,
+  SessionTokens,
   UserRepository,
 } from '@orbit/application'
-import type { Dashboard, DashboardId, Household, HouseholdId, User, UserId } from '@orbit/domain'
+import type {
+  Dashboard,
+  DashboardId,
+  Household,
+  HouseholdId,
+  User,
+  UserId,
+  Username,
+} from '@orbit/domain'
 
 // Domain values are immutable, so storing and returning them directly is safe.
 
@@ -63,5 +80,105 @@ export class CounterIdGenerator implements IdGenerator {
   next() {
     this.#n += 1
     return `id-${this.#n}`
+  }
+}
+
+export class InMemoryAccountRepository implements AccountRepository {
+  readonly #users: InMemoryUserRepository
+  readonly #byUsername = new Map<Username, Credential>()
+
+  constructor(users: InMemoryUserRepository) {
+    this.#users = users
+  }
+
+  async register(
+    user: User,
+    credential: Credential,
+    policy: RegistrationPolicy,
+  ): Promise<RegistrationOutcome> {
+    if (policy === 'first-user-only' && this.#byUsername.size > 0) return 'registration-closed'
+    if (this.#byUsername.has(credential.username)) return 'username-taken'
+    // Claim the username in the same tick as the check. An await in between would let a
+    // concurrent registration slip through.
+    this.#byUsername.set(credential.username, credential)
+    await this.#users.save(user)
+    return 'created'
+  }
+
+  async findCredential(username: Username) {
+    return this.#byUsername.get(username)
+  }
+}
+
+export class InMemorySessionStore implements SessionStore {
+  readonly #byHash = new Map<string, Session>()
+
+  async create(session: Session) {
+    this.#byHash.set(session.tokenHash, session)
+  }
+
+  async get(tokenHash: string) {
+    return this.#byHash.get(tokenHash)
+  }
+
+  async delete(tokenHash: string) {
+    this.#byHash.delete(tokenHash)
+  }
+
+  async deleteExpired(now: Date) {
+    let removed = 0
+    for (const [hash, session] of this.#byHash) {
+      if (session.expiresAt.getTime() <= now.getTime()) {
+        this.#byHash.delete(hash)
+        removed += 1
+      }
+    }
+    return removed
+  }
+}
+
+/**
+ * Fast and predictable, and therefore NOT secure: it stores the password in readable form.
+ * For tests only. Production uses the Argon2 hasher from the identity adapter.
+ */
+export class InsecureTestPasswordHasher implements PasswordHasher {
+  async hash(password: string) {
+    return `insecure-test:${password}`
+  }
+
+  async verify(encodedHash: string, password: string) {
+    return encodedHash === `insecure-test:${password}`
+  }
+}
+
+/** Predictable tokens for tests. Production uses random 256-bit tokens. */
+export class SequentialSessionTokens implements SessionTokens {
+  #n = 0
+
+  generate() {
+    this.#n += 1
+    const token = `token-${this.#n}`
+    return { token, tokenHash: this.hash(token) }
+  }
+
+  hash(token: string) {
+    return `hash(${token})`
+  }
+}
+
+/** A clock that only moves when told to. */
+export class ManualClock implements Clock {
+  #now: Date
+
+  constructor(start: Date = new Date('2026-01-01T00:00:00.000Z')) {
+    this.#now = start
+  }
+
+  now() {
+    return this.#now
+  }
+
+  advance(ms: number) {
+    this.#now = new Date(this.#now.getTime() + ms)
   }
 }
