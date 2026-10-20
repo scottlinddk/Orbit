@@ -1,0 +1,23 @@
+{
+  "name": "@orbit/api",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Fastify HTTP server, worker entry and composition root",
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@orbit/domain": "workspace:*",
+    "@orbit/contracts": "workspace:*",
+    "@orbit/application": "workspace:*",
+    "@orbit/adapter-persistence-sqlite": "workspace:*",
+    "@orbit/adapter-identity-local": "workspace:*",
+    "@orbit/adapter-secrets-encrypted-db": "workspace:*",
+    "@orbit/adapter-jobs-sqlite": "workspace:*",
+    "@orbit/module-calendar": "workspace:*",
+    "@orbit/module-lists": "workspace:*",
+    "@orbit/integration-ics-calendar": "workspace:*"
+  }
+}
