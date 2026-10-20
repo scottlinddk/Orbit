@@ -1,4 +1,11 @@
 import { createInMemoryRepositories } from './fixtures.ts'
-import { describeRepositoryContracts } from './repository-contracts.ts'
+import {
+  describeAccountContracts,
+  describeRepositoryContracts,
+  describeSessionContracts,
+} from './repository-contracts.ts'
 
-describeRepositoryContracts('in-memory', async () => createInMemoryRepositories())
+const create = async () => createInMemoryRepositories()
+describeRepositoryContracts('in-memory', create)
+describeAccountContracts('in-memory', create)
+describeSessionContracts('in-memory', create)

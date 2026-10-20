@@ -14,11 +14,14 @@ import {
   type Columns,
   type Dashboard,
   type Household,
+  type User,
   type HouseholdRole,
   type JsonObject,
   type UserId,
+  Username,
 } from '@orbit/domain'
 import type { Actor } from './actor.ts'
+import type { AccountRepository } from './auth-ports.ts'
 import { createAuthorizer } from './authorizer.ts'
 import { NotFoundError } from './errors.ts'
 import type {
@@ -30,6 +33,7 @@ import type {
 
 export interface Dependencies {
   users: UserRepository
+  accounts: Pick<AccountRepository, 'findCredential'>
   households: HouseholdRepository
   dashboards: DashboardRepository
   ids: IdGenerator
@@ -38,7 +42,7 @@ export interface Dependencies {
 export type UseCases = ReturnType<typeof createUseCases>
 
 export function createUseCases(deps: Dependencies) {
-  const { users, households, dashboards, ids } = deps
+  const { users, accounts, households, dashboards, ids } = deps
   const authorizer = createAuthorizer(households)
 
   /** Loads a dashboard and authorizes against the household that owns it. */
@@ -64,6 +68,13 @@ export function createUseCases(deps: Dependencies) {
   }
 
   return {
+    /** The signed-in user's own profile. */
+    async getProfile(userId: UserId): Promise<User> {
+      const user = await users.get(userId)
+      if (!user) throw new NotFoundError()
+      return user
+    },
+
     async createHousehold(actor: Actor, input: { name: string }): Promise<Household> {
       const household = createHousehold({
         id: HouseholdId(ids.next()),
@@ -85,11 +96,25 @@ export function createUseCases(deps: Dependencies) {
     async addHouseholdMember(
       actor: Actor,
       id: HouseholdId,
-      input: { userId: UserId; role?: HouseholdRole },
+      input: { userId: UserId; role?: HouseholdRole | undefined },
     ): Promise<Household> {
       const household = await authorizer.require(actor, id, 'household:manage-members')
       if (!(await users.get(input.userId))) throw new NotFoundError()
       const updated = addMember(household, input.userId, input.role)
+      await households.save(updated)
+      return updated
+    },
+
+    /** Adds an existing account by login name. Unknown names look the same as foreign ids. */
+    async addHouseholdMemberByUsername(
+      actor: Actor,
+      id: HouseholdId,
+      input: { username: string; role?: HouseholdRole | undefined },
+    ): Promise<Household> {
+      const household = await authorizer.require(actor, id, 'household:manage-members')
+      const credential = await accounts.findCredential(Username(input.username))
+      if (!credential) throw new NotFoundError()
+      const updated = addMember(household, credential.userId, input.role)
       await households.save(updated)
       return updated
     },
@@ -104,7 +129,7 @@ export function createUseCases(deps: Dependencies) {
     async createDashboard(
       actor: Actor,
       householdId: HouseholdId,
-      input: { name: string; columns?: Columns },
+      input: { name: string; columns?: Columns | undefined },
     ): Promise<Dashboard> {
       await authorizer.require(actor, householdId, 'dashboard:create')
       const dashboard = createDashboard({
@@ -137,7 +162,12 @@ export function createUseCases(deps: Dependencies) {
     addWidget(
       actor: Actor,
       id: DashboardId,
-      input: { type: string; span?: number; config?: JsonObject; index?: number },
+      input: {
+        type: string
+        span?: number | undefined
+        config?: JsonObject | undefined
+        index?: number | undefined
+      },
     ): Promise<Dashboard> {
       const widget = {
         id: WidgetPlacementId(ids.next()),

@@ -1,3 +1,4 @@
+import type { AccountRepository, SessionStore } from './auth-ports.ts'
 import type { Dashboard, DashboardId, Household, HouseholdId, User, UserId } from '@orbit/domain'
 
 /** Implementations must return and store independent values, never shared mutable state. */
@@ -22,4 +23,13 @@ export interface DashboardRepository {
 /** Produces unguessable, unique ids. The domain never generates ids itself. */
 export interface IdGenerator {
   next(): string
+}
+
+/** Every persistence port, for adapters that implement them together and for the composition root. */
+export interface Repositories {
+  users: UserRepository
+  accounts: AccountRepository
+  sessions: SessionStore
+  households: HouseholdRepository
+  dashboards: DashboardRepository
 }

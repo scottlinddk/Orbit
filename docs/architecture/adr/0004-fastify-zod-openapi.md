@@ -13,3 +13,7 @@ Status: accepted
 - Non-TypeScript contributors and tools can use the API.
 - Response schemas strip unknown fields, which helps prevent accidental leakage of secrets.
 - Error shape is a shared contract (RFC 9457 problem details).
+
+## Implementation
+
+Schemas live in `packages/contracts`. `apps/api/openapi.json` is the committed OpenAPI document. A test fails when it differs from what the app generates. Regenerate with `pnpm --filter @orbit/api openapi` and commit the result. Another test fails if any operation other than login and registration lacks the session security scheme, or if a protected route has no household-isolation case.

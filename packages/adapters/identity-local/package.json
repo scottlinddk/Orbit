@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@node-rs/argon2": "^2.2.2",
     "@orbit/application": "workspace:*",
     "@orbit/contracts": "workspace:*",
     "@orbit/domain": "workspace:*"

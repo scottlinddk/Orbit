@@ -27,7 +27,7 @@ If a rule blocks you, the design probably needs a new port, not an exception. Op
 
 ## Pull requests
 
-- Every household-scoped use case must be added to the isolation kit in `packages/testing/src/isolation-kit.ts`. See [ADR 0007](docs/architecture/adr/0007-household-authorization-model.md).
+- Every household-scoped use case must be added to the isolation kit in `packages/testing/src/isolation-kit.ts`, and every new route to `apps/api/src/isolation.http.test.ts` (a test fails if you forget). After route or schema changes run `pnpm --filter @orbit/api openapi` and commit `apps/api/openapi.json`. See [ADR 0007](docs/architecture/adr/0007-household-authorization-model.md).
 - Keep PRs focused. Docs and ADR changes are welcome on their own.
 - New decisions that affect structure, security or data handling need an ADR in `docs/architecture/adr/`.
 - Do not add dependencies with licenses outside the allowlist in `tooling/check-licenses.mjs`.

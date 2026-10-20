@@ -54,4 +54,23 @@ export const migrations: readonly Migration[] = [
       ) STRICT;
     `,
   },
+  {
+    version: 2,
+    name: 'credentials-and-sessions',
+    sql: `
+      CREATE TABLE credentials (
+        user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+        username TEXT NOT NULL UNIQUE,
+        password_hash TEXT NOT NULL
+      ) STRICT;
+
+      CREATE TABLE sessions (
+        token_hash TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        created_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL
+      ) STRICT;
+      CREATE INDEX sessions_by_expiry ON sessions(expires_at);
+    `,
+  },
 ]

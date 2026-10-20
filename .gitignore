@@ -9,3 +9,4 @@ coverage/
 *.sqlite-wal
 *.sqlite-shm
 .DS_Store
+data/
