@@ -54,9 +54,16 @@ describe('app shell', () => {
     await screen.findByRole('heading', { name: 'Home', level: 1 })
     await user.click(screen.getByRole('button', { name: 'Sign out' }))
     await screen.findByRole('heading', { name: 'Sign in to Orbit' })
-    await waitFor(() =>
-      expect(queryClient.getQueryCache().findAll({ queryKey: ['households'] })).toHaveLength(0),
-    )
+    // An observer that is still mounted may recreate an empty, disabled entry. What must not
+    // survive is data: nothing but the (now empty) user may hold a value.
+    await waitFor(() => {
+      const holdingData = queryClient
+        .getQueryCache()
+        .findAll()
+        .filter((query) => query.queryKey[0] !== 'me' && query.state.data !== undefined)
+      expect(holdingData).toHaveLength(0)
+    })
+    expect(queryClient.getQueryData(['me'])).toBeNull()
   })
 
   it('has a skip link and a main landmark', async () => {

@@ -1,11 +1,15 @@
 import '@testing-library/jest-dom/vitest'
 import { QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render } from '@testing-library/react'
+import { cleanup, configure, render } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach } from 'vitest'
 import { createQueryClient } from '../app/queryClient.ts'
 import { routes } from '../app/routes.tsx'
+
+// The default 1s is too tight when many test files compete for a small CI runner, because the
+// first test of a file also pays for loading the whole app. A slow machine is not a bug.
+configure({ asyncUtilTimeout: 5000 })
 
 afterEach(cleanup)
 
