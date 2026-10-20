@@ -1,3 +1,4 @@
+import { balanceWidget } from './BalanceWidget.tsx'
 import { bubblesWidget } from './BubblesWidget.tsx'
 import { cardsWidget } from './CardsWidget.tsx'
 import { categoriesWidget } from './CategoriesWidget.tsx'
@@ -10,4 +11,5 @@ export const widgets = [
   transactionsWidget,
   categoriesWidget,
   bubblesWidget,
+  balanceWidget,
 ]

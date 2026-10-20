@@ -202,3 +202,5 @@ export const sampleShares: readonly Share[] = [
   { id: 'health', name: 'Health', icon: 'heart', percent: 8.4 },
   { id: 'travel', name: 'Travel', icon: 'train', percent: 6.7 },
 ]
+
+export const sampleBalance = { amount: 12680.42, change: 2.46 }

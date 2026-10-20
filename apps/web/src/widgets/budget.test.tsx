@@ -15,13 +15,14 @@ const mount = (type: string, config: Record<string, unknown> = {}) => {
 }
 
 describe('budget module', () => {
-  it('offers five preview widgets with valid, unique types', () => {
+  it('offers six preview widgets with valid, unique types', () => {
     expect(widgets.map((w) => w.type)).toEqual([
       'budget.overview',
       'budget.cards',
       'budget.transactions',
       'budget.categories',
       'budget.bubbles',
+      'budget.balance',
     ])
     for (const w of widgets) {
       expect(w.type).toMatch(/^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)+$/)
@@ -35,6 +36,7 @@ describe('budget module', () => {
     expect(find('budget.overview').tone).toBe('accent')
     expect(find('budget.cards').tone).toBe('accent')
     expect(find('budget.bubbles').tone).toBe('accent')
+    expect(find('budget.balance').tone).toBe('accent')
     expect(find('budget.transactions').tone).toBeUndefined()
     expect(find('budget.categories').tone).toBeUndefined()
   })
@@ -203,5 +205,20 @@ describe('bubbles widget', () => {
   it('falls back to bubbles for a view it does not know', () => {
     const { container } = mount('budget.bubbles', { view: 'pie' })
     expect(container.querySelector('ul')?.className).toMatch(/bubbles/)
+  })
+})
+
+describe('balance widget', () => {
+  it('shows the balance and a card, and cannot move money', () => {
+    mount('budget.balance')
+    expect(screen.getByText(/\$12,680/)).toBeInTheDocument()
+    expect(screen.getByText('9286')).toBeInTheDocument()
+    for (const name of ['Deposit', 'Withdraw', 'Transfer'])
+      expect(screen.getByRole('button', { name })).toBeDisabled()
+  })
+
+  it('formats in the chosen currency', () => {
+    mount('budget.balance', { currency: 'EUR' })
+    expect(screen.getByText(/€/)).toBeInTheDocument()
   })
 })

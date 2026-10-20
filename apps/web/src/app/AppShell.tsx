@@ -3,6 +3,7 @@ import { useLogout, useMe } from '../api/auth.ts'
 import { useDashboard } from '../api/dashboards.ts'
 import { useHouseholds } from '../api/households.ts'
 import { Button } from '../components/Button.tsx'
+import { DashboardIcon, HomeIcon, HouseholdIcon, PaletteIcon } from '../components/icons.tsx'
 import styles from './AppShell.module.css'
 
 /** `Emma Larsen` becomes `EL`. Falls back to a dot so the avatar is never empty. */
@@ -60,20 +61,24 @@ export function AppShell() {
 
           <nav aria-label="Main" className={styles.nav}>
             <NavLink to="/" end className={linkClass}>
-              Home
+              <HomeIcon />
+              <span className={styles.label}>Home</span>
             </NavLink>
             {householdId ? (
               <NavLink to={`/h/${householdId}`} className={linkClass}>
-                Household
+                <HouseholdIcon />
+                <span className={styles.label}>Household</span>
               </NavLink>
             ) : null}
             {params.dashboardId && dashboard.data ? (
               <NavLink to={`/d/${params.dashboardId}`} className={linkClass}>
-                {dashboard.data.name}
+                <DashboardIcon />
+                <span className={styles.label}>{dashboard.data.name}</span>
               </NavLink>
             ) : null}
             <NavLink to="/appearance" className={linkClass}>
-              Appearance
+              <PaletteIcon />
+              <span className={styles.label}>Appearance</span>
             </NavLink>
           </nav>
 

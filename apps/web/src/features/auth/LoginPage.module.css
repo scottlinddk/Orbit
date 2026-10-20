@@ -1,8 +1,35 @@
 .page {
   min-height: 100dvh;
   display: grid;
-  place-items: center;
+  align-content: center;
+  justify-items: center;
+  gap: var(--space-4);
   padding: var(--gutter);
+}
+
+.hero {
+  width: min(100%, 26rem);
+  display: grid;
+  align-content: end;
+  gap: var(--space-2);
+  min-height: 13rem;
+  padding: var(--space-6);
+  border-radius: var(--radius);
+  background: var(--hero-bg);
+  color: var(--color-hero-text);
+}
+
+.heroTitle {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: clamp(1.75rem, 7vw, 2.25rem);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+
+.heroText {
+  margin: 0;
 }
 
 .card {
@@ -23,4 +50,23 @@
 .note {
   margin: 0;
   color: var(--color-text-muted);
+}
+
+/* Wide screens: the hero stands beside the form, as tall as it. */
+@media (min-width: 56rem) {
+  .page {
+    grid-template-columns: minmax(0, 26rem) minmax(0, 26rem);
+    justify-content: center;
+    align-items: stretch;
+    align-content: center;
+  }
+
+  .hero {
+    width: auto;
+    min-height: 0;
+  }
+
+  .card {
+    width: auto;
+  }
 }

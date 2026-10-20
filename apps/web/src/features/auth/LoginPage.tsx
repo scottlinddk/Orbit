@@ -51,6 +51,12 @@ export function LoginPage() {
 
   return (
     <main className={styles.page}>
+      <section className={styles.hero} aria-label="About Orbit">
+        <p className={styles.heroTitle}>Modern tools for modern households</p>
+        <p className={styles.heroText}>
+          Shared dashboards for the people you live with. Self-hosted, and yours.
+        </p>
+      </section>
       <form className={styles.card} onSubmit={(event) => void submit(event)}>
         <h1>{creating ? 'Create your account' : 'Sign in to Orbit'}</h1>
         {creating ? (
