@@ -27,6 +27,22 @@ docker compose cp orbit:/data/backups/orbit-$(date +%F).sqlite backups/
 
 Store `backups/` somewhere other than this machine. The file contains password hashes and household data, so treat it like the database itself.
 
+## Scheduled backups and retention
+
+For a Docker install, `deploy/backup-daily.sh` makes a consistent backup while Orbit is running, copies it out of the Docker volume, verifies the **copied** file, and removes the temporary copy in the volume. It keeps scheduled copies for at least 14 days in the destination folder. It leaves manual backups and pre-migration snapshots alone. Give it an absolute path to a private folder on the Docker host:
+
+```sh
+./deploy/backup-daily.sh /srv/orbit-backups
+```
+
+Run it once manually, then schedule it on the host. For example, `crontab -e` for the account that runs Docker:
+
+```cron
+15 3 * * * cd /path/to/Orbit && ./deploy/backup-daily.sh /srv/orbit-backups >> /srv/orbit-backups/backup.log 2>&1
+```
+
+Use an absolute path for the log and watch for failures. The script exits nonzero if the backup, copy, or verification fails, and does not prune old files after such a failure. Copy the verified files to storage **outside this machine** as well; the 14-day folder does not protect against disk or host loss. Restrict access to that copy because it contains household data and password hashes. Periodically perform the restore drill below using a spare instance to prove the off-device copy works. Do not run the drill against your live database.
+
 ## Automatic snapshot before an upgrade
 
 When Orbit starts and a schema migration is pending on a database that already holds data, it first writes a snapshot with the same routine as `orbit backup` to `backups/pre-migration-<schema>-<time>.sqlite` next to the database (in Docker, `/data/backups`). `<schema>` is the schema version the snapshot holds, so `pre-migration-2-...` is a database from before the move to version 3. The file is private (0600). The newest 5 are kept (`ORBIT_MIGRATION_SNAPSHOTS`). A new database gets none. If the snapshot cannot be written, for example because the disk is full, Orbit stops with an error and does **not** migrate.
