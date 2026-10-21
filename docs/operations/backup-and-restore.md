@@ -40,6 +40,14 @@ docker compose run --rm --no-deps orbit orbit restore /data/backups/pre-migratio
 
 The snapshot lives in the same volume as the database, so it does not protect against losing the volume. Copy backups off the machine as described above.
 
+## Automatic backups
+
+Orbit writes a backup by itself, to `backups/scheduled-<time>.sqlite` next to the database (in Docker, `/data/backups`), with the same routine as `orbit backup`. It checks every hour and writes one when the newest is at least `ORBIT_BACKUP_INTERVAL_HOURS` old (default 24). A restart, or a Raspberry Pi that was switched off overnight, still gets its backup, one at a time and not one per missed day. The newest `ORBIT_BACKUP_KEEP` (default 14) are kept. Set `ORBIT_BACKUP_INTERVAL_HOURS=0` to turn this off. Files are private (0600) and are written under a temporary name first, so an interrupted run never leaves something that looks like a good backup. A failure is logged and does not stop Orbit.
+
+Manual backups and `pre-migration-*` snapshots are never pruned by this. Restore one the same way as any backup, see below.
+
+These live in the same volume as the database, so they protect against a bad change or a deleted row, not against losing the disk. Copy them off the machine as described above.
+
 ## Restore
 
 ```sh

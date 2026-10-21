@@ -14,6 +14,8 @@ describe('loadConfig', () => {
       trustProxy: false,
       webDir: undefined,
       migrationSnapshots: 5,
+      backupIntervalMs: 24 * 60 * 60 * 1000,
+      backupKeep: 14,
       logLevel: 'info',
     })
   })
@@ -38,6 +40,8 @@ describe('loadConfig', () => {
       ORBIT_LOG_LEVEL: 'debug',
       ORBIT_WEB_DIR: '/app/web',
       ORBIT_MIGRATION_SNAPSHOTS: '2',
+      ORBIT_BACKUP_INTERVAL_HOURS: '6',
+      ORBIT_BACKUP_KEEP: '30',
       ORBIT_SETUP_CODE: 'a-long-code-of-mine',
     })
     expect(c).toMatchObject({
@@ -49,12 +53,17 @@ describe('loadConfig', () => {
       logLevel: 'debug',
       webDir: '/app/web',
       migrationSnapshots: 2,
+      backupIntervalMs: 6 * 60 * 60 * 1000,
+      backupKeep: 30,
       setupCode: 'a-long-code-of-mine',
     })
   })
 
   it.each([
     ['ORBIT_MIGRATION_SNAPSHOTS', '0'],
+    ['ORBIT_BACKUP_INTERVAL_HOURS', '-1'],
+    ['ORBIT_BACKUP_INTERVAL_HOURS', '1.5'],
+    ['ORBIT_BACKUP_KEEP', '0'],
     ['ORBIT_SETUP_CODE', 'short'],
     ['ORBIT_PORT', '0'],
     ['ORBIT_PORT', 'abc'],

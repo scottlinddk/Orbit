@@ -76,6 +76,9 @@ mkdir -p "$WORK/backups"
 docker compose cp orbit:/data/backups/drill.sqlite "$WORK/backups/drill.sqlite"
 chmod a+r "$WORK/backups/drill.sqlite"
 
+step "The automatic backup written at start is there and verifies"
+docker compose exec -T orbit sh -c 'orbit verify "$(ls /data/backups/scheduled-*.sqlite | head -n 1)"'
+
 step "Restoring over a running instance is refused"
 if docker compose exec -T orbit orbit restore /data/backups/drill.sqlite; then fail "restore ran while Orbit was running"; fi
 
