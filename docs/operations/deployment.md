@@ -1,6 +1,6 @@
 # Deploying Orbit with Docker
 
-One container serves the web app and the API on one port and keeps everything in one SQLite file on a volume. You need Docker with the Compose plugin.
+One container serves the web app and the API on one port and keeps everything in one SQLite file on a volume. You need Docker with the Compose plugin, version 2.19.0 or later (`docker compose version`). Older Compose releases do not understand the `!reset` tag in the Caddy override: they raise no error, but keep Orbit's own loopback port published next to Caddy. Debian and Ubuntu `docker-compose-plugin` packages from distribution repositories can be older, so install Docker from Docker's own repository.
 
 ## Quick start
 
