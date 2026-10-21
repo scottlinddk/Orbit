@@ -68,6 +68,7 @@ describe('login page', () => {
     const order: string[] = []
     const api = stubApi({
       'GET /api/v1/auth/me': problem(401, 'Sign in required', 'unauthenticated'),
+      'GET /api/v1/auth/setup': { body: { setupCodeRequired: false } },
       'POST /api/v1/auth/register': () => {
         order.push('register')
         return { status: 201, body: ME }
@@ -96,9 +97,63 @@ describe('login page', () => {
     })
   })
 
+  it('asks for the setup code when the server requires one, and sends it', async () => {
+    const api = stubApi({
+      'GET /api/v1/auth/me': problem(401, 'Sign in required', 'unauthenticated'),
+      'GET /api/v1/auth/setup': { body: { setupCodeRequired: true } },
+      'POST /api/v1/auth/register': { status: 201, body: ME },
+      'POST /api/v1/auth/login': { body: ME },
+      'GET /api/v1/households': { body: { households: [] } },
+    })
+    const { user } = renderApp('/login')
+    await user.click(await screen.findByRole('button', { name: 'Create the first account' }))
+    await user.type(await screen.findByLabelText('Setup code'), 'ABCD-EFGH-JKMN')
+    await user.type(screen.getByLabelText('Username'), 'scott')
+    await user.type(screen.getByLabelText('Password'), 'correct horse battery')
+    await user.click(screen.getByRole('button', { name: 'Create account' }))
+
+    await waitFor(() => expect(api.sent('POST', '/api/v1/auth/login')).toHaveLength(1))
+    expect(api.sent('POST', '/api/v1/auth/register')[0]?.body).toEqual({
+      username: 'scott',
+      password: 'correct horse battery',
+      setupCode: 'ABCD-EFGH-JKMN',
+    })
+  })
+
+  it('does not show a setup code field when none is required', async () => {
+    stubApi({
+      'GET /api/v1/auth/me': problem(401, 'Sign in required', 'unauthenticated'),
+      'GET /api/v1/auth/setup': { body: { setupCodeRequired: false } },
+    })
+    const { user } = renderApp('/login')
+    await user.click(await screen.findByRole('button', { name: 'Create the first account' }))
+    await screen.findByLabelText('Display name (optional)')
+    expect(screen.queryByLabelText('Setup code')).not.toBeInTheDocument()
+  })
+
+  it('shows the field after a wrong-code answer even if the status call failed', async () => {
+    stubApi({
+      'GET /api/v1/auth/me': problem(401, 'Sign in required', 'unauthenticated'),
+      'GET /api/v1/auth/setup': { status: 500 },
+      'POST /api/v1/auth/register': problem(
+        403,
+        'The setup code is missing or wrong.',
+        'setup-code-invalid',
+      ),
+    })
+    const { user } = renderApp('/login')
+    await user.click(await screen.findByRole('button', { name: 'Create the first account' }))
+    await user.type(screen.getByLabelText('Username'), 'scott')
+    await user.type(screen.getByLabelText('Password'), 'correct horse battery')
+    await user.click(screen.getByRole('button', { name: 'Create account' }))
+    expect(await screen.findByLabelText('Setup code')).toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent('setup code')
+  })
+
   it('explains when registration is closed and does not try to sign in', async () => {
     const api = stubApi({
       'GET /api/v1/auth/me': problem(401, 'Sign in required', 'unauthenticated'),
+      'GET /api/v1/auth/setup': { body: { setupCodeRequired: false } },
       'POST /api/v1/auth/register': problem(
         403,
         'Registration is closed on this instance',
@@ -115,7 +170,10 @@ describe('login page', () => {
   })
 
   it('uses the right autocomplete hints for password managers', async () => {
-    stubApi({ 'GET /api/v1/auth/me': problem(401, 'Sign in required', 'unauthenticated') })
+    stubApi({
+      'GET /api/v1/auth/me': problem(401, 'Sign in required', 'unauthenticated'),
+      'GET /api/v1/auth/setup': { body: { setupCodeRequired: false } },
+    })
     const { user } = renderApp('/login')
     expect(await screen.findByLabelText('Password')).toHaveAttribute(
       'autocomplete',

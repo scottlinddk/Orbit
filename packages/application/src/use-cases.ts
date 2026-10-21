@@ -84,6 +84,7 @@ export function createUseCases(deps: Dependencies) {
         ownerId: actor.userId,
       })
       await households.save(household)
+      await dashboards.save(starterDashboard(household.id, ids))
       return household
     },
 
@@ -216,4 +217,23 @@ export function createUseCases(deps: Dependencies) {
       await dashboards.delete(id)
     },
   }
+}
+
+/**
+ * What a new household starts with, so the first screen is not empty. It is a normal dashboard:
+ * the owner can edit or delete it. The widget is named by its type string only. It needs no
+ * account or data source, and no widget that shows sample data belongs here.
+ */
+export const STARTER_DASHBOARD = { name: 'Home', widgetType: 'calendar.today' } as const
+
+function starterDashboard(householdId: HouseholdId, ids: IdGenerator): Dashboard {
+  const empty = createDashboard({
+    id: DashboardId(ids.next()),
+    householdId,
+    name: STARTER_DASHBOARD.name,
+  })
+  return addWidget(empty, {
+    id: WidgetPlacementId(ids.next()),
+    type: STARTER_DASHBOARD.widgetType,
+  })
 }

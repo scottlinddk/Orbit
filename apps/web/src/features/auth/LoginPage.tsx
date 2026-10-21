@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Navigate, useLocation } from 'react-router'
-import { useLogin, useMe, useRegister } from '../../api/auth.ts'
+import { useLogin, useMe, useRegister, useSetupStatus } from '../../api/auth.ts'
+import { ApiError } from '../../api/client.ts'
 import { Alert } from '../../components/Alert.tsx'
 import { Button } from '../../components/Button.tsx'
 import { Loading } from '../../components/Loading.tsx'
@@ -20,6 +21,7 @@ export function LoginPage() {
   const me = useMe()
   const login = useLogin()
   const register = useRegister()
+  const setup = useSetupStatus(mode === 'create')
   const location = useLocation()
 
   if (me.isPending) return <Loading />
@@ -29,6 +31,11 @@ export function LoginPage() {
     )
 
   const creating = mode === 'create'
+  // Also shown when the server asks for it, in case the status call failed.
+  const needsSetupCode =
+    setup.data?.setupCodeRequired === true ||
+    (register.error instanceof ApiError &&
+      register.error.problem?.type === 'urn:orbit:problem:setup-code-invalid')
   const error = register.error ?? login.error
   const busy = login.isPending || register.isPending
 
@@ -38,11 +45,17 @@ export function LoginPage() {
     const username = String(form.get('username') ?? '')
     const password = String(form.get('password') ?? '')
     const displayName = String(form.get('displayName') ?? '').trim()
+    const setupCode = String(form.get('setupCode') ?? '').trim()
     login.reset()
     register.reset()
     try {
       if (creating) {
-        await register.mutateAsync({ username, password, ...(displayName ? { displayName } : {}) })
+        await register.mutateAsync({
+          username,
+          password,
+          ...(displayName ? { displayName } : {}),
+          ...(needsSetupCode && setupCode ? { setupCode } : {}),
+        })
       }
       await login.mutateAsync({ username, password })
     } catch {
@@ -82,6 +95,17 @@ export function LoginPage() {
             name="displayName"
             autoComplete="name"
             maxLength={80}
+          />
+        ) : null}
+        {creating && needsSetupCode ? (
+          <TextField
+            label="Setup code"
+            name="setupCode"
+            autoComplete="off"
+            required
+            autoCapitalize="characters"
+            spellCheck={false}
+            hint="Printed in the server log when Orbit started. With Docker: docker compose logs orbit"
           />
         ) : null}
         <TextField

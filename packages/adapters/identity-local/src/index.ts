@@ -1,6 +1,6 @@
-import { createHash, randomBytes } from 'node:crypto'
+import { createHash, randomBytes, randomInt, timingSafeEqual } from 'node:crypto'
 import { hash, verify } from '@node-rs/argon2'
-import type { PasswordHasher, SessionTokens } from '@orbit/application'
+import type { PasswordHasher, SessionTokens, SetupGate } from '@orbit/application'
 
 /**
  * Argon2id with the OWASP minimum profile (19 MiB, 2 iterations, 1 lane). The salt is random
@@ -35,5 +35,53 @@ export class RandomSessionTokens implements SessionTokens {
 
   hash(token: string) {
     return createHash('sha256').update(token).digest('hex')
+  }
+}
+
+/** No 0/O/1/I/L, so a code read from a log and typed by hand survives. 31 symbols. */
+const SETUP_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
+const SETUP_CODE_LENGTH = 12
+
+/** Case, dashes and spaces do not matter when typing a code. */
+const normalizeSetupCode = (code: string) => code.replace(/[\s-]/g, '').toUpperCase()
+const digest = (code: string) => createHash('sha256').update(normalizeSetupCode(code)).digest()
+
+/**
+ * The one-time code that protects the first registration (see the SetupGate port). Only a
+ * SHA-256 digest is kept in memory, so the code cannot be read back from the object. A fast
+ * hash is fine: the 12 random symbols carry about 59 bits, and registration is rate limited.
+ */
+export class OneTimeSetupGate implements SetupGate {
+  #digest: Buffer | undefined
+
+  private constructor(code: string) {
+    this.#digest = digest(code)
+  }
+
+  /** A fresh random code. Returns the gate and the code to show the operator once. */
+  static generate(): { gate: OneTimeSetupGate; code: string } {
+    let raw = ''
+    for (let i = 0; i < SETUP_CODE_LENGTH; i++)
+      raw += SETUP_ALPHABET[randomInt(SETUP_ALPHABET.length)]
+    const code = raw.match(/.{4}/g)!.join('-')
+    return { gate: new OneTimeSetupGate(code), code }
+  }
+
+  /** A code the operator chose (ORBIT_SETUP_CODE). */
+  static fromCode(code: string): OneTimeSetupGate {
+    return new OneTimeSetupGate(code)
+  }
+
+  isOpen(): boolean {
+    return this.#digest !== undefined
+  }
+
+  accepts(code: string | undefined): boolean {
+    if (this.#digest === undefined || code === undefined) return false
+    return timingSafeEqual(this.#digest, digest(code))
+  }
+
+  close(): void {
+    this.#digest = undefined
   }
 }

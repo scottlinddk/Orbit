@@ -1,6 +1,12 @@
 import { mkdirSync } from 'node:fs'
-import { dirname } from 'node:path'
-import { migrate, openDatabase } from '@orbit/adapter-persistence-sqlite'
+import { dirname, join } from 'node:path'
+import { OneTimeSetupGate } from '@orbit/adapter-identity-local'
+import {
+  hasAccounts,
+  migrate,
+  openDatabase,
+  snapshotBeforeMigration,
+} from '@orbit/adapter-persistence-sqlite'
 import { buildApp } from './app.ts'
 import { createSqliteServices } from './composition.ts'
 import { ConfigError, loadConfig } from './config.ts'
@@ -14,9 +20,32 @@ async function main() {
   if (config.databasePath !== ':memory:')
     mkdirSync(dirname(config.databasePath), { recursive: true })
   const db = openDatabase(config.databasePath)
+  if (config.databasePath !== ':memory:') {
+    // Upgrades are forward-only. If the snapshot fails, stop before the schema changes.
+    const directory = join(dirname(config.databasePath), 'backups')
+    const snapshot = await snapshotBeforeMigration(db, {
+      directory,
+      keep: config.migrationSnapshots,
+    }).catch((error: unknown) => {
+      throw new ConfigError(
+        `Could not write the snapshot before the database upgrade to ${directory}: ${error instanceof Error ? error.message : error}\n` +
+          'Nothing was changed. Free disk space or fix the folder, then start again.',
+      )
+    })
+    if (snapshot)
+      console.info(JSON.stringify({ level: 'info', snapshot, msg: 'wrote pre-migration snapshot' }))
+  }
   const applied = migrate(db)
 
-  const services = createSqliteServices(db, config)
+  // A new instance that anyone can reach must not hand its owner role to the first visitor.
+  const setup =
+    config.registration === 'first-user-only' && !hasAccounts(db)
+      ? config.setupCode
+        ? { gate: OneTimeSetupGate.fromCode(config.setupCode), code: undefined }
+        : OneTimeSetupGate.generate()
+      : undefined
+
+  const services = createSqliteServices(db, config, setup?.gate)
   const app = await buildApp({ services, config, logger: loggerOptions(config.logLevel) })
   if (applied.length > 0) app.log.info({ applied }, 'applied database migrations')
   app.log.info({ webApp: config.webDir ?? 'not served' }, 'configuration loaded')
@@ -39,6 +68,13 @@ async function main() {
   process.on('SIGINT', () => void shutdown('SIGINT'))
 
   await app.listen({ host: config.host, port: config.port })
+  // Plain text on purpose: it must be easy to find in `docker compose logs`, whatever the log level.
+  if (setup?.code)
+    console.warn(
+      `\nOrbit setup code: ${setup.code}\nEnter it when you create the first account. It is shown once per start and is not stored.\n`,
+    )
+  else if (setup)
+    console.warn('\nOrbit is waiting for its first account. Use your ORBIT_SETUP_CODE.\n')
 }
 
 main().catch((error) => {

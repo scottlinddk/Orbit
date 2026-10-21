@@ -1,4 +1,4 @@
-import { sessionUserSchema, type SessionUser } from '@orbit/contracts'
+import { sessionUserSchema, setupStatusSchema, type SessionUser } from '@orbit/contracts'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ApiError, request } from './client.ts'
 import { keys } from './keys.ts'
@@ -39,10 +39,25 @@ export function useLogin() {
   })
 }
 
+/** Whether creating the first account needs the setup code from the server log. */
+export function useSetupStatus(enabled: boolean) {
+  return useQuery({
+    queryKey: keys.setup,
+    queryFn: () => request('GET', '/auth/setup', { schema: setupStatusSchema }),
+    enabled,
+    retry: false,
+    staleTime: 0,
+  })
+}
+
 export function useRegister() {
   return useMutation({
-    mutationFn: (input: { username: string; password: string; displayName?: string }) =>
-      request('POST', '/auth/register', { body: input, schema: sessionUserSchema }),
+    mutationFn: (input: {
+      username: string
+      password: string
+      displayName?: string
+      setupCode?: string
+    }) => request('POST', '/auth/register', { body: input, schema: sessionUserSchema }),
   })
 }
 

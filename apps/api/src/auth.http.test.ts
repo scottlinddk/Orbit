@@ -1,5 +1,6 @@
 import { Writable } from 'node:stream'
 import { afterEach, describe, expect, it } from 'vitest'
+import { OneTimeSetupGate } from '@orbit/adapter-identity-local'
 import { DEFAULT_SESSION_TTL_MS } from '@orbit/application'
 import { loggerOptions } from './logging.ts'
 import { PASSWORD, createTestEnv, type TestEnv } from './test-support.ts'
@@ -13,6 +14,62 @@ describe.each(['memory', 'sqlite'] as const)('auth over HTTP (%s)', (storage) =>
   const start = async (options: Parameters<typeof createTestEnv>[0] = {}) =>
     (env = await createTestEnv({ storage, ...options }))
   afterEach(() => env?.close())
+
+  describe('setup code for the first account', () => {
+    const SETUP = '/api/v1/auth/setup'
+    const first = { username: 'alice', password: PASSWORD }
+    const startGated = async () => {
+      const { gate, code } = OneTimeSetupGate.generate()
+      await start({ env: { ORBIT_REGISTRATION: 'first-user-only' }, setupGate: gate })
+      return code
+    }
+
+    it('refuses the first registration without the code, or with a wrong one', async () => {
+      await startGated()
+      const c = env.client()
+      const missing = await c.post(REGISTER, first)
+      expect(missing.status).toBe(403)
+      expect(missing.body).toMatchObject({ type: 'urn:orbit:problem:setup-code-invalid' })
+      const wrong = await c.post(REGISTER, { ...first, setupCode: 'AAAA-AAAA-AAAA' })
+      expect(wrong.status).toBe(403)
+      expect(wrong.body.type).toBe('urn:orbit:problem:setup-code-invalid')
+      // Nothing was created, so the right code still works.
+      expect((await c.get(SETUP)).body).toEqual({ setupCodeRequired: true })
+    })
+
+    it('accepts the right code once, then closes for good', async () => {
+      const code = await startGated()
+      const c = env.client()
+      expect((await c.post(REGISTER, { ...first, setupCode: code })).status).toBe(201)
+      expect((await c.get(SETUP)).body).toEqual({ setupCodeRequired: false })
+      // The code cannot be replayed for a second account.
+      const again = await c.post(REGISTER, {
+        username: 'bobby',
+        password: PASSWORD,
+        setupCode: code,
+      })
+      expect(again.status).toBe(403)
+      expect(again.body.type).toBe('urn:orbit:problem:registration-closed')
+    })
+
+    it('never puts the code in a response', async () => {
+      const code = await startGated()
+      const c = env.client()
+      const replies = [
+        await c.get(SETUP),
+        await c.post(REGISTER, first),
+        await c.post(REGISTER, { ...first, setupCode: code }),
+      ]
+      for (const r of replies) expect(JSON.stringify([r.body, r.headers])).not.toContain(code)
+    })
+
+    it('needs no code when there is no gate (registration open, or an owner exists)', async () => {
+      await start({ env: { ORBIT_REGISTRATION: 'open' } })
+      const c = env.client()
+      expect((await c.get(SETUP)).body).toEqual({ setupCodeRequired: false })
+      expect((await c.post(REGISTER, first)).status).toBe(201)
+    })
+  })
 
   describe('registration', () => {
     it('creates an account and returns only the id and display name', async () => {

@@ -58,8 +58,21 @@ test('a wrong password is explained without saying which part was wrong', async 
   await expect(page.getByRole('alert')).toHaveText('Invalid username or password')
 })
 
-test('creating the first account signs you in', async () => {
+// The code is printed in the server log on first start. The suite pins it so it can type it in.
+const SETUP_CODE = process.env.ORBIT_E2E_SETUP_CODE ?? 'e2e-setup-code-1234'
+
+test('the first account is refused without the right setup code', async () => {
   await page.getByRole('button', { name: 'Create the first account' }).click()
+  await page.getByLabel('Setup code').fill('not-the-code-at-all')
+  await page.getByLabel('Username').fill(USERNAME)
+  await page.getByLabel('Password').fill(PASSWORD)
+  await page.getByRole('button', { name: 'Create account' }).click()
+  await expect(page.getByRole('alert')).toContainText('setup code')
+  await expect(page.getByRole('heading', { name: 'Create your account' })).toBeVisible()
+})
+
+test('creating the first account with the setup code signs you in', async () => {
+  await page.getByLabel('Setup code').fill(SETUP_CODE)
   await page.getByLabel('Username').fill(USERNAME)
   await page.getByLabel('Display name (optional)').fill('Scott')
   await page.getByLabel('Password').fill(PASSWORD)
@@ -83,6 +96,11 @@ test('a household and a dashboard can be created', async () => {
   await page.getByLabel('Household name').fill('Home')
   await page.getByRole('button', { name: 'Create household' }).click()
   await expect(page.getByRole('heading', { name: 'Home', level: 1 })).toBeVisible()
+  // A new household starts with a "Home" dashboard that shows today's date, not sample data.
+  await page.getByRole('region', { name: 'Dashboards' }).getByRole('link', { name: 'Home' }).click()
+  await expect(page.getByRole('article', { name: 'Today' })).toBeVisible()
+  await expect(page.getByText('Preview')).toHaveCount(0)
+  await page.goBack()
   await page.getByLabel('New dashboard name').fill('Week')
   await page.getByRole('button', { name: 'Create dashboard' }).click()
   await expect(page.getByRole('heading', { name: 'Week', level: 1 })).toBeVisible()

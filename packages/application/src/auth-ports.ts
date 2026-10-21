@@ -58,3 +58,17 @@ export interface SessionTokens {
 export interface Clock {
   now(): Date
 }
+
+/**
+ * Guards the very first registration on an instance that has no owner yet, so that whoever
+ * reaches a freshly started server first cannot take it over. The operator reads the code from
+ * the server log and types it into the first registration.
+ */
+export interface SetupGate {
+  /** True while the first registration still needs the code. */
+  isOpen(): boolean
+  /** Whether `code` is the setup code. Compares in constant time. */
+  accepts(code: string | undefined): boolean
+  /** Discards the code for good. Called once an owner exists. */
+  close(): void
+}

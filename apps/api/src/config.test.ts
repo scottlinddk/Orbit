@@ -10,10 +10,16 @@ describe('loadConfig', () => {
       origin: 'http://localhost:3000',
       secureCookies: false,
       registration: 'first-user-only',
+      setupCode: undefined,
       trustProxy: false,
       webDir: undefined,
+      migrationSnapshots: 5,
       logLevel: 'info',
     })
+  })
+
+  it('treats an empty setup code as unset', () => {
+    expect(loadConfig({ ORBIT_SETUP_CODE: '' }).setupCode).toBeUndefined()
   })
 
   it('derives the origin and cookie security from the public URL', () => {
@@ -31,6 +37,8 @@ describe('loadConfig', () => {
       ORBIT_TRUST_PROXY: 'true',
       ORBIT_LOG_LEVEL: 'debug',
       ORBIT_WEB_DIR: '/app/web',
+      ORBIT_MIGRATION_SNAPSHOTS: '2',
+      ORBIT_SETUP_CODE: 'a-long-code-of-mine',
     })
     expect(c).toMatchObject({
       databasePath: '/data/o.sqlite',
@@ -40,10 +48,14 @@ describe('loadConfig', () => {
       trustProxy: true,
       logLevel: 'debug',
       webDir: '/app/web',
+      migrationSnapshots: 2,
+      setupCode: 'a-long-code-of-mine',
     })
   })
 
   it.each([
+    ['ORBIT_MIGRATION_SNAPSHOTS', '0'],
+    ['ORBIT_SETUP_CODE', 'short'],
     ['ORBIT_PORT', '0'],
     ['ORBIT_PORT', 'abc'],
     ['ORBIT_PORT', '70000'],

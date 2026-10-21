@@ -1,6 +1,15 @@
 # Deploying Orbit with Docker
 
-One container serves the web app and the API on one port and keeps everything in one SQLite file on a volume. You need Docker with the Compose plugin.
+One container serves the web app and the API on one port and keeps everything in one SQLite file on a volume. You need Docker with the Compose plugin, version 2.19.0 or later (`docker compose version`). Older Compose releases do not understand the `!reset` tag in the Caddy override: they raise no error, but keep Orbit's own loopback port published next to Caddy. Debian and Ubuntu `docker-compose-plugin` packages from distribution repositories can be older, so install Docker from Docker's own repository.
+
+## Where Orbit can run
+
+| Flavor      | Supported | Notes                                                                                                                                              |
+| ----------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Home server | Yes       | Raspberry Pi, mini PC or NAS with Docker. Keep it private, or reach it over a tailnet.                                                             |
+| VPS         | Yes       | Any Linux server with Docker. Use the Caddy override below for HTTPS.                                                                              |
+| Serverless  | No        | Vercel, Netlify and Cloudflare Workers have no persistent file system. See [ADR 0014](../architecture/adr/0014-hosting-flavors-and-serverless.md). |
+| Other PaaS  | Untested  | A container platform with a persistent volume may work with the same image.                                                                        |
 
 ## Quick start
 
@@ -10,7 +19,22 @@ cd Orbit
 docker compose up -d --build
 ```
 
-Open <http://localhost:3000>. Choose **Create the first account**. That account becomes the owner. Registration then closes (see [Adding people](#adding-people)).
+Open <http://localhost:3000>. Choose **Create the first account**. It asks for a **setup code**, which Orbit printed in its log when it started:
+
+```sh
+docker compose logs orbit | grep -A1 "setup code"
+```
+
+That account becomes the owner. Registration then closes (see [Adding people](#adding-people)).
+
+### Why a setup code
+
+Until the owner exists, anyone who can reach the page could register and become the owner. On a public domain that is a takeover path, so the first account needs a code that only someone with access to the server log has. The code is random, shown once per start, kept only as a hash in memory, and discarded as soon as the owner exists. The API never returns it.
+
+- **Lost it, or restarted before registering?** Restart Orbit (`docker compose restart orbit`) and read the new code from the log. A new code is made each start while there is no owner.
+- **Want to choose it yourself?** Set `ORBIT_SETUP_CODE` (12 to 64 characters) in `.env`. Remove it after setup.
+- **Prefer not to use the web page?** Create the owner on the server with `docker compose exec orbit orbit create-user <name>`. That needs no code. Once an account exists, the code is no longer asked for.
+- `ORBIT_REGISTRATION=open` has no setup code, because it lets anyone register by design.
 
 Compose binds the port to `127.0.0.1` only. To reach Orbit from other devices, put HTTPS in front of it (next section). Do not publish the plain HTTP port to the internet: the session cookie would travel unencrypted.
 
@@ -21,7 +45,7 @@ Copy `.env.example` to `.env` next to `compose.yaml` and change what you need. E
 | Variable             | Why                                                                                                                                                 |
 | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ORBIT_PUBLIC_URL`   | The address people type in the browser. Must match exactly, because the API rejects writes from any other origin. Use `https://...` behind a proxy. |
-| `ORBIT_HOST_PORT`    | The port on this machine. Default 3000.                                                                                                             |
+| `ORBIT_HOST_PORT`    | The port on this machine. Default 3000. The default `ORBIT_PUBLIC_URL` (`http://localhost:<port>`) follows it.                                      |
 | `ORBIT_TRUST_PROXY`  | `true` only behind a reverse proxy you control, so rate limits see real client addresses.                                                           |
 | `ORBIT_REGISTRATION` | `first-user-only` (default) or `open`.                                                                                                              |
 
@@ -71,7 +95,18 @@ git pull
 docker compose up -d --build
 ```
 
-Database migrations run when Orbit starts and are forward-only. A database written by a newer Orbit is refused, so you cannot silently downgrade. To go back, restore the backup you took first.
+Database migrations run when Orbit starts and are forward-only. Before applying one to a database that has data, Orbit writes a snapshot to `/data/backups/pre-migration-*.sqlite` and refuses to migrate if that fails ([details](backup-and-restore.md#automatic-snapshot-before-an-upgrade)). The manual backup above is still worth taking, because it can be copied off the machine. A database written by a newer Orbit is refused, so you cannot silently downgrade. To go back, restore the backup you took first.
+
+## Troubleshooting
+
+### Sign-in or registration fails with 403 `origin-not-allowed`
+
+Orbit accepts writes only from the exact address in `ORBIT_PUBLIC_URL`. The browser must use that address, character for character. Two common causes:
+
+- You opened `http://127.0.0.1:3000` but the default is `http://localhost:3000`. Use `localhost`, or set `ORBIT_PUBLIC_URL=http://127.0.0.1:3000` in `.env`.
+- You reached Orbit through a different host name, a proxy, or `https://`. Set `ORBIT_PUBLIC_URL` to the address people actually type, then `docker compose up -d`.
+
+If you only change `ORBIT_HOST_PORT`, nothing else is needed: the default public URL follows it. If you set `ORBIT_PUBLIC_URL` yourself, its port must match.
 
 ## Logs and health
 

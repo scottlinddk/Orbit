@@ -4,7 +4,7 @@ import {
   ManualClock,
   SequentialSessionTokens,
 } from '@orbit/adapter-in-memory'
-import type { Auth, UseCases } from '@orbit/application'
+import type { Auth, SetupGate, UseCases } from '@orbit/application'
 import { createInMemoryRepositories, createSqliteRepositories } from '@orbit/testing'
 import type { LightMyRequestResponse } from 'fastify'
 import { buildApp, type AppOptions, type App } from './app.ts'
@@ -27,6 +27,7 @@ export interface TestEnvOptions {
   storage?: 'memory' | 'sqlite'
   env?: Record<string, string>
   app?: Partial<AppOptions>
+  setupGate?: SetupGate
 }
 
 /** The real HTTP app wired with fast, deterministic parts. Registration is open by default. */
@@ -40,6 +41,7 @@ export async function createTestEnv(options: TestEnvOptions = {}): Promise<TestE
     clock,
     ids: new CounterIdGenerator(),
     registrationPolicy: config.registration,
+    setupGate: options.setupGate,
   })
   const app = await buildApp({
     services,

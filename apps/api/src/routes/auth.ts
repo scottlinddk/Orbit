@@ -1,4 +1,9 @@
-import { loginRequestSchema, registerRequestSchema, sessionUserSchema } from '@orbit/contracts'
+import {
+  loginRequestSchema,
+  registerRequestSchema,
+  sessionUserSchema,
+  setupStatusSchema,
+} from '@orbit/contracts'
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import type { Config } from '../config.ts'
 import { actorOf, cookieName, cookieOptions } from '../http/session.ts'
@@ -19,6 +24,20 @@ export const authRoutes =
     const { auth, useCases } = services
     const name = cookieName(config)
 
+    app.get(
+      '/auth/setup',
+      {
+        schema: {
+          tags: ['auth'],
+          summary: 'Whether creating the first account needs a setup code',
+          description:
+            'True only on a new instance that has no owner yet. The code is printed once in the server log at start. It is never returned by the API.',
+          response: { 200: setupStatusSchema, 429: errors[429] },
+        },
+      },
+      async () => ({ setupCodeRequired: auth.setupCodeRequired() }),
+    )
+
     app.post(
       '/auth/register',
       {
@@ -27,7 +46,7 @@ export const authRoutes =
           tags: ['auth'],
           summary: 'Create an account',
           description:
-            'On a new instance the first account can always be created. After that this is closed unless ORBIT_REGISTRATION=open. It does not sign you in.',
+            'On a new instance the first account can be created with the setup code from the server log (see GET /auth/setup). After that this is closed unless ORBIT_REGISTRATION=open. It does not sign you in.',
           body: registerRequestSchema,
           response: {
             201: sessionUserSchema,

@@ -5,7 +5,8 @@ import { defineConfig } from '@playwright/test'
 
 /**
  * Set ORBIT_E2E_URL to test an Orbit that is already running (for example the Docker image).
- * It must be a fresh instance: the suite creates the first account.
+ * It must be a fresh instance: the suite creates the first account. Pass that instance's
+ * setup code in ORBIT_E2E_SETUP_CODE.
  * Without it, this starts the API from source on port 3100 with a throwaway database and the
  * built web app, so run `pnpm build` first.
  */
@@ -41,6 +42,7 @@ export default defineConfig({
             ORBIT_DATABASE_PATH: join(mkdtempSync(join(tmpdir(), 'orbit-e2e-')), 'orbit.sqlite'),
             ORBIT_WEB_DIR: join(import.meta.dirname, '..', 'apps', 'web', 'dist'),
             ORBIT_LOG_LEVEL: 'warn',
+            ORBIT_SETUP_CODE: process.env.ORBIT_E2E_SETUP_CODE ?? 'e2e-setup-code-1234',
             NODE_OPTIONS: '--disable-warning=ExperimentalWarning',
           },
         },

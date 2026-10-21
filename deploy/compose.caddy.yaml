@@ -1,5 +1,6 @@
 # Adds automatic HTTPS with Caddy in front of Orbit.
 # Use:  docker compose -f compose.yaml -f deploy/compose.caddy.yaml up -d
+# Needs Docker Compose 2.19.0 or later: older versions ignore `!reset` without an error.
 # Needs ORBIT_DOMAIN (for example orbit.example.com) in the environment or .env.
 # ORBIT_PUBLIC_URL and ORBIT_TRUST_PROXY are set here, so Orbit knows it is behind HTTPS.
 services:

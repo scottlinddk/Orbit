@@ -8,11 +8,13 @@ import {
   InvalidCredentialsError,
   NotFoundError,
   RegistrationClosedError,
+  SetupCodeInvalidError,
   UsernameTakenError,
   createAuth,
   type RegistrationPolicy,
+  type SetupGate,
 } from '@orbit/application'
-import { InvariantViolation } from '@orbit/domain'
+import { InvariantViolation, Username } from '@orbit/domain'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createInMemoryRepositories, createSqliteRepositories } from './fixtures.ts'
 import type { RepositorySet } from './repository-contracts.ts'
@@ -25,7 +27,7 @@ describe.each([
 ])('auth use cases: %s', (_name, makeRepos) => {
   let repos: RepositorySet
   let clock: ManualClock
-  const build = (registrationPolicy: RegistrationPolicy = 'open') => {
+  const build = (registrationPolicy: RegistrationPolicy = 'open', setupGate?: SetupGate) => {
     let n = 0
     return createAuth({
       accounts: repos.accounts,
@@ -35,12 +37,57 @@ describe.each([
       clock,
       ids: { next: () => `id-${++n}` },
       registrationPolicy,
+      setupGate,
     })
   }
 
   beforeEach(() => {
     repos = makeRepos()
     clock = new ManualClock()
+  })
+
+  describe('setup gate', () => {
+    const gate = (): SetupGate & { closed: boolean } => {
+      const g = {
+        closed: false,
+        isOpen: () => !g.closed,
+        accepts: (code: string | undefined) => code === 'right',
+        close: () => void (g.closed = true),
+      }
+      return g
+    }
+
+    it('refuses the first account without the code and creates nothing', async () => {
+      const g = gate()
+      const auth = build('first-user-only', g)
+      expect(auth.setupCodeRequired()).toBe(true)
+      await expect(auth.register({ username: 'alice', password: PASSWORD })).rejects.toBeInstanceOf(
+        SetupCodeInvalidError,
+      )
+      await expect(
+        auth.register({ username: 'alice', password: PASSWORD, setupCode: 'wrong' }),
+      ).rejects.toBeInstanceOf(SetupCodeInvalidError)
+      expect(g.closed).toBe(false)
+      expect(await repos.accounts.findCredential(Username('alice'))).toBeUndefined()
+    })
+
+    it('closes the gate after the owner is created', async () => {
+      const g = gate()
+      const auth = build('first-user-only', g)
+      await auth.register({ username: 'alice', password: PASSWORD, setupCode: 'right' })
+      expect(g.closed).toBe(true)
+      expect(auth.setupCodeRequired()).toBe(false)
+    })
+
+    it('closes the gate when an owner already exists, for example from the CLI', async () => {
+      const g = gate()
+      await build('open').register({ username: 'alice', password: PASSWORD })
+      const auth = build('first-user-only', g)
+      await expect(
+        auth.register({ username: 'bobby', password: PASSWORD, setupCode: 'right' }),
+      ).rejects.toBeInstanceOf(RegistrationClosedError)
+      expect(g.closed).toBe(true)
+    })
   })
 
   it('registers and logs in, and the session resolves to the same user', async () => {

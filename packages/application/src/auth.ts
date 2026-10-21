@@ -15,6 +15,7 @@ import type {
   RegistrationPolicy,
   SessionStore,
   SessionTokens,
+  SetupGate,
 } from './auth-ports.ts'
 import type { IdGenerator } from './ports.ts'
 
@@ -40,6 +41,13 @@ export class RegistrationClosedError extends Error {
   }
 }
 
+export class SetupCodeInvalidError extends Error {
+  constructor() {
+    super('The setup code is missing or wrong. Find it in the server log.')
+    this.name = 'SetupCodeInvalidError'
+  }
+}
+
 export const MIN_PASSWORD_LENGTH = 12
 /** Upper bound so a huge password cannot be used to burn hashing time. */
 export const MAX_PASSWORD_LENGTH = 128
@@ -61,6 +69,8 @@ export interface AuthDependencies {
   clock: Clock
   ids: IdGenerator
   registrationPolicy: RegistrationPolicy
+  /** Present only on an instance that has no owner yet. */
+  setupGate?: SetupGate | undefined
   sessionTtlMs?: number
 }
 
@@ -87,7 +97,11 @@ export function createAuth(deps: AuthDependencies) {
       username: string
       password: string
       displayName?: string | undefined
+      setupCode?: string | undefined
     }): Promise<User> {
+      // Checked before anything else, and before the slow password hash, so a wrong guess is cheap.
+      const gate = deps.setupGate
+      if (gate?.isOpen() && !gate.accepts(input.setupCode)) throw new SetupCodeInvalidError()
       const username = Username(input.username)
       assertPasswordPolicy(input.password, username)
       const userId = UserId(ids.next())
@@ -98,9 +112,16 @@ export function createAuth(deps: AuthDependencies) {
         { userId, username, passwordHash },
         deps.registrationPolicy,
       )
+      // Either way an owner exists now (or already did), so the code has done its job.
+      if (outcome !== 'username-taken') gate?.close()
       if (outcome === 'registration-closed') throw new RegistrationClosedError()
       if (outcome === 'username-taken') throw new UsernameTakenError()
       return user
+    },
+
+    /** Whether the first registration needs a setup code. Safe to show to anyone. */
+    setupCodeRequired(): boolean {
+      return deps.setupGate?.isOpen() ?? false
     },
 
     async login(input: { username: string; password: string }): Promise<LoginResult> {

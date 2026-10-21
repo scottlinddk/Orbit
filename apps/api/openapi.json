@@ -14,6 +14,17 @@
       }
     },
     "schemas": {
+      "SetupStatusInput": {
+        "type": "object",
+        "properties": {
+          "setupCodeRequired": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "setupCodeRequired"
+        ]
+      },
       "UserInput": {
         "type": "object",
         "properties": {
@@ -186,6 +197,18 @@
           "name",
           "members"
         ]
+      },
+      "SetupStatus": {
+        "type": "object",
+        "properties": {
+          "setupCodeRequired": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "setupCodeRequired"
+        ],
+        "additionalProperties": false
       },
       "User": {
         "type": "object",
@@ -370,13 +393,44 @@
     }
   },
   "paths": {
+    "/api/v1/auth/setup": {
+      "get": {
+        "summary": "Whether creating the first account needs a setup code",
+        "tags": [
+          "auth"
+        ],
+        "description": "True only on a new instance that has no owner yet. The code is printed once in the server log at start. It is never returned by the API.",
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupStatus"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/auth/register": {
       "post": {
         "summary": "Create an account",
         "tags": [
           "auth"
         ],
-        "description": "On a new instance the first account can always be created. After that this is closed unless ORBIT_REGISTRATION=open. It does not sign you in.",
+        "description": "On a new instance the first account can be created with the setup code from the server log (see GET /auth/setup). After that this is closed unless ORBIT_REGISTRATION=open. It does not sign you in.",
         "requestBody": {
           "required": true,
           "content": {
@@ -398,6 +452,11 @@
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 80
+                  },
+                  "setupCode": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64
                   }
                 },
                 "required": [

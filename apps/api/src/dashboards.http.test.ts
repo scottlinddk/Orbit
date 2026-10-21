@@ -87,10 +87,14 @@ describe.each(['memory', 'sqlite'] as const)(
       expect((await alice.get(`${V1}/dashboards/${d.id}`)).body).toEqual(removed.body)
       expect(
         (await alice.get(`${V1}/households/${household}/dashboards`)).body.dashboards,
-      ).toHaveLength(1)
+      ).toHaveLength(2) // the starter dashboard and this one
 
       expect((await alice.delete(`${V1}/dashboards/${d.id}`)).status).toBe(204)
       expect((await alice.get(`${V1}/dashboards/${d.id}`)).status).toBe(404)
+      // The starter dashboard is an ordinary one: it can be deleted too.
+      const left = (await alice.get(`${V1}/households/${household}/dashboards`)).body.dashboards
+      expect(left).toHaveLength(1)
+      expect((await alice.delete(`${V1}/dashboards/${left[0].id}`)).status).toBe(204)
     })
 
     it('adds a member by username and lets them read', async () => {
