@@ -1,8 +1,11 @@
 import {
   CounterIdGenerator,
+  ManualClock,
+  SequentialSessionTokens,
   InMemoryAccountRepository,
   InMemoryDashboardRepository,
   InMemoryHouseholdRepository,
+  InMemoryInvitationRepository,
   InMemorySessionStore,
   InMemoryUserRepository,
 } from '@orbit/adapter-in-memory'
@@ -10,6 +13,7 @@ import {
   SqliteAccountRepository,
   SqliteDashboardRepository,
   SqliteHouseholdRepository,
+  SqliteInvitationRepository,
   SqliteSessionStore,
   SqliteUserRepository,
   migrate,
@@ -21,15 +25,24 @@ import type { RepositorySet } from './repository-contracts.ts'
 
 export interface TestSystem {
   useCases: UseCases
+  /** Moves time forward for invitations and anything else that expires. */
+  clock: ManualClock
   /** Registers a user and returns the actor that user would log in as. */
   newActor(name: string): Promise<Actor>
 }
 
 /** The platform wired with the given repositories. */
 export function createSystem(repos: RepositorySet): TestSystem {
-  const useCases = createUseCases({ ...repos, ids: new CounterIdGenerator() })
+  const clock = new ManualClock()
+  const useCases = createUseCases({
+    ...repos,
+    tokens: new SequentialSessionTokens(),
+    clock,
+    ids: new CounterIdGenerator(),
+  })
   return {
     useCases,
+    clock,
     async newActor(name) {
       const id = UserId(`user-${name}`)
       const outcome = await repos.accounts.register(
@@ -50,6 +63,7 @@ export function createInMemoryRepositories(): RepositorySet {
     accounts: new InMemoryAccountRepository(users),
     sessions: new InMemorySessionStore(),
     households: new InMemoryHouseholdRepository(),
+    invitations: new InMemoryInvitationRepository(),
     dashboards: new InMemoryDashboardRepository(),
   }
 }
@@ -63,6 +77,7 @@ export function createSqliteRepositories(): RepositorySet {
     accounts: new SqliteAccountRepository(db),
     sessions: new SqliteSessionStore(db),
     households: new SqliteHouseholdRepository(db),
+    invitations: new SqliteInvitationRepository(db),
     dashboards: new SqliteDashboardRepository(db),
   }
 }

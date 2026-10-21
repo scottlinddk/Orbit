@@ -15,6 +15,7 @@ interface Ids {
   household: string
   dashboard: string
   widget: string
+  invitation: string
   alice: string
 }
 
@@ -48,6 +49,24 @@ const cases: Case[] = [
     key: 'delete /api/v1/households/{householdId}/members/{userId}',
     call: (c, i) => c.delete(`${V1}/households/${i.household}/members/${i.alice}`),
     callMissing: (c) => c.delete(`${V1}/households/${GONE}/members/${GONE}`),
+    memberAllowed: false,
+  },
+  {
+    key: 'post /api/v1/households/{householdId}/invitations',
+    call: (c, i) => c.post(`${V1}/households/${i.household}/invitations`, { role: 'owner' }),
+    callMissing: (c) => c.post(`${V1}/households/${GONE}/invitations`, { role: 'owner' }),
+    memberAllowed: false,
+  },
+  {
+    key: 'get /api/v1/households/{householdId}/invitations',
+    call: (c, i) => c.get(`${V1}/households/${i.household}/invitations`),
+    callMissing: (c) => c.get(`${V1}/households/${GONE}/invitations`),
+    memberAllowed: false,
+  },
+  {
+    key: 'delete /api/v1/households/{householdId}/invitations/{invitationId}',
+    call: (c, i) => c.delete(`${V1}/households/${i.household}/invitations/${i.invitation}`),
+    callMissing: (c) => c.delete(`${V1}/households/${GONE}/invitations/${GONE}`),
     memberAllowed: false,
   },
   {
@@ -152,8 +171,10 @@ describe.each(['memory', 'sqlite'] as const)('household isolation over HTTP (%s)
     const withWidget = (
       await alice.post(`${V1}/dashboards/${dashboard.id}/widgets`, { type: 'calendar.agenda' })
     ).body
+    const invitation = (await alice.post(`${V1}/households/${household}/invitations`)).body
     ids = {
       household,
+      invitation: invitation.id,
       dashboard: dashboard.id,
       widget: withWidget.widgets[0].id,
       alice: aliceUser.id,
@@ -164,6 +185,7 @@ describe.each(['memory', 'sqlite'] as const)('household isolation over HTTP (%s)
   const state = async () => ({
     household: (await alice.get(`${V1}/households/${ids.household}`)).body,
     dashboards: (await alice.get(`${V1}/households/${ids.household}/dashboards`)).body,
+    invitations: (await alice.get(`${V1}/households/${ids.household}/invitations`)).body,
   })
 
   it('covers every protected operation in the OpenAPI document', async () => {

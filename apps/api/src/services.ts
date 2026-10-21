@@ -36,6 +36,9 @@ export function assembleServices(parts: ServiceParts): Services {
       accounts: repos.accounts,
       households: repos.households,
       dashboards: repos.dashboards,
+      invitations: repos.invitations,
+      tokens,
+      clock,
       ids,
     }),
     auth: createAuth({
@@ -45,6 +48,8 @@ export function assembleServices(parts: ServiceParts): Services {
       tokens,
       clock,
       ids,
+      invitations: repos.invitations,
+      households: repos.households,
       registrationPolicy,
       setupGate,
     }),

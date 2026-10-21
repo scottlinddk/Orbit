@@ -21,12 +21,23 @@ describe('accessibility (axe)', () => {
     await expectNoA11yViolations()
   })
 
+  it('invitation page', async () => {
+    stubApi({
+      'GET /api/v1/auth/me': problem(401, 'Sign in required', 'unauthenticated'),
+      'POST /api/v1/invitations/preview': { body: { householdName: 'Hansens', role: 'member' } },
+    })
+    renderApp('/join#tok')
+    await screen.findByRole('heading', { name: 'Join Hansens' })
+    await expectNoA11yViolations()
+  })
+
   it('household page for an owner', async () => {
     stubApi({
       'GET /api/v1/auth/me': { body: ME },
       'GET /api/v1/households': { body: { households: [household()] } },
       'GET /api/v1/households/h1': { body: household() },
       'GET /api/v1/households/h1/dashboards': { body: { dashboards: [dashboard()] } },
+      'GET /api/v1/households/h1/invitations': { body: { invitations: [] } },
     })
     renderApp('/h/h1')
     await screen.findByLabelText('Add a member by username')

@@ -1,6 +1,6 @@
 import { ForbiddenError, NotFoundError, type Actor } from '@orbit/application'
 import type { HouseholdId } from '@orbit/domain'
-import { DashboardId, InvariantViolation, WidgetPlacementId } from '@orbit/domain'
+import { DashboardId, InvariantViolation, InvitationId, WidgetPlacementId } from '@orbit/domain'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { TestSystem } from './fixtures.ts'
 
@@ -21,6 +21,7 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
     let householdA: HouseholdId
     let dashboardA: DashboardId
     let widgetA: WidgetPlacementId
+    let invitationA: InvitationId
 
     beforeEach(async () => {
       sys = create()
@@ -35,6 +36,7 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
       dashboardA = dashboard.id
       const withWidget = await uc.addWidget(alice, dashboardA, { type: 'calendar.agenda' })
       widgetA = withWidget.widgets[0]!.id
+      invitationA = (await uc.createInvitation(alice, householdA, {})).invitation.id
     })
 
     /** Every operation, parameterized by who performs it. */
@@ -48,6 +50,9 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
         addHouseholdMemberByUsername: () =>
           uc().addHouseholdMemberByUsername(as(), householdA, { username: 'carol' }),
         removeHouseholdMember: () => uc().removeHouseholdMember(as(), householdA, alice.userId),
+        createInvitation: () => uc().createInvitation(as(), householdA, { role: 'owner' }),
+        listInvitations: () => uc().listInvitations(as(), householdA),
+        revokeInvitation: () => uc().revokeInvitation(as(), householdA, invitationA),
         createDashboard: () => uc().createDashboard(as(), householdA, { name: 'Intruder' }),
         listDashboards: () => uc().listDashboards(as(), householdA),
         getDashboard: () => uc().getDashboard(as(), dashboardA),
@@ -61,12 +66,15 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
         deleteDashboard: () => uc().deleteDashboard(as(), dashboardA),
         // Operations on ids that do not exist must be indistinguishable from foreign ones.
         removeWidgetMissing: () => uc().removeWidget(as(), dashboardA, missingWidget),
+        revokeInvitationMissing: () =>
+          uc().revokeInvitation(as(), householdA, InvitationId('missing')),
       }
     }
 
     const snapshot = async () => ({
       household: await sys.useCases.getHousehold(alice, householdA),
       dashboards: await sys.useCases.listDashboards(alice, householdA),
+      invitations: await sys.useCases.listInvitations(alice, householdA),
     })
 
     describe('a user from another household', () => {
@@ -104,6 +112,9 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
         'addHouseholdMember',
         'addHouseholdMemberByUsername',
         'removeHouseholdMember',
+        'createInvitation',
+        'listInvitations',
+        'revokeInvitation',
         'createDashboard',
         'renameDashboard',
         'setDashboardColumns',
@@ -119,6 +130,28 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
         const attempt = (operations(() => bob) as Record<string, () => Promise<unknown>>)[op]!
         await expect(attempt()).rejects.toBeInstanceOf(ForbiddenError)
         expect(await snapshot()).toEqual(before)
+      })
+    })
+
+    describe('invitations', () => {
+      it("cannot be revoked through another household's id", async () => {
+        const carolsHousehold = (await sys.useCases.listHouseholds(carol))[0]!.id
+        await expect(
+          sys.useCases.revokeInvitation(carol, carolsHousehold, invitationA),
+        ).rejects.toBeInstanceOf(NotFoundError)
+        expect(await sys.useCases.listInvitations(alice, householdA)).toHaveLength(1)
+      })
+
+      it('gives a foreign invitation id the same answer as a missing one', async () => {
+        const carolsHousehold = (await sys.useCases.listHouseholds(carol))[0]!.id
+        const foreign = await sys.useCases
+          .revokeInvitation(carol, carolsHousehold, invitationA)
+          .catch((e) => e)
+        const missing = await sys.useCases
+          .revokeInvitation(carol, carolsHousehold, InvitationId('missing'))
+          .catch((e) => e)
+        expect(foreign).toBeInstanceOf(NotFoundError)
+        expect(foreign.message).toBe(missing.message)
       })
     })
 

@@ -73,4 +73,23 @@ export const migrations: readonly Migration[] = [
       CREATE INDEX sessions_by_expiry ON sessions(expires_at);
     `,
   },
+  {
+    version: 3,
+    name: 'invitations',
+    sql: `
+      CREATE TABLE invitations (
+        id TEXT PRIMARY KEY,
+        household_id TEXT NOT NULL,
+        role TEXT NOT NULL CHECK (role IN ('owner', 'member')),
+        token_hash TEXT NOT NULL UNIQUE,
+        created_by TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        accepted_by TEXT,
+        accepted_at TEXT,
+        revoked_at TEXT
+      ) STRICT;
+      CREATE INDEX invitations_by_household ON invitations(household_id);
+    `,
+  },
 ]

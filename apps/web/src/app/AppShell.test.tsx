@@ -13,8 +13,10 @@ describe('app shell', () => {
       'GET /api/v1/households': { body: { households: [household(), other] } },
       'GET /api/v1/households/h1': { body: household() },
       'GET /api/v1/households/h1/dashboards': { body: { dashboards: [] } },
+      'GET /api/v1/households/h1/invitations': { body: { invitations: [] } },
       'GET /api/v1/households/h2': { body: other },
       'GET /api/v1/households/h2/dashboards': { body: { dashboards: [] } },
+      'GET /api/v1/households/h2/invitations': { body: { invitations: [] } },
     })
     const { user } = renderApp('/h/h1')
     const switcher = await screen.findByLabelText('Household')
@@ -29,6 +31,7 @@ describe('app shell', () => {
       'GET /api/v1/households': { body: { households: [household()] } },
       'GET /api/v1/households/h1': { body: household() },
       'GET /api/v1/households/h1/dashboards': { body: { dashboards: [] } },
+      'GET /api/v1/households/h1/invitations': { body: { invitations: [] } },
       'POST /api/v1/auth/logout': { status: 204 },
     })
     const { user } = renderApp('/h/h1')
@@ -48,6 +51,7 @@ describe('app shell', () => {
       'GET /api/v1/households': { body: { households: [household()] } },
       'GET /api/v1/households/h1': { body: household() },
       'GET /api/v1/households/h1/dashboards': { body: { dashboards: [] } },
+      'GET /api/v1/households/h1/invitations': { body: { invitations: [] } },
       'POST /api/v1/auth/logout': { status: 204 },
     })
     const { user, queryClient } = renderApp('/h/h1')

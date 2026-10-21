@@ -1,18 +1,21 @@
 import {
   addMemberRequestSchema,
   createHouseholdRequestSchema,
+  createInvitationRequestSchema,
   createDashboardRequestSchema,
+  createdInvitationSchema,
   dashboardSchema,
   householdSchema,
   idSchema,
+  invitationSchema,
 } from '@orbit/contracts'
-import { HouseholdId, UserId } from '@orbit/domain'
+import { HouseholdId, InvitationId, UserId } from '@orbit/domain'
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import { z } from 'zod'
 import { actorOf } from '../http/session.ts'
-import { dashboardResponse, householdResponse } from '../mappers.ts'
+import { dashboardResponse, householdResponse, invitationResponse } from '../mappers.ts'
 import type { Services } from '../services.ts'
-import { errors, sessionSecurity } from './schemas.ts'
+import { errors, noContent, sessionSecurity } from './schemas.ts'
 
 export interface ProtectedRouteOptions {
   services: Services
@@ -124,6 +127,87 @@ export const householdRoutes =
             UserId(request.params.userId),
           ),
         ),
+    )
+
+    app.post(
+      '/households/:householdId/invitations',
+      {
+        schema: {
+          ...common,
+          tags: ['invitations'],
+          summary: 'Invite someone to the household (owners only)',
+          description:
+            'Returns the secret token once. Share it as a link; Orbit keeps only a hash and cannot show it again. The invitee chooses their own username and password.',
+          params: householdParams,
+          body: createInvitationRequestSchema,
+          response: {
+            201: createdInvitationSchema,
+            400: errors[400],
+            401: errors[401],
+            403: errors[403],
+            404: errors[404],
+            422: errors[422],
+          },
+        },
+      },
+      async (request, reply) => {
+        const { invitation, token } = await useCases.createInvitation(
+          actorOf(request),
+          HouseholdId(request.params.householdId),
+          request.body,
+        )
+        return reply.code(201).send({ ...invitationResponse(invitation), token })
+      },
+    )
+
+    app.get(
+      '/households/:householdId/invitations',
+      {
+        schema: {
+          ...common,
+          tags: ['invitations'],
+          summary: 'Invitations that can still be used (owners only)',
+          params: householdParams,
+          response: {
+            200: z.object({ invitations: z.array(invitationSchema) }),
+            401: errors[401],
+            403: errors[403],
+            404: errors[404],
+          },
+        },
+      },
+      async (request) => ({
+        invitations: (
+          await useCases.listInvitations(actorOf(request), HouseholdId(request.params.householdId))
+        ).map(invitationResponse),
+      }),
+    )
+
+    app.delete(
+      '/households/:householdId/invitations/:invitationId',
+      {
+        schema: {
+          ...common,
+          tags: ['invitations'],
+          summary: 'Revoke an invitation (owners only)',
+          params: householdParams.extend({ invitationId: idSchema }),
+          response: {
+            204: noContent,
+            401: errors[401],
+            403: errors[403],
+            404: errors[404],
+            422: errors[422],
+          },
+        },
+      },
+      async (request, reply) => {
+        await useCases.revokeInvitation(
+          actorOf(request),
+          HouseholdId(request.params.householdId),
+          InvitationId(request.params.invitationId),
+        )
+        return reply.code(204).send(null)
+      },
     )
 
     app.get(

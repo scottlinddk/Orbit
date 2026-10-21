@@ -36,6 +36,8 @@ describe.each([
       tokens: new SequentialSessionTokens(),
       clock,
       ids: { next: () => `id-${++n}` },
+      invitations: repos.invitations,
+      households: repos.households,
       registrationPolicy,
       setupGate,
     })

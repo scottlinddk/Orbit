@@ -1,5 +1,5 @@
-import type { DashboardResponse, HouseholdResponse } from '@orbit/contracts'
-import type { Dashboard, Household } from '@orbit/domain'
+import type { DashboardResponse, HouseholdResponse, InvitationResponse } from '@orbit/contracts'
+import type { Dashboard, Household, Invitation } from '@orbit/domain'
 
 export const householdResponse = (h: Household): HouseholdResponse => ({
   id: h.id,
@@ -13,4 +13,11 @@ export const dashboardResponse = (d: Dashboard): DashboardResponse => ({
   name: d.name,
   columns: d.columns,
   widgets: d.widgets.map((w) => ({ id: w.id, type: w.type, span: w.span, config: w.config })),
+})
+
+export const invitationResponse = (i: Invitation): InvitationResponse => ({
+  id: i.id,
+  role: i.role,
+  createdAt: i.createdAt.toISOString(),
+  expiresAt: i.expiresAt.toISOString(),
 })

@@ -3,5 +3,7 @@ export const PUBLIC_OPERATIONS: ReadonlySet<string> = new Set([
   'post /api/v1/auth/register',
   'post /api/v1/auth/login',
   'get /api/v1/auth/setup',
+  'post /api/v1/invitations/preview',
+  'post /api/v1/invitations/accept',
   'get /api/v1/health',
 ])

@@ -81,3 +81,9 @@
   border-radius: var(--radius-sm);
   background: var(--color-surface-2);
 }
+
+.subheading {
+  margin: var(--space-2) 0 0;
+  font-size: 1rem;
+  font-weight: 600;
+}

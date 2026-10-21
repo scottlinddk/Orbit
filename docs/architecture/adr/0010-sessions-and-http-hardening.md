@@ -14,7 +14,7 @@ ADR 0002 chose local accounts with server-side sessions. This records how they w
 - Passwords are 12 to 128 characters. No composition rules (NIST 800-63B). There is no breached-password check yet because it needs a network or a large local list.
 - Usernames are lowercase, 3 to 32 characters, unique case-insensitively.
 - Login answers identically for a wrong password, an unknown user and a malformed username, and spends the same hashing time for all three (a decoy hash), so neither the response nor its timing reveals which usernames exist.
-- `ORBIT_REGISTRATION=first-user-only` (default) lets the first account register and then closes. It answers "closed" before "taken", so a closed instance reveals no usernames. `open` is for private networks. Invitations are future work. Until then an owner adds existing accounts by username.
+- `ORBIT_REGISTRATION=first-user-only` (default) lets the first account register and then closes. It answers "closed" before "taken", so a closed instance reveals no usernames. `open` is for private networks. Owners invite people with a link ([ADR 0015](0015-household-invitations.md)), which works while registration is closed. An owner can also add an existing account by username.
 
 **Sessions**
 
