@@ -21,7 +21,7 @@ Copy `.env.example` to `.env` next to `compose.yaml` and change what you need. E
 | Variable             | Why                                                                                                                                                 |
 | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ORBIT_PUBLIC_URL`   | The address people type in the browser. Must match exactly, because the API rejects writes from any other origin. Use `https://...` behind a proxy. |
-| `ORBIT_HOST_PORT`    | The port on this machine. Default 3000.                                                                                                             |
+| `ORBIT_HOST_PORT`    | The port on this machine. Default 3000. The default `ORBIT_PUBLIC_URL` (`http://localhost:<port>`) follows it.                                      |
 | `ORBIT_TRUST_PROXY`  | `true` only behind a reverse proxy you control, so rate limits see real client addresses.                                                           |
 | `ORBIT_REGISTRATION` | `first-user-only` (default) or `open`.                                                                                                              |
 
@@ -72,6 +72,17 @@ docker compose up -d --build
 ```
 
 Database migrations run when Orbit starts and are forward-only. A database written by a newer Orbit is refused, so you cannot silently downgrade. To go back, restore the backup you took first.
+
+## Troubleshooting
+
+### Sign-in or registration fails with 403 `origin-not-allowed`
+
+Orbit accepts writes only from the exact address in `ORBIT_PUBLIC_URL`. The browser must use that address, character for character. Two common causes:
+
+- You opened `http://127.0.0.1:3000` but the default is `http://localhost:3000`. Use `localhost`, or set `ORBIT_PUBLIC_URL=http://127.0.0.1:3000` in `.env`.
+- You reached Orbit through a different host name, a proxy, or `https://`. Set `ORBIT_PUBLIC_URL` to the address people actually type, then `docker compose up -d`.
+
+If you only change `ORBIT_HOST_PORT`, nothing else is needed: the default public URL follows it. If you set `ORBIT_PUBLIC_URL` yourself, its port must match.
 
 ## Logs and health
 
