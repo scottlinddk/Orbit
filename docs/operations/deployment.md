@@ -10,7 +10,22 @@ cd Orbit
 docker compose up -d --build
 ```
 
-Open <http://localhost:3000>. Choose **Create the first account**. That account becomes the owner. Registration then closes (see [Adding people](#adding-people)).
+Open <http://localhost:3000>. Choose **Create the first account**. It asks for a **setup code**, which Orbit printed in its log when it started:
+
+```sh
+docker compose logs orbit | grep -A1 "setup code"
+```
+
+That account becomes the owner. Registration then closes (see [Adding people](#adding-people)).
+
+### Why a setup code
+
+Until the owner exists, anyone who can reach the page could register and become the owner. On a public domain that is a takeover path, so the first account needs a code that only someone with access to the server log has. The code is random, shown once per start, kept only as a hash in memory, and discarded as soon as the owner exists. The API never returns it.
+
+- **Lost it, or restarted before registering?** Restart Orbit (`docker compose restart orbit`) and read the new code from the log. A new code is made each start while there is no owner.
+- **Want to choose it yourself?** Set `ORBIT_SETUP_CODE` (12 to 64 characters) in `.env`. Remove it after setup.
+- **Prefer not to use the web page?** Create the owner on the server with `docker compose exec orbit orbit create-user <name>`. That needs no code. Once an account exists, the code is no longer asked for.
+- `ORBIT_REGISTRATION=open` has no setup code, because it lets anyone register by design.
 
 Compose binds the port to `127.0.0.1` only. To reach Orbit from other devices, put HTTPS in front of it (next section). Do not publish the plain HTTP port to the internet: the session cookie would travel unencrypted.
 

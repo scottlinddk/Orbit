@@ -3,6 +3,7 @@ import {
   InvalidCredentialsError,
   NotFoundError,
   RegistrationClosedError,
+  SetupCodeInvalidError,
   UsernameTakenError,
 } from '@orbit/application'
 import { InvariantViolation } from '@orbit/domain'
@@ -47,6 +48,8 @@ export function toProblem(error: unknown): Problem {
   if (error instanceof ForbiddenError) return problem(403, 'forbidden', 'Forbidden', error.message)
   if (error instanceof RegistrationClosedError)
     return problem(403, 'registration-closed', 'Forbidden', error.message)
+  if (error instanceof SetupCodeInvalidError)
+    return problem(403, 'setup-code-invalid', 'Forbidden', error.message)
   if (error instanceof OriginNotAllowedError)
     return problem(403, 'origin-not-allowed', 'Forbidden', error.message)
   if (error instanceof UsernameTakenError)

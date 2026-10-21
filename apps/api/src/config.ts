@@ -6,6 +6,8 @@ const environment = z.object({
   ORBIT_PORT: z.coerce.number().int().min(1).max(65535).default(3000),
   /** The address people type into the browser. Decides the cookie flags and the allowed Origin. */
   ORBIT_PUBLIC_URL: z.url({ protocol: /^https?$/ }).default('http://localhost:3000'),
+  /** Your own setup code for the first registration, instead of one printed in the log. */
+  ORBIT_SETUP_CODE: z.string().min(12).max(64).optional(),
   ORBIT_REGISTRATION: z.enum(['first-user-only', 'open']).default('first-user-only'),
   /** Set to true only behind a reverse proxy you control, so client IPs come from its headers. */
   ORBIT_TRUST_PROXY: z.enum(['true', 'false']).default('false'),
@@ -26,6 +28,7 @@ export interface Config {
   origin: string
   secureCookies: boolean
   registration: 'first-user-only' | 'open'
+  setupCode: string | undefined
   trustProxy: boolean
   webDir: string | undefined
   migrationSnapshots: number
@@ -40,7 +43,11 @@ export class ConfigError extends Error {
 }
 
 export function loadConfig(env: Record<string, string | undefined>): Config {
-  const parsed = environment.safeParse(env)
+  // Compose passes unset optional variables as empty strings.
+  const parsed = environment.safeParse({
+    ...env,
+    ORBIT_SETUP_CODE: env.ORBIT_SETUP_CODE || undefined,
+  })
   if (!parsed.success) {
     const lines = parsed.error.issues.map((i) => `  ${i.path.join('.')}: ${i.message}`)
     throw new ConfigError(`Invalid configuration:\n${lines.join('\n')}`)
@@ -54,6 +61,7 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     origin: url.origin,
     secureCookies: url.protocol === 'https:',
     registration: e.ORBIT_REGISTRATION,
+    setupCode: e.ORBIT_SETUP_CODE,
     trustProxy: e.ORBIT_TRUST_PROXY === 'true',
     webDir: e.ORBIT_WEB_DIR,
     migrationSnapshots: e.ORBIT_MIGRATION_SNAPSHOTS,

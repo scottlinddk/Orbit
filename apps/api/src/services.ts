@@ -8,6 +8,7 @@ import {
   type Repositories,
   type RegistrationPolicy,
   type SessionTokens,
+  type SetupGate,
   type UseCases,
 } from '@orbit/application'
 
@@ -23,11 +24,12 @@ export interface ServiceParts {
   clock: Clock
   ids: IdGenerator
   registrationPolicy: RegistrationPolicy
+  setupGate?: SetupGate | undefined
 }
 
 /** Wires the application layer to concrete adapters. The only place that does so. */
 export function assembleServices(parts: ServiceParts): Services {
-  const { repos, hasher, tokens, clock, ids, registrationPolicy } = parts
+  const { repos, hasher, tokens, clock, ids, registrationPolicy, setupGate } = parts
   return {
     useCases: createUseCases({
       users: repos.users,
@@ -44,6 +46,7 @@ export function assembleServices(parts: ServiceParts): Services {
       clock,
       ids,
       registrationPolicy,
+      setupGate,
     }),
   }
 }

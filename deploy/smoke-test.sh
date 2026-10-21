@@ -48,14 +48,24 @@ step "The web app and the API answer on one port"
 expect "shell" "$(curl -s -o /dev/null -w '%{http_code}' -H 'accept: text/html' "$BASE/d/anything")" 200
 expect "health" "$(curl -s "$BASE/api/v1/health")" '{"status":"ok"}'
 
+step "A new instance refuses the first account without its setup code"
+expect "setup code required" "$(curl -s "$BASE/api/v1/auth/setup")" '{"setupCodeRequired":true}'
+SETUP_CODE="$(docker compose logs --no-color orbit | grep -o 'setup code: [A-Z0-9-]*' | tail -1 | cut -d' ' -f3)"
+[ -n "$SETUP_CODE" ] || fail "no setup code in the container log"
+expect "register without the code" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/api/v1/auth/register" \
+  -H 'content-type: application/json' -d '{"username":"scott","password":"correct horse battery"}')" 403
+expect "register with a wrong code" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/api/v1/auth/register" \
+  -H 'content-type: application/json' -d '{"username":"scott","password":"correct horse battery","setupCode":"AAAA-AAAA-AAAA"}')" 403
+
 if [ "${RUN_E2E:-0}" = 1 ]; then
   step "Browser suite against the container"
-  ORBIT_E2E_URL="$BASE" pnpm --filter @orbit/e2e test
+  ORBIT_E2E_URL="$BASE" ORBIT_E2E_SETUP_CODE="$SETUP_CODE" pnpm --filter @orbit/e2e test
 else
-  step "Create the first account by API (browser suite skipped)"
+  step "Create the first account by API with the setup code (browser suite skipped)"
   expect "register" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/api/v1/auth/register" \
-    -H 'content-type: application/json' -d '{"username":"scott","password":"correct horse battery"}')" 201
+    -H 'content-type: application/json' -d "{\"username\":\"scott\",\"password\":\"correct horse battery\",\"setupCode\":\"$SETUP_CODE\"}")" 201
 fi
+expect "setup code is gone once the owner exists" "$(curl -s "$BASE/api/v1/auth/setup")" '{"setupCodeRequired":false}'
 expect "login before the disaster" "$(login_status scott 'correct horse battery')" 200
 HOUSEHOLD="$(curl -s -b "$WORK/jar" -X POST "$BASE/api/v1/households" -H 'content-type: application/json' -d '{"name":"Recovery drill"}' | node -e "$NODE_JSON" '.id')"
 

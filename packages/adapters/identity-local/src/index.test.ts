@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { Argon2PasswordHasher, RandomSessionTokens } from './index.ts'
+import { Argon2PasswordHasher, OneTimeSetupGate, RandomSessionTokens } from './index.ts'
 
 describe('Argon2PasswordHasher', () => {
   const hasher = new Argon2PasswordHasher()
@@ -41,5 +41,40 @@ describe('RandomSessionTokens', () => {
     expect(tokens.hash(token)).toBe(tokenHash)
     expect(tokenHash).not.toContain(token)
     expect(tokenHash).toMatch(/^[0-9a-f]{64}$/)
+  })
+})
+
+describe('OneTimeSetupGate', () => {
+  it('generates a readable code that opens the gate once', () => {
+    const { gate, code } = OneTimeSetupGate.generate()
+    expect(code).toMatch(/^[A-HJKMNP-Z2-9]{4}-[A-HJKMNP-Z2-9]{4}-[A-HJKMNP-Z2-9]{4}$/)
+    expect(gate.isOpen()).toBe(true)
+    expect(gate.accepts(code)).toBe(true)
+    expect(gate.accepts(undefined)).toBe(false)
+    expect(gate.accepts('AAAA-AAAA-AAAA')).toBe(false)
+  })
+
+  it('ignores case, dashes and spaces when typing', () => {
+    const { gate, code } = OneTimeSetupGate.generate()
+    expect(gate.accepts(code.toLowerCase().replaceAll('-', ' '))).toBe(true)
+    expect(gate.accepts(code.replaceAll('-', ''))).toBe(true)
+  })
+
+  it('does not repeat codes', () => {
+    const codes = new Set(Array.from({ length: 50 }, () => OneTimeSetupGate.generate().code))
+    expect(codes.size).toBe(50)
+  })
+
+  it('accepts a code the operator chose', () => {
+    const gate = OneTimeSetupGate.fromCode('my-own-long-code')
+    expect(gate.accepts('MYOWNLONGCODE')).toBe(true)
+    expect(gate.accepts('my-own-long-cod')).toBe(false)
+  })
+
+  it('accepts nothing after it is closed', () => {
+    const { gate, code } = OneTimeSetupGate.generate()
+    gate.close()
+    expect(gate.isOpen()).toBe(false)
+    expect(gate.accepts(code)).toBe(false)
   })
 })

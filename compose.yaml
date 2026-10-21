@@ -14,6 +14,7 @@ services:
       # follows ORBIT_HOST_PORT, so changing the published port needs no second setting.
       ORBIT_PUBLIC_URL: ${ORBIT_PUBLIC_URL:-http://localhost:${ORBIT_HOST_PORT:-3000}}
       ORBIT_REGISTRATION: ${ORBIT_REGISTRATION:-first-user-only}
+      ORBIT_SETUP_CODE: ${ORBIT_SETUP_CODE:-}
       ORBIT_TRUST_PROXY: ${ORBIT_TRUST_PROXY:-false}
       ORBIT_MIGRATION_SNAPSHOTS: ${ORBIT_MIGRATION_SNAPSHOTS:-5}
       ORBIT_LOG_LEVEL: ${ORBIT_LOG_LEVEL:-info}
