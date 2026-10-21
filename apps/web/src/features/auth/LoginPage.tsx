@@ -5,6 +5,7 @@ import { Alert } from '../../components/Alert.tsx'
 import { Button } from '../../components/Button.tsx'
 import { Loading } from '../../components/Loading.tsx'
 import { TextField } from '../../components/TextField.tsx'
+import { HeroIllustration } from './HeroIllustration.tsx'
 import styles from './LoginPage.module.css'
 
 type Mode = 'sign-in' | 'create'
@@ -52,6 +53,7 @@ export function LoginPage() {
   return (
     <main className={styles.page}>
       <section className={styles.hero} aria-label="About Orbit">
+        <HeroIllustration className={styles.art} />
         <p className={styles.heroTitle}>Modern tools for modern households</p>
         <p className={styles.heroText}>
           Shared dashboards for the people you live with. Self-hosted, and yours.

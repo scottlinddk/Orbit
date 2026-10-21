@@ -127,4 +127,13 @@ describe('login page', () => {
       expect(screen.getByLabelText('Username')).toHaveAttribute('autocomplete', 'username'),
     )
   })
+
+  it('shows a decorative illustration that assistive technology skips', async () => {
+    stubApi({ 'GET /api/v1/auth/me': problem(401, 'Sign in required', 'unauthenticated') })
+    renderApp('/login')
+    await screen.findByRole('heading', { name: 'Sign in to Orbit' })
+    const art = document.querySelector('section[aria-label="About Orbit"] svg')
+    expect(art).toHaveAttribute('aria-hidden', 'true')
+    expect(screen.queryByRole('img')).not.toBeInTheDocument()
+  })
 })

@@ -12,11 +12,20 @@
   display: grid;
   align-content: end;
   gap: var(--space-2);
-  min-height: 13rem;
+  grid-template-rows: 1fr auto auto;
+  min-height: 22rem;
   padding: var(--space-6);
+  overflow: hidden;
   border-radius: var(--radius);
   background: var(--hero-bg);
   color: var(--color-hero-text);
+}
+
+.art {
+  width: min(100%, 15rem);
+  justify-self: center;
+  align-self: start;
+  margin-top: calc(var(--space-6) * -1);
 }
 
 .heroTitle {
