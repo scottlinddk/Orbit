@@ -233,6 +233,12 @@ importers:
         specifier: ^1.64.1
         version: 1.64.1
 
+  packages/adapters/egress-guard:
+    dependencies:
+      '@orbit/application':
+        specifier: workspace:*
+        version: link:../../application
+
   packages/adapters/identity-local:
     dependencies:
       '@node-rs/argon2':

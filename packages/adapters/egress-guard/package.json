@@ -1,0 +1,17 @@
+{
+  "name": "@orbit/adapter-egress-guard",
+  "version": "0.0.0",
+  "private": true,
+  "description": "EgressFetcher that blocks private addresses, pins DNS and caps size and time",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@orbit/application": "workspace:*"
+  }
+}

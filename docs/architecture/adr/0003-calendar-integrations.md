@@ -26,3 +26,7 @@ The original plan said one external integration. Three providers is a larger com
 
 - Outbound requests (ICS, CalDAV) use explicit timeouts, size limits, and SSRF protection (block private ranges unless the admin opts in, since self-hosters may legitimately use LAN CalDAV).
 - Feed content is untrusted input and is parsed defensively.
+
+## Egress guard (implemented)
+
+Outbound fetches go through the `EgressFetcher` port (`packages/application/src/egress.ts`), implemented by `packages/adapters/egress-guard`. It resolves DNS once and connects to the address it checked, refuses loopback, private, link-local (which covers the cloud metadata address), carrier-grade NAT and reserved ranges for IPv4, IPv6 and mapped forms, re-checks every redirect hop, and caps size and time. An administrator can allow one host name at a time to resolve to a private address, which is how a LAN CalDAV server is reached. Nothing reads that allowlist from configuration yet, because no source uses the guard yet.
