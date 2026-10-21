@@ -17,6 +17,10 @@
   - [0012 Docker deployment](architecture/adr/0012-docker-deployment.md)
   - [0014 Hosting flavors, and why serverless is out of scope](architecture/adr/0014-hosting-flavors-and-serverless.md)
   - [0015 Household invitations](architecture/adr/0015-household-invitations.md)
+  - [0016 TRMNL display feed (proposed)](architecture/adr/0016-trmnl-display-feed.md)
+  - [0017 Planets: declarative, permission-scoped plugins (proposed)](architecture/adr/0017-planets-declarative-plugins.md)
+
+- [Phase 0 architecture check](architecture/phase-0-architecture-check.md)
 
 - [Deploying with Docker](operations/deployment.md)
 - [Backup and restore](operations/backup-and-restore.md)
