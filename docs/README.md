@@ -2,6 +2,7 @@
 
 - [Principles and scope](product/principles-and-scope.md)
 - [Architecture overview](architecture/overview.md)
+- [Security model for display feeds and Planets](architecture/security-model.md)
 - Architecture decision records (ADRs)
   - [0001 SQLite as the default database](architecture/adr/0001-sqlite-default-database.md)
   - [0002 Local accounts for authentication](architecture/adr/0002-local-accounts-auth.md)
