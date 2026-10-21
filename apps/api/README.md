@@ -25,6 +25,8 @@ The OpenAPI document is served at `/api/v1/openapi.json` and committed as [`open
 
 All settings are environment variables. Invalid values stop the server with a readable message.
 
+Under Docker Compose only `ORBIT_PUBLIC_URL`, `ORBIT_REGISTRATION`, `ORBIT_TRUST_PROXY` and `ORBIT_LOG_LEVEL` can be set (through `.env`). The image fixes `ORBIT_HOST`, `ORBIT_PORT`, `ORBIT_DATABASE_PATH` and `ORBIT_WEB_DIR`. [`.env.example`](../../.env.example) marks which applies where.
+
 | Variable              | Default                 | Purpose                                                                                                                    |
 | --------------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | `ORBIT_DATABASE_PATH` | `./data/orbit.sqlite`   | SQLite file. Its directory is created.                                                                                     |
