@@ -95,7 +95,8 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
     describe('a plain member', () => {
       it('can read', async () => {
         await expect(operations(() => bob).getHousehold()).resolves.toBeDefined()
-        await expect(operations(() => bob).listDashboards()).resolves.toHaveLength(1)
+        // The starter dashboard every household gets, and the one this kit creates.
+        await expect(operations(() => bob).listDashboards()).resolves.toHaveLength(2)
         await expect(operations(() => bob).getDashboard()).resolves.toBeDefined()
       })
 

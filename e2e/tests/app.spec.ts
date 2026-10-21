@@ -96,6 +96,11 @@ test('a household and a dashboard can be created', async () => {
   await page.getByLabel('Household name').fill('Home')
   await page.getByRole('button', { name: 'Create household' }).click()
   await expect(page.getByRole('heading', { name: 'Home', level: 1 })).toBeVisible()
+  // A new household starts with a "Home" dashboard that shows today's date, not sample data.
+  await page.getByRole('region', { name: 'Dashboards' }).getByRole('link', { name: 'Home' }).click()
+  await expect(page.getByRole('article', { name: 'Today' })).toBeVisible()
+  await expect(page.getByText('Preview')).toHaveCount(0)
+  await page.goBack()
   await page.getByLabel('New dashboard name').fill('Week')
   await page.getByRole('button', { name: 'Create dashboard' }).click()
   await expect(page.getByRole('heading', { name: 'Week', level: 1 })).toBeVisible()

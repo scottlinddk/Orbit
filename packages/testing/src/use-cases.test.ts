@@ -1,4 +1,4 @@
-import { NotFoundError, type Actor } from '@orbit/application'
+import { NotFoundError, STARTER_DASHBOARD, type Actor } from '@orbit/application'
 import { InvariantViolation, UserId, type HouseholdId } from '@orbit/domain'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { createInMemorySystem, createSqliteSystem, type TestSystem } from './fixtures.ts'
@@ -21,6 +21,21 @@ describe.each([
     const list = await sys.useCases.listHouseholds(alice)
     expect(list).toHaveLength(1)
     expect(list[0]?.members).toEqual([{ userId: alice.userId, role: 'owner' }])
+  })
+
+  it('gives a new household one starter dashboard with no sample-data widgets', async () => {
+    const dashboards = await sys.useCases.listDashboards(alice, household)
+    expect(dashboards).toHaveLength(1)
+    expect(dashboards[0]).toMatchObject({ name: STARTER_DASHBOARD.name })
+    expect(dashboards[0]?.widgets.map((w) => w.type)).toEqual([STARTER_DASHBOARD.widgetType])
+  })
+
+  it('lets the owner edit and delete the starter dashboard', async () => {
+    const [starter] = await sys.useCases.listDashboards(alice, household)
+    const renamed = await sys.useCases.renameDashboard(alice, starter!.id, 'Kitchen')
+    expect(renamed.name).toBe('Kitchen')
+    await sys.useCases.deleteDashboard(alice, starter!.id)
+    expect(await sys.useCases.listDashboards(alice, household)).toEqual([])
   })
 
   it('refuses to add a user that does not exist', async () => {

@@ -44,8 +44,10 @@
   font-size: 0.75rem;
   padding: 0.1em 0.7em;
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
-  opacity: 0.85;
+  font-weight: 600;
+  /* Full-strength text on the card, never faded: it must keep the contrast the theme guarantees
+     for body text in both light and dark themes. */
+  border: 1px solid color-mix(in srgb, currentColor 55%, transparent);
 }
 
 .tools {
