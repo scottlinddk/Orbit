@@ -1,3 +1,4 @@
+export * from './calendar-event.ts'
 export * from './dashboard.ts'
 export * from './errors.ts'
 export * from './household.ts'
