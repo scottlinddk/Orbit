@@ -21,6 +21,7 @@
   - [0017 Planets: declarative, permission-scoped plugins (proposed)](architecture/adr/0017-planets-declarative-plugins.md)
 
 - [Phase 0 architecture check](architecture/phase-0-architecture-check.md)
+- [Security model for the TRMNL feed and Planets (draft)](architecture/security-model.md)
 
 - [Deploying with Docker](operations/deployment.md)
 - [Backup and restore](operations/backup-and-restore.md)
