@@ -6,6 +6,10 @@ import {
   addWidget,
   createDashboard,
   createHousehold,
+  createInvitation,
+  invitationStatus,
+  InvitationId,
+  invariant,
   moveWidget,
   configureWidget,
   resizeWidget,
@@ -16,6 +20,7 @@ import {
   type Columns,
   type Dashboard,
   type Household,
+  type Invitation,
   type User,
   type HouseholdRole,
   type JsonObject,
@@ -23,13 +28,14 @@ import {
   Username,
 } from '@orbit/domain'
 import type { Actor } from './actor.ts'
-import type { AccountRepository } from './auth-ports.ts'
+import type { AccountRepository, Clock, SessionTokens } from './auth-ports.ts'
 import { createAuthorizer } from './authorizer.ts'
 import { NotFoundError } from './errors.ts'
 import type {
   DashboardRepository,
   HouseholdRepository,
   IdGenerator,
+  InvitationRepository,
   UserRepository,
 } from './ports.ts'
 
@@ -38,13 +44,16 @@ export interface Dependencies {
   accounts: Pick<AccountRepository, 'findCredential'>
   households: HouseholdRepository
   dashboards: DashboardRepository
+  invitations: InvitationRepository
+  tokens: Pick<SessionTokens, 'generate'>
+  clock: Clock
   ids: IdGenerator
 }
 
 export type UseCases = ReturnType<typeof createUseCases>
 
 export function createUseCases(deps: Dependencies) {
-  const { users, accounts, households, dashboards, ids } = deps
+  const { users, accounts, households, dashboards, invitations, tokens, clock, ids } = deps
   const authorizer = createAuthorizer(households)
 
   /** Loads a dashboard and authorizes against the household that owns it. */
@@ -127,6 +136,56 @@ export function createUseCases(deps: Dependencies) {
       const updated = removeMember(household, userId)
       await households.save(updated)
       return updated
+    },
+
+    /**
+     * The raw token is returned here and never again: only its hash is stored. The owner shares
+     * it as a link, and the invitee chooses their own username and password with it.
+     */
+    async createInvitation(
+      actor: Actor,
+      householdId: HouseholdId,
+      input: { role?: HouseholdRole | undefined; expiresInDays?: number | undefined },
+    ): Promise<{ invitation: Invitation; token: string }> {
+      await authorizer.require(actor, householdId, 'household:manage-members')
+      const { token, tokenHash } = tokens.generate()
+      const invitation = createInvitation({
+        id: InvitationId(ids.next()),
+        householdId,
+        role: input.role ?? 'member',
+        tokenHash,
+        createdBy: actor.userId,
+        now: clock.now(),
+        ttlDays: input.expiresInDays,
+      })
+      await invitations.create(invitation)
+      return { invitation, token }
+    },
+
+    /** Invitations that can still be used. Accepted, revoked and expired ones are history. */
+    async listInvitations(actor: Actor, householdId: HouseholdId): Promise<Invitation[]> {
+      await authorizer.require(actor, householdId, 'household:manage-members')
+      const now = clock.now()
+      return (await invitations.listForHousehold(householdId)).filter(
+        (i) => invitationStatus(i, now) === 'pending',
+      )
+    },
+
+    /** The id is looked up inside the household, so another household's invitation id is not found. */
+    async revokeInvitation(
+      actor: Actor,
+      householdId: HouseholdId,
+      invitationId: InvitationId,
+    ): Promise<void> {
+      await authorizer.require(actor, householdId, 'household:manage-members')
+      const invitation = await invitations.get(invitationId)
+      if (!invitation || invitation.householdId !== householdId) throw new NotFoundError()
+      const now = clock.now()
+      invariant(
+        ['pending', 'expired'].includes(invitationStatus(invitation, now)) &&
+          (await invitations.revoke(invitationId, now)),
+        'This invitation was already used or revoked',
+      )
     },
 
     async createDashboard(

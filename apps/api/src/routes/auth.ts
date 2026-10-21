@@ -1,4 +1,7 @@
 import {
+  acceptInvitationRequestSchema,
+  invitationPreviewSchema,
+  invitationTokenRequestSchema,
   loginRequestSchema,
   registerRequestSchema,
   sessionUserSchema,
@@ -123,6 +126,53 @@ export const authRoutes =
       async (request) => {
         const user = await useCases.getProfile(actorOf(request).userId)
         return { id: user.id, displayName: user.displayName }
+      },
+    )
+
+    app.post(
+      '/invitations/preview',
+      {
+        config: { rateLimit },
+        schema: {
+          tags: ['invitations'],
+          summary: 'What an invitation link offers',
+          description:
+            'Public, because the invitee has no account yet. The token travels in the body, never in the URL, so it stays out of access logs. An unknown, expired, revoked or used token all answer 404.',
+          body: invitationTokenRequestSchema,
+          response: {
+            200: invitationPreviewSchema,
+            400: errors[400],
+            404: errors[404],
+            429: errors[429],
+          },
+        },
+      },
+      async (request) => auth.previewInvitation(request.body.token),
+    )
+
+    app.post(
+      '/invitations/accept',
+      {
+        config: { rateLimit },
+        schema: {
+          tags: ['invitations'],
+          summary: 'Join a household with an invitation',
+          description:
+            'Creates the account and adds it to the household in one step, using up the invitation. Works while registration is closed. It does not sign you in.',
+          body: acceptInvitationRequestSchema,
+          response: {
+            201: sessionUserSchema,
+            400: errors[400],
+            404: errors[404],
+            409: errors[409],
+            422: errors[422],
+            429: errors[429],
+          },
+        },
+      },
+      async (request, reply) => {
+        const user = await auth.acceptInvitation(request.body)
+        return reply.code(201).send({ id: user.id, displayName: user.displayName })
       },
     )
   }

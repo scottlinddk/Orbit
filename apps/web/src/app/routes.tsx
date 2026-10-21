@@ -1,4 +1,5 @@
 import type { RouteObject } from 'react-router'
+import { JoinPage } from '../features/auth/JoinPage.tsx'
 import { LoginPage } from '../features/auth/LoginPage.tsx'
 import { DashboardPage } from '../features/dashboards/DashboardPage.tsx'
 import { HomePage } from '../features/households/HomePage.tsx'
@@ -10,6 +11,7 @@ import { RequireAuth } from './RequireAuth.tsx'
 /** Kept separate from the router so tests can mount the same routes in a memory router. */
 export const routes: RouteObject[] = [
   { path: '/login', element: <LoginPage /> },
+  { path: '/join', element: <JoinPage /> },
   {
     element: <RequireAuth />,
     children: [

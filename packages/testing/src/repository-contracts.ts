@@ -2,6 +2,7 @@ import type { Repositories } from '@orbit/application'
 import {
   DashboardId,
   HouseholdId,
+  InvitationId,
   UserId,
   Username,
   WidgetPlacementId,
@@ -9,6 +10,7 @@ import {
   addWidget,
   createDashboard,
   createHousehold,
+  createInvitation,
   createUser,
 } from '@orbit/domain'
 import { beforeEach, describe, expect, it } from 'vitest'
@@ -252,6 +254,100 @@ export function describeSessionContracts(name: string, create: () => Promise<Rep
       expect(removed).toBe(2)
       expect(await repos.sessions.get('fresh')).toBeDefined()
       expect(await repos.sessions.get('edge')).toBeUndefined()
+    })
+  })
+}
+
+export function describeInvitationContracts(name: string, create: () => Promise<RepositorySet>) {
+  describe(`invitation contracts: ${name}`, () => {
+    let repos: RepositorySet
+    beforeEach(async () => {
+      repos = await create()
+    })
+
+    const t0 = new Date('2026-01-01T00:00:00.000Z')
+    const invite = (id: string, household = 'h1', ttlDays = 7) =>
+      createInvitation({
+        id: InvitationId(id),
+        householdId: HouseholdId(household),
+        role: 'member',
+        tokenHash: `hash-${id}`,
+        createdBy: UserId('alice'),
+        now: t0,
+        ttlDays,
+      })
+    const later = (days: number) => new Date(t0.getTime() + days * 24 * 60 * 60 * 1000)
+
+    it('round-trips an invitation, by id and by token hash', async () => {
+      const i = invite('i1')
+      await repos.invitations.create(i)
+      expect(await repos.invitations.get(i.id)).toEqual(i)
+      expect(await repos.invitations.findByTokenHash('hash-i1')).toEqual(i)
+      expect(await repos.invitations.get(InvitationId('missing'))).toBeUndefined()
+      expect(await repos.invitations.findByTokenHash('nope')).toBeUndefined()
+    })
+
+    it('refuses a second invitation with the same token hash', async () => {
+      await repos.invitations.create(invite('i1'))
+      await expect(
+        repos.invitations.create({ ...invite('i2'), tokenHash: 'hash-i1' }),
+      ).rejects.toThrow()
+    })
+
+    it('lists only the invitations of one household', async () => {
+      await repos.invitations.create(invite('i1', 'h1'))
+      await repos.invitations.create(invite('i2', 'h2'))
+      await repos.invitations.create(invite('i3', 'h1'))
+      const ids = (await repos.invitations.listForHousehold(HouseholdId('h1'))).map((i) => i.id)
+      expect(ids).toEqual(['i1', 'i3'])
+    })
+
+    it('lets exactly one of two claims win', async () => {
+      await repos.invitations.create(invite('i1'))
+      const [a, b] = await Promise.all([
+        repos.invitations.claim(InvitationId('i1'), UserId('u1'), later(1)),
+        repos.invitations.claim(InvitationId('i1'), UserId('u2'), later(1)),
+      ])
+      expect([a, b].filter(Boolean)).toHaveLength(1)
+      const stored = await repos.invitations.get(InvitationId('i1'))
+      expect(stored?.acceptedAt).toEqual(later(1))
+      expect(stored?.acceptedBy).toBe(a ? 'u1' : 'u2')
+    })
+
+    it('does not let an expired or revoked invitation be claimed', async () => {
+      await repos.invitations.create(invite('expired', 'h1', 1))
+      await repos.invitations.create(invite('revoked'))
+      await repos.invitations.revoke(InvitationId('revoked'), t0)
+      expect(await repos.invitations.claim(InvitationId('expired'), UserId('u1'), later(1))).toBe(
+        false,
+      )
+      expect(await repos.invitations.claim(InvitationId('revoked'), UserId('u1'), later(0))).toBe(
+        false,
+      )
+      expect(await repos.invitations.claim(InvitationId('missing'), UserId('u1'), t0)).toBe(false)
+    })
+
+    it('hands a claim back only to the user who made it', async () => {
+      await repos.invitations.create(invite('i1'))
+      await repos.invitations.claim(InvitationId('i1'), UserId('u1'), t0)
+      await repos.invitations.release(InvitationId('i1'), UserId('u2'))
+      expect((await repos.invitations.get(InvitationId('i1')))?.acceptedBy).toBe('u1')
+      await repos.invitations.release(InvitationId('i1'), UserId('u1'))
+      const released = await repos.invitations.get(InvitationId('i1'))
+      expect(released?.acceptedBy).toBeUndefined()
+      expect(released?.acceptedAt).toBeUndefined()
+      expect(await repos.invitations.claim(InvitationId('i1'), UserId('u3'), t0)).toBe(true)
+    })
+
+    it('revokes once, and not after it was accepted', async () => {
+      await repos.invitations.create(invite('i1'))
+      await repos.invitations.create(invite('i2'))
+      expect(await repos.invitations.revoke(InvitationId('i1'), later(1))).toBe(true)
+      expect((await repos.invitations.get(InvitationId('i1')))?.revokedAt).toEqual(later(1))
+      expect(await repos.invitations.revoke(InvitationId('i1'), later(2))).toBe(false)
+      await repos.invitations.claim(InvitationId('i2'), UserId('u1'), t0)
+      expect(await repos.invitations.revoke(InvitationId('i2'), later(1))).toBe(false)
+      expect(await repos.invitations.revoke(InvitationId('missing'), t0)).toBe(false)
     })
   })
 }

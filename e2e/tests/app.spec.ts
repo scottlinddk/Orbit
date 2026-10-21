@@ -249,6 +249,40 @@ test('signing back in restores the data', async () => {
   await expect.poll(titles).toEqual(['Today', 'Shopping list'])
 })
 
+test('an owner invites someone, who joins from the link without any server access', async ({
+  browser,
+}) => {
+  await page.goto('/')
+  await expect(page.getByRole('heading', { name: 'Home', level: 1 })).toBeVisible()
+  await page.getByRole('button', { name: 'Create invitation link' }).click()
+  const link = await page.getByLabel('Invitation link').inputValue()
+  // The secret is in the fragment, which browsers never send to the server.
+  expect(new URL(link).pathname).toBe('/join')
+  expect(new URL(link).search).toBe('')
+  expect(new URL(link).hash.length).toBeGreaterThan(20)
+
+  const guest = await browser.newPage()
+  await guest.goto(link)
+  await expect(guest.getByRole('heading', { name: 'Join Home' })).toBeVisible()
+  await guest.getByLabel('Username').fill('guest')
+  await guest.getByLabel('Password').fill(PASSWORD)
+  await guest.getByRole('button', { name: 'Create account and join' }).click()
+  await expect(guest.getByRole('heading', { name: 'Home', level: 1 })).toBeVisible()
+  // A member sees the household but none of the owner's forms.
+  await expect(guest.getByRole('button', { name: 'Create invitation link' })).toHaveCount(0)
+  await guest.close()
+
+  // The link works once.
+  const late = await browser.newPage()
+  await late.goto(link)
+  await expect(late.getByRole('heading', { name: 'This invitation does not work' })).toBeVisible()
+  await late.close()
+
+  // The owner's open list no longer shows it.
+  await page.reload()
+  await expect(page.getByText('No open invitations.')).toBeVisible()
+})
+
 test('the browser raised no policy violations, errors or unexpected failed requests', async () => {
   expect(cspViolations, 'Content Security Policy violations').toEqual([])
   expect(consoleErrors, 'console errors').toEqual([])

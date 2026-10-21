@@ -4,6 +4,8 @@ export const keys = {
   setup: ['setup'] as const,
   households: ['households'] as const,
   household: (id: string) => ['households', id] as const,
+  invitations: (householdId: string) => ['households', householdId, 'invitations'] as const,
+  invitationPreview: (token: string) => ['invitation-preview', token] as const,
   dashboards: (householdId: string) => ['households', householdId, 'dashboards'] as const,
   dashboard: (id: string) => ['dashboards', id] as const,
 }

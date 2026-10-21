@@ -22,10 +22,29 @@ describe('migrate', () => {
       'dashboards',
       'household_members',
       'households',
+      'invitations',
       'schema_migrations',
       'sessions',
       'users',
     ])
+  })
+
+  it('adds invitations to a version 2 database without touching existing data', () => {
+    const db = openDatabase(':memory:')
+    migrate(db, migrations.slice(0, 2))
+    db.prepare("INSERT INTO users (id, display_name) VALUES ('u1', 'Alice')").run()
+    db.prepare("INSERT INTO households (id, name) VALUES ('h1', 'Home')").run()
+    db.prepare(
+      "INSERT INTO household_members (household_id, user_id, role, position) VALUES ('h1', 'u1', 'owner', 0)",
+    ).run()
+    expect(tables(db)).not.toContain('invitations')
+
+    expect(migrate(db)).toEqual([3])
+
+    expect(tables(db)).toContain('invitations')
+    expect(db.prepare('SELECT COUNT(*) AS n FROM users').get()).toEqual({ n: 1 })
+    expect(db.prepare('SELECT COUNT(*) AS n FROM household_members').get()).toEqual({ n: 1 })
+    expect(db.prepare('SELECT COUNT(*) AS n FROM invitations').get()).toEqual({ n: 0 })
   })
 
   it('is idempotent', () => {

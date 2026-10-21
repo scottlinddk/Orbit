@@ -57,7 +57,7 @@ export function MembersPanel({ household, meId, isOwner }: Props) {
             required
             autoCapitalize="none"
             spellCheck={false}
-            hint="They need an Orbit account on this server first."
+            hint="For someone who already has an account here. Otherwise send an invitation."
           />
           <Button type="submit" busy={add.isPending}>
             Add member

@@ -9,6 +9,7 @@ import { Loading } from '../../components/Loading.tsx'
 import { PageHeader } from '../../components/PageHeader.tsx'
 import { QueryError } from '../../components/QueryError.tsx'
 import { TextField } from '../../components/TextField.tsx'
+import { InvitationsPanel } from './InvitationsPanel.tsx'
 import { MembersPanel } from './MembersPanel.tsx'
 import styles from './Household.module.css'
 
@@ -82,6 +83,7 @@ export function HouseholdPage() {
           ) : null}
         </section>
         <MembersPanel household={household.data} meId={meId} isOwner={isOwner} />
+        {isOwner ? <InvitationsPanel householdId={household.data.id} /> : null}
       </div>
     </>
   )

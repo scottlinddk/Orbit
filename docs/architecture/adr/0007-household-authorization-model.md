@@ -22,5 +22,5 @@ Household data is sensitive, and the top security invariant is that one househol
 ## Consequences
 
 - Members cannot edit dashboards yet. If households want collaborative editing, add a permission and a test row, not a new role system.
-- Adding a user to a household is by user id and requires the user to exist. An invitation flow will replace this when authentication lands.
+- Adding an existing account to a household is by user id or username and requires the account to exist. People without an account join through an invitation ([ADR 0015](0015-household-invitations.md)), which uses the same `household:manage-members` permission and is covered by the isolation kit.
 - The same kit must be re-run at the HTTP layer once the API exists, since routes can bypass use cases.

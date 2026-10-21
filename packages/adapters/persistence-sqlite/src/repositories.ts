@@ -3,6 +3,7 @@ import type {
   Credential,
   DashboardRepository,
   HouseholdRepository,
+  InvitationRepository,
   RegistrationOutcome,
   RegistrationPolicy,
   Session,
@@ -12,6 +13,7 @@ import type {
 import {
   DashboardId,
   HouseholdId,
+  InvitationId,
   UserId,
   Username,
   WidgetPlacementId,
@@ -19,6 +21,7 @@ import {
   type Dashboard,
   type Household,
   type HouseholdRole,
+  type Invitation,
   type JsonObject,
   type User,
   type WidgetPlacement,
@@ -279,5 +282,97 @@ export class SqliteSessionStore implements SessionStore {
       .prepare('DELETE FROM sessions WHERE expires_at <= ?')
       .run(now.toISOString())
     return Number(result.changes)
+  }
+}
+
+export class SqliteInvitationRepository implements InvitationRepository {
+  readonly #db: Database
+
+  constructor(db: Database) {
+    this.#db = db
+  }
+
+  async create(invitation: Invitation): Promise<void> {
+    this.#db
+      .prepare(
+        `INSERT INTO invitations
+           (id, household_id, role, token_hash, created_by, created_at, expires_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        invitation.id,
+        invitation.householdId,
+        invitation.role,
+        invitation.tokenHash,
+        invitation.createdBy,
+        invitation.createdAt.toISOString(),
+        invitation.expiresAt.toISOString(),
+      )
+  }
+
+  async get(id: InvitationId): Promise<Invitation | undefined> {
+    const row = this.#db.prepare(`${SELECT_INVITATION} WHERE id = ?`).get(id) as Row | undefined
+    return row && hydrateInvitation(row)
+  }
+
+  async findByTokenHash(tokenHash: string): Promise<Invitation | undefined> {
+    const row = this.#db.prepare(`${SELECT_INVITATION} WHERE token_hash = ?`).get(tokenHash) as
+      Row | undefined
+    return row && hydrateInvitation(row)
+  }
+
+  async listForHousehold(householdId: HouseholdId): Promise<Invitation[]> {
+    const rows = this.#db
+      .prepare(`${SELECT_INVITATION} WHERE household_id = ? ORDER BY rowid`)
+      .all(householdId) as Row[]
+    return rows.map(hydrateInvitation)
+  }
+
+  // The conditions live in the UPDATE itself, so the check and the change are one statement
+  // and two simultaneous claims cannot both succeed.
+  async claim(id: InvitationId, userId: UserId, now: Date): Promise<boolean> {
+    const at = now.toISOString()
+    const result = this.#db
+      .prepare(
+        `UPDATE invitations SET accepted_by = ?, accepted_at = ?
+         WHERE id = ? AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at > ?`,
+      )
+      .run(userId, at, id, at)
+    return Number(result.changes) > 0
+  }
+
+  async release(id: InvitationId, userId: UserId): Promise<void> {
+    this.#db
+      .prepare(
+        'UPDATE invitations SET accepted_by = NULL, accepted_at = NULL WHERE id = ? AND accepted_by = ?',
+      )
+      .run(id, userId)
+  }
+
+  async revoke(id: InvitationId, now: Date): Promise<boolean> {
+    const result = this.#db
+      .prepare(
+        'UPDATE invitations SET revoked_at = ? WHERE id = ? AND accepted_at IS NULL AND revoked_at IS NULL',
+      )
+      .run(now.toISOString(), id)
+    return Number(result.changes) > 0
+  }
+}
+
+const SELECT_INVITATION = `SELECT id, household_id, role, token_hash, created_by, created_at,
+  expires_at, accepted_by, accepted_at, revoked_at FROM invitations`
+
+function hydrateInvitation(row: Row): Invitation {
+  return {
+    id: InvitationId(String(row.id)),
+    householdId: HouseholdId(String(row.household_id)),
+    role: row.role as HouseholdRole,
+    tokenHash: String(row.token_hash),
+    createdBy: UserId(String(row.created_by)),
+    createdAt: new Date(String(row.created_at)),
+    expiresAt: new Date(String(row.expires_at)),
+    ...(row.accepted_by === null ? {} : { acceptedBy: UserId(String(row.accepted_by)) }),
+    ...(row.accepted_at === null ? {} : { acceptedAt: new Date(String(row.accepted_at)) }),
+    ...(row.revoked_at === null ? {} : { revokedAt: new Date(String(row.revoked_at)) }),
   }
 }

@@ -62,13 +62,22 @@ Caddy gets and renews the certificate by itself. The override sets `ORBIT_PUBLIC
 
 ## Adding people
 
-By default only the first account can register on the web page. To add a household member, create their account on the server and then let the owner add them to the household:
+By default only the first account can register on the web page, but owners can bring in everyone else without touching the server:
+
+1. Sign in as an owner and open the household page.
+2. Under **Invite someone**, pick a role and choose **Create invitation link**.
+3. Copy the link and send it to the person privately. It is shown only once, works once, and expires after 7 days.
+4. They open the link, choose their own username and password, and land in the household.
+
+Open invitations are listed on the same page and can be revoked. If a link is lost, revoke it and make a new one: Orbit keeps only a hash of the secret and cannot show it again. The link looks like `https://orbit.example.com/join#<secret>`. The secret sits after the `#`, which browsers never send to the server, so it does not appear in logs. The link uses the address in your browser's address bar, so open Orbit at the address you want to hand out (the one in `ORBIT_PUBLIC_URL`).
+
+Other ways, when you do have shell access or the person already has an account:
 
 ```sh
 docker compose exec orbit orbit create-user bobby     # asks for a password, hidden
 ```
 
-Give them the password to change later, then in the household page the owner adds `bobby` **by username**. Setting `ORBIT_REGISTRATION=open` instead lets anyone who can reach the page create an account, which is only sensible on a private network.
+Then in the household page the owner adds `bobby` **by username**. Setting `ORBIT_REGISTRATION=open` instead lets anyone who can reach the page create an account, which is only sensible on a private network. Design notes are in [ADR 0015](../architecture/adr/0015-household-invitations.md).
 
 ## Data
 

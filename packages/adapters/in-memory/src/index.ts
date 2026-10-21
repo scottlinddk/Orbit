@@ -5,6 +5,7 @@ import type {
   DashboardRepository,
   HouseholdRepository,
   IdGenerator,
+  InvitationRepository,
   PasswordHasher,
   RegistrationOutcome,
   RegistrationPolicy,
@@ -18,6 +19,8 @@ import type {
   DashboardId,
   Household,
   HouseholdId,
+  Invitation,
+  InvitationId,
   User,
   UserId,
   Username,
@@ -70,6 +73,59 @@ export class InMemoryDashboardRepository implements DashboardRepository {
 
   async delete(id: DashboardId) {
     this.#byId.delete(id)
+  }
+}
+
+export class InMemoryInvitationRepository implements InvitationRepository {
+  readonly #byId = new Map<InvitationId, Invitation>()
+
+  async create(invitation: Invitation) {
+    for (const existing of this.#byId.values())
+      if (existing.id === invitation.id || existing.tokenHash === invitation.tokenHash)
+        throw new Error('Duplicate invitation')
+    this.#byId.set(invitation.id, invitation)
+  }
+
+  async get(id: InvitationId) {
+    return this.#byId.get(id)
+  }
+
+  async findByTokenHash(tokenHash: string) {
+    return [...this.#byId.values()].find((i) => i.tokenHash === tokenHash)
+  }
+
+  async listForHousehold(householdId: HouseholdId) {
+    return [...this.#byId.values()].filter((i) => i.householdId === householdId)
+  }
+
+  // Check and change happen in the same tick, with no await between them.
+  async claim(id: InvitationId, userId: UserId, now: Date) {
+    const i = this.#byId.get(id)
+    if (!i || i.acceptedAt || i.revokedAt || i.expiresAt.getTime() <= now.getTime()) return false
+    this.#byId.set(id, { ...i, acceptedBy: userId, acceptedAt: now })
+    return true
+  }
+
+  async release(id: InvitationId, userId: UserId) {
+    const i = this.#byId.get(id)
+    if (!i || i.acceptedBy !== userId) return
+    // A claim is only possible on an invitation that was never revoked, so nothing else to keep.
+    this.#byId.set(id, {
+      id: i.id,
+      householdId: i.householdId,
+      role: i.role,
+      tokenHash: i.tokenHash,
+      createdBy: i.createdBy,
+      createdAt: i.createdAt,
+      expiresAt: i.expiresAt,
+    })
+  }
+
+  async revoke(id: InvitationId, now: Date) {
+    const i = this.#byId.get(id)
+    if (!i || i.acceptedAt || i.revokedAt) return false
+    this.#byId.set(id, { ...i, revokedAt: now })
+    return true
   }
 }
 

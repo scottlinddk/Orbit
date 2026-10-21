@@ -2,8 +2,11 @@ import {
   InvariantViolation,
   UserId,
   Username,
+  addMember,
   createUser,
   invariant,
+  isRedeemable,
+  type HouseholdRole,
   type User,
 } from '@orbit/domain'
 import type { Actor } from './actor.ts'
@@ -17,7 +20,7 @@ import type {
   SessionTokens,
   SetupGate,
 } from './auth-ports.ts'
-import type { IdGenerator } from './ports.ts'
+import type { HouseholdRepository, IdGenerator, InvitationRepository } from './ports.ts'
 
 /** Deliberately vague: never say whether the username or the password was wrong. */
 export class InvalidCredentialsError extends Error {
@@ -68,6 +71,8 @@ export interface AuthDependencies {
   tokens: SessionTokens
   clock: Clock
   ids: IdGenerator
+  invitations: InvitationRepository
+  households: HouseholdRepository
   registrationPolicy: RegistrationPolicy
   /** Present only on an instance that has no owner yet. */
   setupGate?: SetupGate | undefined
@@ -84,13 +89,23 @@ export interface LoginResult {
 export type Auth = ReturnType<typeof createAuth>
 
 export function createAuth(deps: AuthDependencies) {
-  const { accounts, sessions, hasher, tokens, clock, ids } = deps
+  const { accounts, sessions, hasher, tokens, clock, ids, invitations, households } = deps
   const ttl = deps.sessionTtlMs ?? DEFAULT_SESSION_TTL_MS
 
   // Verifying against a real hash for unknown usernames keeps the response time the same,
   // so timing does not reveal which usernames exist.
   let decoy: Promise<string> | undefined
   const decoyHash = () => (decoy ??= hasher.hash('decoy-password-for-timing'))
+
+  /**
+   * Unknown, expired, revoked and used tokens all look the same (NotFoundError), so a caller
+   * learns nothing beyond "this link does not work".
+   */
+  async function redeemable(token: string) {
+    const invitation = await invitations.findByTokenHash(tokens.hash(token))
+    if (!invitation || !isRedeemable(invitation, clock.now())) throw new NotFoundError()
+    return invitation
+  }
 
   return {
     async register(input: {
@@ -174,6 +189,49 @@ export function createAuth(deps: AuthDependencies) {
       if (!credential) throw new NotFoundError()
       await accounts.setPasswordHash(credential.userId, await hasher.hash(input.password))
       await sessions.deleteForUser(credential.userId)
+    },
+
+    /** What a valid invitation link offers, so the page can say what the invitee is joining. */
+    async previewInvitation(
+      token: string,
+    ): Promise<{ householdName: string; role: HouseholdRole }> {
+      const invitation = await redeemable(token)
+      const household = await households.get(invitation.householdId)
+      if (!household) throw new NotFoundError()
+      return { householdName: household.name, role: invitation.role }
+    },
+
+    /**
+     * Creates the invitee's account and adds it to the household, using up the invitation. It
+     * works even while registration is closed: the owner's invitation is the permission. The
+     * invitation is claimed before the account exists, so two people using the same link cannot
+     * both get in. A failure after the claim hands the invitation back.
+     */
+    async acceptInvitation(input: {
+      token: string
+      username: string
+      password: string
+      displayName?: string | undefined
+    }): Promise<User> {
+      const invitation = await redeemable(input.token)
+      const username = Username(input.username)
+      assertPasswordPolicy(input.password, username)
+      const userId = UserId(ids.next())
+      const user = createUser({ id: userId, displayName: input.displayName?.trim() || username })
+      const passwordHash = await hasher.hash(input.password)
+
+      if (!(await invitations.claim(invitation.id, userId, clock.now()))) throw new NotFoundError()
+      try {
+        const outcome = await accounts.register(user, { userId, username, passwordHash }, 'open')
+        if (outcome !== 'created') throw new UsernameTakenError()
+        const household = await households.get(invitation.householdId)
+        if (!household) throw new NotFoundError()
+        await households.save(addMember(household, userId, invitation.role))
+      } catch (error) {
+        await invitations.release(invitation.id, userId)
+        throw error
+      }
+      return user
     },
 
     /** For a periodic housekeeping job. */

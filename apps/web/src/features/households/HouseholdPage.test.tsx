@@ -17,6 +17,7 @@ const api = (h = household()) => ({
       ],
     },
   },
+  'GET /api/v1/households/h1/invitations': { body: { invitations: [] } },
 })
 
 describe('household page', () => {
@@ -46,9 +47,11 @@ describe('household page', () => {
   })
 
   it('gives members no forms', async () => {
-    stubApi(api(memberOnlyHousehold()))
+    const stub = stubApi(api(memberOnlyHousehold()))
     renderApp('/h/h1')
     await screen.findByRole('heading', { name: 'Home', level: 1 })
+    expect(screen.queryByRole('region', { name: 'Invite someone' })).not.toBeInTheDocument()
+    expect(stub.sent('GET', '/api/v1/households/h1/invitations')).toHaveLength(0)
     expect(screen.queryByLabelText('New dashboard name')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Add a member by username')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Remove member/ })).not.toBeInTheDocument()
@@ -133,6 +136,7 @@ describe('household page', () => {
       'POST /api/v1/households': { status: 201, body: created },
       'GET /api/v1/households/h7': { body: created },
       'GET /api/v1/households/h7/dashboards': { body: { dashboards: [] } },
+      'GET /api/v1/households/h7/invitations': { body: { invitations: [] } },
     })
     const { user } = renderApp('/')
     await user.type(await screen.findByLabelText('Household name'), 'Hansens')
