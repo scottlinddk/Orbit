@@ -5,6 +5,7 @@ import {
   hasAccounts,
   migrate,
   openDatabase,
+  runScheduledBackupIfDue,
   snapshotBeforeMigration,
 } from '@orbit/adapter-persistence-sqlite'
 import { buildApp } from './app.ts'
@@ -57,9 +58,31 @@ async function main() {
   }, HOUR)
   purge.unref()
 
+  // Backups go next to the database, so they do not protect against losing the volume. The
+  // operations guide says to copy them off the machine. The hourly check is shorter than the
+  // interval on purpose: it looks at the files, so a restart or a night off still gets its backup.
+  const backups =
+    config.databasePath !== ':memory:' && config.backupIntervalMs > 0
+      ? setInterval(() => void runBackup(), HOUR)
+      : undefined
+  backups?.unref()
+  async function runBackup() {
+    try {
+      const file = await runScheduledBackupIfDue(db, {
+        directory: join(dirname(config.databasePath), 'backups'),
+        keep: config.backupKeep,
+        intervalMs: config.backupIntervalMs,
+      })
+      if (file) app.log.info({ backup: file }, 'wrote scheduled backup')
+    } catch (error) {
+      app.log.error({ err: error }, 'scheduled backup failed')
+    }
+  }
+
   const shutdown = async (signal: string) => {
     app.log.info({ signal }, 'shutting down')
     clearInterval(purge)
+    if (backups) clearInterval(backups)
     await app.close()
     db.close()
     process.exit(0)
@@ -68,6 +91,7 @@ async function main() {
   process.on('SIGINT', () => void shutdown('SIGINT'))
 
   await app.listen({ host: config.host, port: config.port })
+  if (backups) void runBackup()
   // Plain text on purpose: it must be easy to find in `docker compose logs`, whatever the log level.
   if (setup?.code)
     console.warn(

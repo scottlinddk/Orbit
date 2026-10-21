@@ -15,6 +15,10 @@ const environment = z.object({
   ORBIT_WEB_DIR: z.string().min(1).optional(),
   /** How many snapshots taken before a schema upgrade to keep in the data folder. */
   ORBIT_MIGRATION_SNAPSHOTS: z.coerce.number().int().min(1).max(100).default(5),
+  /** Hours between automatic backups in the data folder. 0 turns them off. */
+  ORBIT_BACKUP_INTERVAL_HOURS: z.coerce.number().int().min(0).max(720).default(24),
+  /** How many automatic backups to keep. */
+  ORBIT_BACKUP_KEEP: z.coerce.number().int().min(1).max(365).default(14),
   ORBIT_LOG_LEVEL: z
     .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
     .default('info'),
@@ -32,6 +36,9 @@ export interface Config {
   trustProxy: boolean
   webDir: string | undefined
   migrationSnapshots: number
+  /** Milliseconds between automatic backups. 0 means off. */
+  backupIntervalMs: number
+  backupKeep: number
   logLevel: z.infer<typeof environment>['ORBIT_LOG_LEVEL']
 }
 
@@ -65,6 +72,8 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     trustProxy: e.ORBIT_TRUST_PROXY === 'true',
     webDir: e.ORBIT_WEB_DIR,
     migrationSnapshots: e.ORBIT_MIGRATION_SNAPSHOTS,
+    backupIntervalMs: e.ORBIT_BACKUP_INTERVAL_HOURS * 60 * 60 * 1000,
+    backupKeep: e.ORBIT_BACKUP_KEEP,
     logLevel: e.ORBIT_LOG_LEVEL,
   }
 }
