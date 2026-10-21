@@ -11,6 +11,8 @@ const environment = z.object({
   ORBIT_TRUST_PROXY: z.enum(['true', 'false']).default('false'),
   /** Folder with the built web app (apps/web/dist). When set, the API serves it too. */
   ORBIT_WEB_DIR: z.string().min(1).optional(),
+  /** How many snapshots taken before a schema upgrade to keep in the data folder. */
+  ORBIT_MIGRATION_SNAPSHOTS: z.coerce.number().int().min(1).max(100).default(5),
   ORBIT_LOG_LEVEL: z
     .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
     .default('info'),
@@ -26,6 +28,7 @@ export interface Config {
   registration: 'first-user-only' | 'open'
   trustProxy: boolean
   webDir: string | undefined
+  migrationSnapshots: number
   logLevel: z.infer<typeof environment>['ORBIT_LOG_LEVEL']
 }
 
@@ -53,6 +56,7 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     registration: e.ORBIT_REGISTRATION,
     trustProxy: e.ORBIT_TRUST_PROXY === 'true',
     webDir: e.ORBIT_WEB_DIR,
+    migrationSnapshots: e.ORBIT_MIGRATION_SNAPSHOTS,
     logLevel: e.ORBIT_LOG_LEVEL,
   }
 }

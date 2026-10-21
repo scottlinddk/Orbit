@@ -71,7 +71,7 @@ git pull
 docker compose up -d --build
 ```
 
-Database migrations run when Orbit starts and are forward-only. A database written by a newer Orbit is refused, so you cannot silently downgrade. To go back, restore the backup you took first.
+Database migrations run when Orbit starts and are forward-only. Before applying one to a database that has data, Orbit writes a snapshot to `/data/backups/pre-migration-*.sqlite` and refuses to migrate if that fails ([details](backup-and-restore.md#automatic-snapshot-before-an-upgrade)). The manual backup above is still worth taking, because it can be copied off the machine. A database written by a newer Orbit is refused, so you cannot silently downgrade. To go back, restore the backup you took first.
 
 ## Troubleshooting
 

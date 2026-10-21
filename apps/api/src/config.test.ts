@@ -12,6 +12,7 @@ describe('loadConfig', () => {
       registration: 'first-user-only',
       trustProxy: false,
       webDir: undefined,
+      migrationSnapshots: 5,
       logLevel: 'info',
     })
   })
@@ -31,6 +32,7 @@ describe('loadConfig', () => {
       ORBIT_TRUST_PROXY: 'true',
       ORBIT_LOG_LEVEL: 'debug',
       ORBIT_WEB_DIR: '/app/web',
+      ORBIT_MIGRATION_SNAPSHOTS: '2',
     })
     expect(c).toMatchObject({
       databasePath: '/data/o.sqlite',
@@ -40,10 +42,12 @@ describe('loadConfig', () => {
       trustProxy: true,
       logLevel: 'debug',
       webDir: '/app/web',
+      migrationSnapshots: 2,
     })
   })
 
   it.each([
+    ['ORBIT_MIGRATION_SNAPSHOTS', '0'],
     ['ORBIT_PORT', '0'],
     ['ORBIT_PORT', 'abc'],
     ['ORBIT_PORT', '70000'],

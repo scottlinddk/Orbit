@@ -1,6 +1,6 @@
 import { mkdirSync } from 'node:fs'
-import { dirname } from 'node:path'
-import { migrate, openDatabase } from '@orbit/adapter-persistence-sqlite'
+import { dirname, join } from 'node:path'
+import { migrate, openDatabase, snapshotBeforeMigration } from '@orbit/adapter-persistence-sqlite'
 import { buildApp } from './app.ts'
 import { createSqliteServices } from './composition.ts'
 import { ConfigError, loadConfig } from './config.ts'
@@ -14,6 +14,21 @@ async function main() {
   if (config.databasePath !== ':memory:')
     mkdirSync(dirname(config.databasePath), { recursive: true })
   const db = openDatabase(config.databasePath)
+  if (config.databasePath !== ':memory:') {
+    // Upgrades are forward-only. If the snapshot fails, stop before the schema changes.
+    const directory = join(dirname(config.databasePath), 'backups')
+    const snapshot = await snapshotBeforeMigration(db, {
+      directory,
+      keep: config.migrationSnapshots,
+    }).catch((error: unknown) => {
+      throw new ConfigError(
+        `Could not write the snapshot before the database upgrade to ${directory}: ${error instanceof Error ? error.message : error}\n` +
+          'Nothing was changed. Free disk space or fix the folder, then start again.',
+      )
+    })
+    if (snapshot)
+      console.info(JSON.stringify({ level: 'info', snapshot, msg: 'wrote pre-migration snapshot' }))
+  }
   const applied = migrate(db)
 
   const services = createSqliteServices(db, config)

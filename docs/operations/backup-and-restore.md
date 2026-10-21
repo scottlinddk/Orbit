@@ -27,6 +27,19 @@ docker compose cp orbit:/data/backups/orbit-$(date +%F).sqlite backups/
 
 Store `backups/` somewhere other than this machine. The file contains password hashes and household data, so treat it like the database itself.
 
+## Automatic snapshot before an upgrade
+
+When Orbit starts and a schema migration is pending on a database that already holds data, it first writes a snapshot with the same routine as `orbit backup` to `backups/pre-migration-<schema>-<time>.sqlite` next to the database (in Docker, `/data/backups`). `<schema>` is the schema version the snapshot holds, so `pre-migration-2-...` is a database from before the move to version 3. The file is private (0600). The newest 5 are kept (`ORBIT_MIGRATION_SNAPSHOTS`). A new database gets none. If the snapshot cannot be written, for example because the disk is full, Orbit stops with an error and does **not** migrate.
+
+To go back after a bad upgrade, stop Orbit, install the older version, and restore the snapshot:
+
+```sh
+docker compose stop orbit
+docker compose run --rm --no-deps orbit orbit restore /data/backups/pre-migration-2-<time>.sqlite
+```
+
+The snapshot lives in the same volume as the database, so it does not protect against losing the volume. Copy backups off the machine as described above.
+
 ## Restore
 
 ```sh
