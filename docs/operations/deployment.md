@@ -2,6 +2,15 @@
 
 One container serves the web app and the API on one port and keeps everything in one SQLite file on a volume. You need Docker with the Compose plugin, version 2.19.0 or later (`docker compose version`). Older Compose releases do not understand the `!reset` tag in the Caddy override: they raise no error, but keep Orbit's own loopback port published next to Caddy. Debian and Ubuntu `docker-compose-plugin` packages from distribution repositories can be older, so install Docker from Docker's own repository.
 
+## Where Orbit can run
+
+| Flavor      | Supported | Notes                                                                                                                                              |
+| ----------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Home server | Yes       | Raspberry Pi, mini PC or NAS with Docker. Keep it private, or reach it over a tailnet.                                                             |
+| VPS         | Yes       | Any Linux server with Docker. Use the Caddy override below for HTTPS.                                                                              |
+| Serverless  | No        | Vercel, Netlify and Cloudflare Workers have no persistent file system. See [ADR 0014](../architecture/adr/0014-hosting-flavors-and-serverless.md). |
+| Other PaaS  | Untested  | A container platform with a persistent volume may work with the same image.                                                                        |
+
 ## Quick start
 
 ```sh
