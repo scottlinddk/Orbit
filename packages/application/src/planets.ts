@@ -29,9 +29,11 @@ export interface JobScheduler {
   has(id: string): Promise<boolean>
   /**
    * Removes and returns jobs due at `now`, oldest first. A job that is claimed is gone, so the
-   * handler schedules the next run itself. Two callers never receive the same job.
+   * handler schedules the next run itself. Two callers never receive the same job. With a
+   * `prefix` only jobs whose id starts with it are claimed, so Planets (`planet:`) and
+   * notifications (`notify:`) share the table without taking each other's jobs.
    */
-  claimDue(now: Date, limit: number): Promise<ScheduledJob[]>
+  claimDue(now: Date, limit: number, prefix?: string): Promise<ScheduledJob[]>
   cancelWithPrefix(prefix: string): Promise<void>
 }
 

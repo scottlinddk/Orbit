@@ -1,5 +1,6 @@
 import {
   CounterIdGenerator,
+  InMemoryJobScheduler,
   InMemorySecretStore,
   InsecureTestPasswordHasher,
   ManualClock,
@@ -20,11 +21,16 @@ import { migrate, openDatabase } from '@orbit/adapter-persistence-sqlite'
 import { SqlitePlanetStateStore } from '@orbit/adapter-planets-sqlite'
 import { EncryptedDbSecretStore } from '@orbit/adapter-secrets-encrypted-db'
 import { buildPackage, PlanetRuntime } from '@orbit/module-planets/server'
-import { createInMemoryRepositories, createSqliteRepositories } from '@orbit/testing'
+import {
+  FakeWebhookFetcher,
+  createInMemoryRepositories,
+  createSqliteRepositories,
+} from '@orbit/testing'
 import type { LightMyRequestResponse } from 'fastify'
 import { buildApp, type AppOptions, type App } from './app.ts'
 import { createIcsFeedReader } from './calendar.ts'
 import { loadConfig, type Config } from './config.ts'
+import { createNodeNotificationPlatform } from './notification-platform.ts'
 import { cookieName } from './http/session.ts'
 import { MissingKeySecretStore } from './secrets.ts'
 import { assembleServices, type Services } from './services.ts'
@@ -46,6 +52,9 @@ export class FakeIcsServer implements EgressFetcher {
 
 export interface TestEnv {
   ics: FakeIcsServer
+  /** The receiver of outgoing webhooks, and the queue that feeds it. */
+  webhooks: FakeWebhookFetcher
+  jobs: InMemoryJobScheduler
   app: App
   config: Config
   clock: ManualClock
@@ -70,6 +79,8 @@ export async function createTestEnv(options: TestEnvOptions = {}): Promise<TestE
   const config = loadConfig({ ORBIT_REGISTRATION: 'open', ...options.env })
   const clock = new ManualClock()
   const ics = new FakeIcsServer()
+  const webhooks = new FakeWebhookFetcher()
+  const jobs = new InMemoryJobScheduler()
   const services = assembleServices({
     repos: options.storage === 'sqlite' ? createSqliteRepositories() : createInMemoryRepositories(),
     hasher: new InsecureTestPasswordHasher(),
@@ -86,6 +97,7 @@ export async function createTestEnv(options: TestEnvOptions = {}): Promise<TestE
           : new InMemorySecretStore(),
       reader: createIcsFeedReader(ics),
     },
+    notifications: { fetcher: webhooks, jobs, platform: createNodeNotificationPlatform() },
     timeZone: config.timeZone,
     oidc: options.oidc,
     localLoginEnabled: config.localLogin,
@@ -101,6 +113,8 @@ export async function createTestEnv(options: TestEnvOptions = {}): Promise<TestE
   await app.ready()
   return {
     ics,
+    webhooks,
+    jobs,
     app,
     config,
     clock,

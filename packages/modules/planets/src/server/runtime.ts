@@ -267,10 +267,9 @@ export class PlanetRuntime {
 
   /** Runs the refreshes that are due. Called on a timer by the API process. Returns how many ran. */
   async tick(): Promise<number> {
-    const due = await this.#deps.scheduler.claimDue(this.#deps.clock.now(), CLAIM_BATCH)
+    const due = await this.#deps.scheduler.claimDue(this.#deps.clock.now(), CLAIM_BATCH, 'planet:')
     let ran = 0
     for (const job of due) {
-      if (!job.id.startsWith('planet:')) continue
       try {
         const payload = JSON.parse(job.payload) as JobPayload
         if (!this.#byId.has(payload.planetId)) continue // uninstalled or refused since

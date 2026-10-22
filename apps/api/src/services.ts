@@ -3,13 +3,18 @@ import {
   createAuth,
   createCalendarService,
   createFeedReader,
+  createNotificationService,
   createUseCases,
   type Auth,
   type CalendarFeedReader,
   type CalendarService,
   type Clock,
   type FeedReader,
+  type EgressFetcher,
   type IdGenerator,
+  type JobScheduler,
+  type NotificationPlatform,
+  type NotificationService,
   type OidcProvider,
   type PasswordHasher,
   type Repositories,
@@ -25,6 +30,8 @@ export interface Services {
   auth: Auth
   feedReader: FeedReader
   calendar: CalendarService
+  /** Outgoing webhooks (ADR 0020). */
+  notifications: NotificationService
   /** Present when Planets are wired. Without it the Planet routes answer empty or 404. */
   planets?: PlanetRuntime | undefined
   /** Present when ORBIT_OIDC_* is configured. */
@@ -42,6 +49,13 @@ export interface ServiceParts {
   planets?: PlanetRuntime | undefined
   /** Where household calendars keep their secret addresses and how they read feeds. */
   calendar: { secrets: SecretStore; reader: CalendarFeedReader; ttlMs?: number }
+  /** Delivers notifications: the egress guard, the durable queue and the platform helpers. */
+  notifications: {
+    fetcher: EgressFetcher
+    jobs: JobScheduler
+    platform: NotificationPlatform
+    rateLimitPerMinute?: number
+  }
   /** IANA zone that decides what "today" means in the display feed. Defaults to UTC. */
   timeZone?: string | undefined
   oidc?: OidcProvider | undefined
@@ -59,6 +73,17 @@ export function assembleServices(parts: ServiceParts): Services {
     ids,
     ...parts.calendar,
   })
+  const notifications = createNotificationService({
+    endpoints: repos.notificationEndpoints,
+    log: repos.deliveryLog,
+    dedupe: repos.notificationDedupe,
+    households: repos.households,
+    secrets: parts.calendar.secrets,
+    calendar,
+    clock,
+    ids,
+    ...parts.notifications,
+  })
   return {
     useCases: createUseCases({
       users: repos.users,
@@ -68,6 +93,7 @@ export function assembleServices(parts: ServiceParts): Services {
       invitations: repos.invitations,
       feeds: repos.feeds,
       lists: repos.lists,
+      events: notifications.sink,
       tokens,
       clock,
       ids,
@@ -97,6 +123,7 @@ export function assembleServices(parts: ServiceParts): Services {
       setupGate,
     }),
     calendar,
+    notifications,
     planets,
     oidc,
   }

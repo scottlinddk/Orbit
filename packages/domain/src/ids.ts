@@ -11,6 +11,7 @@ export type FeedId = Brand<string, 'FeedId'>
 export type ListId = Brand<string, 'ListId'>
 export type ListItemId = Brand<string, 'ListItemId'>
 export type CalendarSourceId = Brand<string, 'CalendarSourceId'>
+export type NotificationEndpointId = Brand<string, 'NotificationEndpointId'>
 export type WidgetPlacementId = Brand<string, 'WidgetPlacementId'>
 
 function id<T extends string>(kind: string, value: string): T {
@@ -28,3 +29,5 @@ export const FeedId = (value: string) => id<FeedId>('FeedId', value)
 export const ListId = (value: string) => id<ListId>('ListId', value)
 export const ListItemId = (value: string) => id<ListItemId>('ListItemId', value)
 export const CalendarSourceId = (value: string) => id<CalendarSourceId>('CalendarSourceId', value)
+export const NotificationEndpointId = (value: string) =>
+  id<NotificationEndpointId>('NotificationEndpointId', value)

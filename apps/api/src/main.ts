@@ -17,6 +17,7 @@ import { createPlanetWiring } from './planets.ts'
 
 const HOUR = 60 * 60 * 1000
 const PLANET_TICK_MS = 30 * 1000
+const NOTIFICATION_TICK_MS = 30 * 1000
 
 async function main() {
   const config = loadConfig(process.env)
@@ -83,6 +84,14 @@ async function main() {
   }, PLANET_TICK_MS)
   planetTick.unref()
 
+  // Calendar reminders and queued webhook deliveries (ADR 0020).
+  const notificationTick = setInterval(() => {
+    services.notifications
+      .tick()
+      .catch((error) => app.log.error({ err: error }, 'notification delivery failed'))
+  }, NOTIFICATION_TICK_MS)
+  notificationTick.unref()
+
   // Backups go next to the database, so they do not protect against losing the volume. The
   // operations guide says to copy them off the machine. The hourly check is shorter than the
   // interval on purpose: it looks at the files, so a restart or a night off still gets its backup.
@@ -108,6 +117,7 @@ async function main() {
     app.log.info({ signal }, 'shutting down')
     clearInterval(purge)
     clearInterval(planetTick)
+    clearInterval(notificationTick)
     if (backups) clearInterval(backups)
     await app.close()
     db.close()

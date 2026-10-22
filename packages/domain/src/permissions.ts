@@ -13,6 +13,7 @@ export type HouseholdAction =
   | 'list:edit'
   | 'feed:manage'
   | 'calendar:manage'
+  | 'notification:manage'
 
 /**
  * Deny by default: an action is allowed only when listed for the role.
@@ -37,8 +38,8 @@ const grants: Record<HouseholdRole, ReadonlySet<HouseholdAction>> = {
     'list:view',
     'list:edit',
     'feed:manage',
-    'calendar:view',
     'calendar:manage',
+    'notification:manage',
   ]),
   member: new Set<HouseholdAction>([
     'household:view',

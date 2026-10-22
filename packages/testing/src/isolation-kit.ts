@@ -8,6 +8,7 @@ import {
   InvitationId,
   ListId,
   ListItemId,
+  NotificationEndpointId,
   WidgetPlacementId,
 } from '@orbit/domain'
 import { beforeEach, describe, expect, it } from 'vitest'
@@ -25,6 +26,7 @@ import type { TestSystem } from './fixtures.ts'
  * gap in the security test suite.
  */
 const CALENDAR_URL = 'https://calendar.example.com/private/abc123.ics'
+const WEBHOOK_URL = 'https://hooks.example.com/services/T000/B000/secret-token'
 /** Inside the window around the test clock's 2026-01-01. */
 const CALENDAR_RANGE = {
   from: new Date('2026-01-01T00:00:00Z'),
@@ -44,6 +46,7 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
     let listA: ListId
     let itemA: ListItemId
     let calendarSourceA: CalendarSourceId
+    let endpointA: NotificationEndpointId
 
     beforeEach(async () => {
       sys = create()
@@ -87,6 +90,13 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
       calendarSourceA = (
         await sys.calendar.addSource(alice, householdA, { name: 'Family', url: CALENDAR_URL })
       ).id
+      endpointA = (
+        await sys.notifications.addEndpoint(alice, householdA, {
+          name: 'Chat',
+          url: WEBHOOK_URL,
+          events: ['list.item.added', 'calendar.event.starting'],
+        })
+      ).endpoint.id
     })
 
     /** Every operation, parameterized by who performs it. */
@@ -114,6 +124,19 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
         listCalendarSources: () => sys.calendar.listSources(as(), householdA),
         removeCalendarSource: () => sys.calendar.removeSource(as(), householdA, calendarSourceA),
         calendarEvents: () => sys.calendar.events(as(), householdA, CALENDAR_RANGE),
+        addNotificationEndpoint: () =>
+          sys.notifications.addEndpoint(as(), householdA, {
+            name: 'Intruder',
+            url: WEBHOOK_URL,
+            events: ['list.item.added'],
+          }),
+        listNotificationEndpoints: () => sys.notifications.listEndpoints(as(), householdA),
+        updateNotificationEndpoint: () =>
+          sys.notifications.updateEndpoint(as(), householdA, endpointA, { enabled: false }),
+        removeNotificationEndpoint: () =>
+          sys.notifications.removeEndpoint(as(), householdA, endpointA),
+        notificationDeliveries: () => sys.notifications.deliveries(as(), householdA, endpointA),
+        sendTestNotification: () => sys.notifications.sendTest(as(), householdA, endpointA),
         createDashboard: () => uc().createDashboard(as(), householdA, { name: 'Intruder' }),
         listDashboards: () => uc().listDashboards(as(), householdA),
         getDashboard: () => uc().getDashboard(as(), dashboardA),
@@ -146,6 +169,10 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
           uc().updateListItem(as(), householdA, listA, ListItemId('missing'), { done: true }),
         removeCalendarSourceMissing: () =>
           sys.calendar.removeSource(as(), householdA, CalendarSourceId('missing')),
+        removeNotificationEndpointMissing: () =>
+          sys.notifications.removeEndpoint(as(), householdA, NotificationEndpointId('missing')),
+        sendTestNotificationMissing: () =>
+          sys.notifications.sendTest(as(), householdA, NotificationEndpointId('missing')),
       }
     }
 
@@ -157,6 +184,7 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
       lists: await sys.useCases.listLists(alice, householdA),
       list: await sys.useCases.getList(alice, householdA, listA),
       calendarSources: await sys.calendar.listSources(alice, householdA),
+      notificationEndpoints: await sys.notifications.listEndpoints(alice, householdA),
     })
 
     describe('a user from another household', () => {
@@ -195,6 +223,12 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
       'revokeFeed',
       'addCalendarSource',
       'removeCalendarSource',
+      'addNotificationEndpoint',
+      'listNotificationEndpoints',
+      'updateNotificationEndpoint',
+      'removeNotificationEndpoint',
+      'notificationDeliveries',
+      'sendTestNotification',
       'createDashboard',
       'renameDashboard',
       'setDashboardColumns',
@@ -370,6 +404,50 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
       it("never shows another household's events in your own", async () => {
         const mine = await sys.calendar.events(carol, await carolsHousehold(), CALENDAR_RANGE)
         expect(mine).toEqual({ events: [], sources: [] })
+      })
+    })
+
+    describe('notification webhooks', () => {
+      const carolsHousehold = async () => (await sys.useCases.listHouseholds(carol))[0]!.id
+
+      it("cannot be changed, tested or read through another household's id", async () => {
+        const carols = await carolsHousehold()
+        for (const attempt of [
+          () => sys.notifications.updateEndpoint(carol, carols, endpointA, { enabled: false }),
+          () => sys.notifications.removeEndpoint(carol, carols, endpointA),
+          () => sys.notifications.deliveries(carol, carols, endpointA),
+          () => sys.notifications.sendTest(carol, carols, endpointA),
+        ])
+          await expect(attempt()).rejects.toBeInstanceOf(NotFoundError)
+        expect(await sys.notifications.listEndpoints(alice, householdA)).toHaveLength(1)
+        expect(sys.webhooks.calls).toEqual([])
+      })
+
+      it('gives a foreign endpoint id the same answer as a missing one', async () => {
+        const carols = await carolsHousehold()
+        const foreign = await sys.notifications.sendTest(carol, carols, endpointA).catch((e) => e)
+        const missing = await sys.notifications
+          .sendTest(carol, carols, NotificationEndpointId('missing'))
+          .catch((e) => e)
+        expect(foreign).toBeInstanceOf(NotFoundError)
+        expect(foreign.message).toBe(missing.message)
+      })
+
+      it("never list another household's endpoints", async () => {
+        expect(await sys.notifications.listEndpoints(carol, await carolsHousehold())).toEqual([])
+      })
+
+      it("do not receive another household's events", async () => {
+        const carols = await carolsHousehold()
+        await sys.notifications.addEndpoint(carol, carols, {
+          name: 'Carol chat',
+          url: 'https://carol.example.com/hook',
+          events: ['list.item.added'],
+        })
+        await sys.useCases.addListItem(alice, householdA, listA, { text: 'Eggs' })
+        await sys.notifications.tick()
+        expect(sys.webhooks.callsTo('https://carol.example.com/hook')).toEqual([])
+        expect(sys.webhooks.callsTo(WEBHOOK_URL)).toHaveLength(1)
       })
     })
 

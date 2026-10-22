@@ -8,8 +8,12 @@ import {
   InMemoryExternalIdentityRepository,
   InMemoryFeedRepository,
   InMemoryHouseholdRepository,
+  InMemoryDeliveryLogRepository,
   InMemoryInvitationRepository,
+  InMemoryJobScheduler,
   InMemoryListRepository,
+  InMemoryNotificationDedupeRepository,
+  InMemoryNotificationEndpointRepository,
   InMemorySecretStore,
   InMemorySessionStore,
   InMemoryUserRepository,
@@ -21,8 +25,11 @@ import {
   SqliteExternalIdentityRepository,
   SqliteFeedRepository,
   SqliteHouseholdRepository,
+  SqliteDeliveryLogRepository,
   SqliteInvitationRepository,
   SqliteListRepository,
+  SqliteNotificationDedupeRepository,
+  SqliteNotificationEndpointRepository,
   SqliteSessionStore,
   SqliteUserRepository,
   migrate,
@@ -31,14 +38,17 @@ import {
 import {
   createCalendarService,
   createFeedReader,
+  createNotificationService,
   createUseCases,
   type Actor,
   type CalendarService,
   type FeedReader,
+  type NotificationService,
   type UseCases,
 } from '@orbit/application'
 import { UserId, Username, createUser } from '@orbit/domain'
 import { FakeCalendarFeedReader } from './calendar-fakes.ts'
+import { FakeNotificationPlatform, FakeWebhookFetcher } from './notification-fakes.ts'
 import type { RepositorySet } from './repository-contracts.ts'
 
 export interface TestSystem {
@@ -48,6 +58,11 @@ export interface TestSystem {
   /** Household calendars, reading from `calendarReader` instead of the network. */
   calendar: CalendarService
   calendarReader: FakeCalendarFeedReader
+  /** Outgoing webhooks, delivered to `webhooks` instead of the network. */
+  notifications: NotificationService
+  webhooks: FakeWebhookFetcher
+  /** The queue behind `notifications`. */
+  jobs: InMemoryJobScheduler
   /** Moves time forward for invitations and anything else that expires. */
   clock: ManualClock
   /** Registers a user and returns the actor that user would log in as. */
@@ -71,8 +86,30 @@ export function createSystem(
     clock,
     ids,
   })
+  const webhooks = new FakeWebhookFetcher()
+  const jobs = new InMemoryJobScheduler()
+  const notifications = createNotificationService({
+    endpoints: repos.notificationEndpoints,
+    log: repos.deliveryLog,
+    dedupe: repos.notificationDedupe,
+    households: repos.households,
+    secrets: new InMemorySecretStore(),
+    fetcher: webhooks,
+    jobs,
+    platform: new FakeNotificationPlatform(),
+    calendar,
+    clock,
+    ids,
+  })
   const { timeZone, ...useCaseOptions } = options
-  const useCases = createUseCases({ ...repos, tokens, clock, ids, ...useCaseOptions })
+  const useCases = createUseCases({
+    ...repos,
+    tokens,
+    clock,
+    ids,
+    events: notifications.sink,
+    ...useCaseOptions,
+  })
   return {
     useCases,
     feedReader: createFeedReader({
@@ -85,6 +122,9 @@ export function createSystem(
     }),
     calendar,
     calendarReader,
+    notifications,
+    webhooks,
+    jobs,
     clock,
     async newActor(name) {
       const id = UserId(`user-${name}`)
@@ -111,6 +151,9 @@ export function createInMemoryRepositories(): RepositorySet {
     feeds: new InMemoryFeedRepository(),
     lists: new InMemoryListRepository(),
     calendarSources: new InMemoryCalendarSourceRepository(),
+    notificationEndpoints: new InMemoryNotificationEndpointRepository(),
+    deliveryLog: new InMemoryDeliveryLogRepository(),
+    notificationDedupe: new InMemoryNotificationDedupeRepository(),
     dashboards: new InMemoryDashboardRepository(),
   }
 }
@@ -129,6 +172,9 @@ export function createSqliteRepositories(): RepositorySet {
     feeds: new SqliteFeedRepository(db),
     lists: new SqliteListRepository(db),
     calendarSources: new SqliteCalendarSourceRepository(db),
+    notificationEndpoints: new SqliteNotificationEndpointRepository(db),
+    deliveryLog: new SqliteDeliveryLogRepository(db),
+    notificationDedupe: new SqliteNotificationDedupeRepository(db),
     dashboards: new SqliteDashboardRepository(db),
   }
 }

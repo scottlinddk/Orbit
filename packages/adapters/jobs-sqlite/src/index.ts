@@ -30,15 +30,17 @@ export class SqliteJobScheduler implements JobScheduler {
     )
   }
 
-  async claimDue(now: Date, limit: number): Promise<ScheduledJob[]> {
+  async claimDue(now: Date, limit: number, prefix = ''): Promise<ScheduledJob[]> {
     // One statement does the select and the delete, so two callers cannot claim the same job.
+    // substr instead of LIKE, so a prefix containing % or _ is taken literally.
     const rows = this.#db
       .prepare(
         `DELETE FROM scheduled_jobs WHERE id IN (
-           SELECT id FROM scheduled_jobs WHERE run_at <= ? ORDER BY run_at, id LIMIT ?
+           SELECT id FROM scheduled_jobs
+           WHERE run_at <= ? AND substr(id, 1, ?) = ? ORDER BY run_at, id LIMIT ?
          ) RETURNING id, run_at, payload`,
       )
-      .all(now.toISOString(), limit) as unknown as JobRow[]
+      .all(now.toISOString(), prefix.length, prefix, limit) as unknown as JobRow[]
     return rows
       .sort((a, b) => a.run_at.localeCompare(b.run_at) || a.id.localeCompare(b.id))
       .map((row) => ({ id: row.id, runAt: new Date(row.run_at), payload: row.payload }))

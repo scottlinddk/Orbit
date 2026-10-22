@@ -1,14 +1,19 @@
 import { randomUUID } from 'node:crypto'
+import { createGuardedFetcher } from '@orbit/adapter-egress-guard'
+import { SqliteJobScheduler } from '@orbit/adapter-jobs-sqlite'
 import { Argon2PasswordHasher, RandomSessionTokens } from '@orbit/adapter-identity-local'
 import {
   SqliteAccountRepository,
   SqliteCalendarSourceRepository,
   SqliteDashboardRepository,
+  SqliteDeliveryLogRepository,
   SqliteExternalIdentityRepository,
   SqliteFeedRepository,
   SqliteHouseholdRepository,
   SqliteInvitationRepository,
   SqliteListRepository,
+  SqliteNotificationDedupeRepository,
+  SqliteNotificationEndpointRepository,
   SqliteSessionStore,
   SqliteUserRepository,
   type Database,
@@ -16,6 +21,7 @@ import {
 import type { OidcProvider, SetupGate } from '@orbit/application'
 import type { PlanetRuntime } from '@orbit/module-planets/server'
 import { createCalendarWiring } from './calendar.ts'
+import { createNodeNotificationPlatform } from './notification-platform.ts'
 import type { Config } from './config.ts'
 import { assembleServices, type Services } from './services.ts'
 
@@ -39,6 +45,9 @@ export function createSqliteServices(
       feeds: new SqliteFeedRepository(db),
       lists: new SqliteListRepository(db),
       calendarSources: new SqliteCalendarSourceRepository(db),
+      notificationEndpoints: new SqliteNotificationEndpointRepository(db),
+      deliveryLog: new SqliteDeliveryLogRepository(db),
+      notificationDedupe: new SqliteNotificationDedupeRepository(db),
       dashboards: new SqliteDashboardRepository(db),
     },
     hasher: new Argon2PasswordHasher(),
@@ -49,6 +58,13 @@ export function createSqliteServices(
     setupGate,
     planets,
     calendar: createCalendarWiring(db, config),
+    notifications: {
+      fetcher: createGuardedFetcher({
+        allowPrivateHosts: config.egressAllowPrivateHosts ?? new Set(),
+      }),
+      jobs: new SqliteJobScheduler(db),
+      platform: createNodeNotificationPlatform(),
+    },
     timeZone: config.timeZone,
     oidc,
     localLoginEnabled: config.localLogin ?? true,

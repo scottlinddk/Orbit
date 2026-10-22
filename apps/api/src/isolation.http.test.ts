@@ -22,6 +22,7 @@ interface Ids {
   list: string
   item: string
   calendarSource: string
+  notificationEndpoint: string
   alice: string
 }
 
@@ -38,6 +39,8 @@ interface Case {
 const V1 = '/api/v1'
 const GONE = 'does-not-exist'
 const CALENDAR_URL = 'https://calendar.example.com/private/abc123.ics'
+const WEBHOOK_URL = 'https://hooks.example.com/services/T000/B000/secret-token'
+const ENDPOINTS = 'notifications/endpoints'
 
 const cases: Case[] = [
   {
@@ -204,6 +207,59 @@ const cases: Case[] = [
     memberAllowed: true,
   },
   {
+    key: 'post /api/v1/households/{householdId}/notifications/endpoints',
+    call: (c, i) =>
+      c.post(`${V1}/households/${i.household}/${ENDPOINTS}`, {
+        name: 'Spy',
+        url: WEBHOOK_URL,
+        events: ['list.item.added'],
+      }),
+    callMissing: (c) =>
+      c.post(`${V1}/households/${GONE}/${ENDPOINTS}`, {
+        name: 'Spy',
+        url: WEBHOOK_URL,
+        events: ['list.item.added'],
+      }),
+    memberAllowed: false,
+  },
+  {
+    key: 'get /api/v1/households/{householdId}/notifications/endpoints',
+    call: (c, i) => c.get(`${V1}/households/${i.household}/${ENDPOINTS}`),
+    callMissing: (c) => c.get(`${V1}/households/${GONE}/${ENDPOINTS}`),
+    memberAllowed: false,
+  },
+  {
+    key: 'patch /api/v1/households/{householdId}/notifications/endpoints/{endpointId}',
+    call: (c, i) =>
+      c.patch(`${V1}/households/${i.household}/${ENDPOINTS}/${i.notificationEndpoint}`, {
+        enabled: false,
+      }),
+    callMissing: (c) =>
+      c.patch(`${V1}/households/${GONE}/${ENDPOINTS}/${GONE}`, { enabled: false }),
+    memberAllowed: false,
+  },
+  {
+    key: 'delete /api/v1/households/{householdId}/notifications/endpoints/{endpointId}',
+    call: (c, i) =>
+      c.delete(`${V1}/households/${i.household}/${ENDPOINTS}/${i.notificationEndpoint}`),
+    callMissing: (c) => c.delete(`${V1}/households/${GONE}/${ENDPOINTS}/${GONE}`),
+    memberAllowed: false,
+  },
+  {
+    key: 'get /api/v1/households/{householdId}/notifications/endpoints/{endpointId}/deliveries',
+    call: (c, i) =>
+      c.get(`${V1}/households/${i.household}/${ENDPOINTS}/${i.notificationEndpoint}/deliveries`),
+    callMissing: (c) => c.get(`${V1}/households/${GONE}/${ENDPOINTS}/${GONE}/deliveries`),
+    memberAllowed: false,
+  },
+  {
+    key: 'post /api/v1/households/{householdId}/notifications/endpoints/{endpointId}/test',
+    call: (c, i) =>
+      c.post(`${V1}/households/${i.household}/${ENDPOINTS}/${i.notificationEndpoint}/test`),
+    callMissing: (c) => c.post(`${V1}/households/${GONE}/${ENDPOINTS}/${GONE}/test`),
+    memberAllowed: false,
+  },
+  {
     key: 'get /api/v1/households/{householdId}/dashboards',
     call: (c, i) => c.get(`${V1}/households/${i.household}/dashboards`),
     callMissing: (c) => c.get(`${V1}/households/${GONE}/dashboards`),
@@ -335,6 +391,13 @@ describe.each(['memory', 'sqlite'] as const)('household isolation over HTTP (%s)
         url: CALENDAR_URL,
       })
     ).body
+    const notificationEndpoint = (
+      await alice.post(`${V1}/households/${household}/${ENDPOINTS}`, {
+        name: 'Chat',
+        url: WEBHOOK_URL,
+        events: ['list.item.added'],
+      })
+    ).body
     const feed = (
       await alice.post(`${V1}/households/${household}/feeds`, {
         name: 'Kitchen',
@@ -357,6 +420,7 @@ describe.each(['memory', 'sqlite'] as const)('household isolation over HTTP (%s)
       invitation: invitation.id,
       feed: feed.id,
       calendarSource: calendarSource.id,
+      notificationEndpoint: notificationEndpoint.id,
       dashboard: dashboard.id,
       widget: withWidget.widgets[0].id,
       planetWidget: withPlanet.widgets.at(-1).id,
@@ -372,6 +436,7 @@ describe.each(['memory', 'sqlite'] as const)('household isolation over HTTP (%s)
     feeds: (await alice.get(`${V1}/households/${ids.household}/feeds`)).body,
     list: (await alice.get(`${V1}/households/${ids.household}/lists/${ids.list}`)).body,
     calendarSources: (await alice.get(`${V1}/households/${ids.household}/calendar/sources`)).body,
+    notificationEndpoints: (await alice.get(`${V1}/households/${ids.household}/${ENDPOINTS}`)).body,
   })
 
   it('covers every protected operation in the OpenAPI document', async () => {

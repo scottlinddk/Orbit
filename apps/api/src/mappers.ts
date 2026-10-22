@@ -2,6 +2,8 @@ import type { ListDetail, ListSummary } from '@orbit/application'
 import type {
   CalendarEventResponse,
   CalendarSourceResponse,
+  DeliveryResponse,
+  NotificationEndpointResponse,
   DashboardResponse,
   FeedResponse,
   HouseholdResponse,
@@ -9,7 +11,15 @@ import type {
   ListResponse,
   ListSummaryResponse,
 } from '@orbit/contracts'
-import type { CalendarSource, Dashboard, Feed, Household, Invitation } from '@orbit/domain'
+import type {
+  CalendarSource,
+  Dashboard,
+  DeliveryLogEntry,
+  Feed,
+  Household,
+  Invitation,
+  NotificationEndpoint,
+} from '@orbit/domain'
 import type { CalendarEventWithSource } from '@orbit/application'
 
 export const listResponse = ({ list, items }: ListDetail): ListResponse => ({
@@ -94,3 +104,27 @@ export const calendarEventResponse = (e: CalendarEventWithSource): CalendarEvent
         ...(e.timeZone === undefined ? {} : { timeZone: e.timeZone }),
       }
 }
+
+export const notificationEndpointResponse = (
+  e: NotificationEndpoint,
+): NotificationEndpointResponse => ({
+  id: e.id,
+  name: e.name,
+  host: e.host,
+  events: [...e.events],
+  leadMinutes: e.leadMinutes,
+  enabled: e.enabled,
+  ...(e.disabledReason === undefined ? {} : { disabledReason: e.disabledReason }),
+  failures: e.failures,
+  createdAt: e.createdAt.toISOString(),
+})
+
+export const deliveryResponse = (d: DeliveryLogEntry): DeliveryResponse => ({
+  deliveryId: d.deliveryId,
+  event: d.event,
+  at: d.at.toISOString(),
+  attempt: d.attempt,
+  outcome: d.outcome,
+  ...(d.httpStatus === undefined ? {} : { httpStatus: d.httpStatus }),
+  ...(d.error === undefined ? {} : { error: d.error }),
+})

@@ -39,9 +39,9 @@ export class MemoryScheduler implements JobScheduler {
   async has(id: string) {
     return this.jobs.has(id)
   }
-  async claimDue(now: Date, limit: number) {
+  async claimDue(now: Date, limit: number, prefix = '') {
     const due = [...this.jobs.values()]
-      .filter((j) => j.runAt <= now)
+      .filter((j) => j.runAt <= now && j.id.startsWith(prefix))
       .sort((a, b) => a.runAt.getTime() - b.runAt.getTime())
       .slice(0, limit)
     for (const job of due) this.jobs.delete(job.id)

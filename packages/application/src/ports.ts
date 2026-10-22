@@ -8,6 +8,7 @@ import type {
   ExternalIdentity,
   Feed,
   FeedId,
+  DeliveryLogEntry,
   Household,
   HouseholdId,
   HouseholdList,
@@ -16,6 +17,9 @@ import type {
   InvitationId,
   ListId,
   ListItemId,
+  NotificationEndpoint,
+  NotificationEndpointId,
+  NotificationEvent,
   User,
   UserId,
 } from '@orbit/domain'
@@ -136,6 +140,36 @@ export interface IdGenerator {
   next(): string
 }
 
+export interface NotificationEndpointRepository {
+  create(endpoint: NotificationEndpoint): Promise<void>
+  get(id: NotificationEndpointId): Promise<NotificationEndpoint | undefined>
+  /** Every endpoint of a household, oldest first. */
+  listForHousehold(householdId: HouseholdId): Promise<NotificationEndpoint[]>
+  /** Replaces the stored endpoint with the same id. */
+  save(endpoint: NotificationEndpoint): Promise<void>
+  delete(id: NotificationEndpointId): Promise<void>
+  /** Enabled endpoints of every household that subscribe to `event`. */
+  listEnabledFor(event: NotificationEvent): Promise<NotificationEndpoint[]>
+}
+
+/** The last few attempts per endpoint. Holds status and error text only, never payloads. */
+export interface DeliveryLogRepository {
+  /** Appends an entry and drops the oldest ones beyond `keep` for that endpoint. */
+  append(entry: DeliveryLogEntry, keep: number): Promise<void>
+  /** Newest first. */
+  recent(endpointId: NotificationEndpointId, limit: number): Promise<DeliveryLogEntry[]>
+  deleteForEndpoint(endpointId: NotificationEndpointId): Promise<void>
+}
+
+/** Remembers what was already announced, so a restart never repeats a reminder. */
+export interface NotificationDedupeRepository {
+  /** True when the key is new and now recorded. Of two simultaneous calls exactly one wins. */
+  claim(key: string, relevantUntil: Date): Promise<boolean>
+  /** Forgets keys whose `relevantUntil` is before `before`. */
+  prune(before: Date): Promise<void>
+  deleteWithPrefix(prefix: string): Promise<void>
+}
+
 /** Every persistence port, for adapters that implement them together and for the composition root. */
 export interface Repositories {
   users: UserRepository
@@ -148,4 +182,7 @@ export interface Repositories {
   feeds: FeedRepository
   lists: ListRepository
   calendarSources: CalendarSourceRepository
+  notificationEndpoints: NotificationEndpointRepository
+  deliveryLog: DeliveryLogRepository
+  notificationDedupe: NotificationDedupeRepository
 }

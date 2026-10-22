@@ -1,4 +1,5 @@
 export * from './calendar-fakes.ts'
 export * from './fixtures.ts'
 export * from './isolation-kit.ts'
+export * from './notification-fakes.ts'
 export * from './repository-contracts.ts'
