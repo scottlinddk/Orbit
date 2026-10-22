@@ -11,7 +11,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { migrate, openDatabase } from '@orbit/adapter-persistence-sqlite'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { runCli, type CliIo } from './cli-commands.ts'
+import { doctor, runCli, type CliIo } from './cli-commands.ts'
 import { createSqliteServices } from './composition.ts'
 import { loadConfig } from './config.ts'
 
@@ -64,6 +64,40 @@ describe('operator CLI', () => {
     ])('rejects %j', async (argv, message) => {
       expect(await run(...argv)).toBe(2)
       expect(err.join('\n')).toMatch(message)
+    })
+  })
+
+  describe('configuration checks', () => {
+    it('validates configuration and rejects invalid settings without opening the database', async () => {
+      env.ORBIT_DATABASE_PATH = join(dir, 'missing.sqlite')
+      expect(await run('config', 'validate')).toBe(0)
+      env.ORBIT_PORT = '99999'
+      expect(await run('config', 'validate')).toBe(1)
+      expect(err.join('\n')).toContain('ORBIT_PORT')
+    })
+
+    it('redacts the setup code in printed effective settings', async () => {
+      env.ORBIT_SETUP_CODE = 'secret-setup-code'
+      expect(await run('config', 'print', '--redacted')).toBe(0)
+      const printed = out.join('\n')
+      expect(printed).toContain('[REDACTED]')
+      expect(printed).not.toContain(env.ORBIT_SETUP_CODE)
+      expect(await run('config', 'print')).toBe(2)
+    })
+
+    it('checks storage and health, reporting failed reachability', async () => {
+      const healthyResponse = new Response('{"status":"ok"}', {
+        headers: { date: new Date().toUTCString() },
+      })
+      expect(await doctor(loadConfig(env), io(), async () => healthyResponse)).toBe(0)
+      expect(out.join('\n')).toContain('storage is writable')
+      err.length = 0
+      expect(
+        await doctor(loadConfig(env), io(), async () => {
+          throw new Error('unreachable')
+        }),
+      ).toBe(1)
+      expect(err.join('\n')).toContain('unreachable')
     })
   })
 
