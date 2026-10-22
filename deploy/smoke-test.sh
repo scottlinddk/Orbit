@@ -3,7 +3,7 @@
 #   build -> start -> browser test -> backup -> verify -> destroy the data -> restore -> log in
 #   -> reset a password.
 # Needs docker, node, curl. Set RUN_E2E=1 to include the browser suite (needs Playwright).
-# Set SKIP_BUILD=1 to reuse an existing orbit:local image.
+# Set SKIP_BUILD=1 to reuse the image named by Compose.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 

@@ -3,7 +3,7 @@
 services:
   orbit:
     build: .
-    image: orbit:local
+    image: ghcr.io/scottlinddk/orbit:${ORBIT_IMAGE_TAG:-latest}
     restart: unless-stopped
     init: true
     ports:
