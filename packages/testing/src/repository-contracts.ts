@@ -9,6 +9,7 @@ import {
   WidgetPlacementId,
   addMember,
   addWidget,
+  changeMemberRole,
   createDashboard,
   createFeed,
   createHousehold,
@@ -49,6 +50,25 @@ export function describeRepositoryContracts(name: string, create: () => Promise<
       await repos.households.save(bigger)
       expect(await repos.households.get(h.id)).toEqual(bigger)
       expect(await repos.households.get(HouseholdId('missing'))).toBeUndefined()
+    })
+
+    it('round-trips every role, including child and device', async () => {
+      const kid = UserId('kid')
+      const screen = UserId('screen')
+      const h = addMember(
+        addMember(
+          addMember(createHousehold({ id: HouseholdId('h1'), name: 'Home', ownerId: alice }), bob),
+          kid,
+          'child',
+        ),
+        screen,
+        'device',
+      )
+      await repos.households.save(h)
+      const loaded = await repos.households.get(h.id)
+      expect(loaded?.members.map((m) => m.role)).toEqual(['owner', 'member', 'child', 'device'])
+      await repos.households.save(changeMemberRole(h, bob, 'device'))
+      expect((await repos.households.get(h.id))?.members[1]?.role).toBe('device')
     })
 
     it('lists only the households a user belongs to', async () => {
@@ -279,6 +299,21 @@ export function describeInvitationContracts(name: string, create: () => Promise<
         ttlDays,
       })
     const later = (days: number) => new Date(t0.getTime() + days * 24 * 60 * 60 * 1000)
+
+    it('keeps the child and device roles of an invitation', async () => {
+      for (const role of ['child', 'device'] as const) {
+        const i = createInvitation({
+          id: InvitationId(`i-${role}`),
+          householdId: HouseholdId('h1'),
+          role,
+          tokenHash: `hash-${role}`,
+          createdBy: UserId('alice'),
+          now: t0,
+        })
+        await repos.invitations.create(i)
+        expect((await repos.invitations.get(i.id))?.role).toBe(role)
+      }
+    })
 
     it('round-trips an invitation, by id and by token hash', async () => {
       const i = invite('i1')

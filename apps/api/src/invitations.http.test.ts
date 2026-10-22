@@ -77,10 +77,10 @@ describe.each(['memory', 'sqlite'] as const)('household invitations over HTTP (%
 
   it('defaults to seven days and lets the owner choose the role and lifetime', async () => {
     const week = await invite()
-    const day = await invite({ role: 'owner', expiresInDays: 1 })
+    const day = await invite({ role: 'device', expiresInDays: 1 })
     const created = Date.parse(week.expiresAt) - 7 * DAY
     expect(Date.parse(day.expiresAt)).toBe(created + DAY)
-    expect(day.role).toBe('owner')
+    expect(day.role).toBe('device')
     expect(
       (await alice.post(`${V1}/households/${household}/invitations`, { expiresInDays: 0 })).status,
     ).toBe(400)
@@ -89,6 +89,10 @@ describe.each(['memory', 'sqlite'] as const)('household invitations over HTTP (%
     ).toBe(400)
     expect(
       (await alice.post(`${V1}/households/${household}/invitations`, { role: 'admin' })).status,
+    ).toBe(400)
+    // Nobody becomes an owner through a link.
+    expect(
+      (await alice.post(`${V1}/households/${household}/invitations`, { role: 'owner' })).status,
     ).toBe(400)
   })
 

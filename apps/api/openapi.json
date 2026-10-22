@@ -300,7 +300,9 @@
                   "type": "string",
                   "enum": [
                     "owner",
-                    "member"
+                    "member",
+                    "child",
+                    "device"
                   ]
                 }
               },
@@ -327,7 +329,9 @@
             "type": "string",
             "enum": [
               "owner",
-              "member"
+              "member",
+              "child",
+              "device"
             ]
           },
           "createdAt": {
@@ -354,7 +358,9 @@
             "type": "string",
             "enum": [
               "owner",
-              "member"
+              "member",
+              "child",
+              "device"
             ]
           },
           "createdAt": {
@@ -385,7 +391,9 @@
             "type": "string",
             "enum": [
               "owner",
-              "member"
+              "member",
+              "child",
+              "device"
             ]
           }
         },
@@ -688,7 +696,9 @@
                   "type": "string",
                   "enum": [
                     "owner",
-                    "member"
+                    "member",
+                    "child",
+                    "device"
                   ]
                 }
               },
@@ -717,7 +727,9 @@
             "type": "string",
             "enum": [
               "owner",
-              "member"
+              "member",
+              "child",
+              "device"
             ]
           },
           "createdAt": {
@@ -745,7 +757,9 @@
             "type": "string",
             "enum": [
               "owner",
-              "member"
+              "member",
+              "child",
+              "device"
             ]
           },
           "createdAt": {
@@ -777,7 +791,9 @@
             "type": "string",
             "enum": [
               "owner",
-              "member"
+              "member",
+              "child",
+              "device"
             ]
           }
         },
@@ -1528,8 +1544,9 @@
                   "role": {
                     "type": "string",
                     "enum": [
-                      "owner",
-                      "member"
+                      "member",
+                      "child",
+                      "device"
                     ]
                   }
                 },
@@ -1623,6 +1640,126 @@
       }
     },
     "/api/v1/households/{householdId}/members/{userId}": {
+      "patch": {
+        "summary": "Change a member's role (owners only). A household always keeps one owner.",
+        "tags": [
+          "households"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "owner",
+                      "member",
+                      "child",
+                      "device"
+                    ]
+                  }
+                },
+                "required": [
+                  "role"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "in": "path",
+            "name": "householdId",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "in": "path",
+            "name": "userId",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Household"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
       "delete": {
         "summary": "Remove a member (owners only). A household always keeps one owner.",
         "tags": [
@@ -1726,8 +1863,9 @@
                   "role": {
                     "type": "string",
                     "enum": [
-                      "owner",
-                      "member"
+                      "member",
+                      "child",
+                      "device"
                     ]
                   },
                   "expiresInDays": {

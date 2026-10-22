@@ -49,6 +49,13 @@ const cases: Case[] = [
     memberAllowed: false,
   },
   {
+    key: 'patch /api/v1/households/{householdId}/members/{userId}',
+    call: (c, i) =>
+      c.patch(`${V1}/households/${i.household}/members/${i.alice}`, { role: 'member' }),
+    callMissing: (c) => c.patch(`${V1}/households/${GONE}/members/${GONE}`, { role: 'member' }),
+    memberAllowed: false,
+  },
+  {
     key: 'delete /api/v1/households/{householdId}/members/{userId}',
     call: (c, i) => c.delete(`${V1}/households/${i.household}/members/${i.alice}`),
     callMissing: (c) => c.delete(`${V1}/households/${GONE}/members/${GONE}`),
@@ -56,8 +63,8 @@ const cases: Case[] = [
   },
   {
     key: 'post /api/v1/households/{householdId}/invitations',
-    call: (c, i) => c.post(`${V1}/households/${i.household}/invitations`, { role: 'owner' }),
-    callMissing: (c) => c.post(`${V1}/households/${GONE}/invitations`, { role: 'owner' }),
+    call: (c, i) => c.post(`${V1}/households/${i.household}/invitations`, { role: 'member' }),
+    callMissing: (c) => c.post(`${V1}/households/${GONE}/invitations`, { role: 'member' }),
     memberAllowed: false,
   },
   {
@@ -180,6 +187,7 @@ const NO_FOREIGN_ID = new Set([
 describe.each(['memory', 'sqlite'] as const)('household isolation over HTTP (%s)', (storage) => {
   let env: TestEnv
   let alice: TestClient, bob: TestClient, carol: TestClient, anon: TestClient
+  let dave: TestClient, eve: TestClient
   let ids: Ids
 
   beforeEach(async () => {
@@ -187,13 +195,19 @@ describe.each(['memory', 'sqlite'] as const)('household isolation over HTTP (%s)
     alice = env.client()
     bob = env.client()
     carol = env.client()
+    dave = env.client()
+    eve = env.client()
     anon = env.client()
     const aliceUser = await alice.signUp('alice')
     await bob.signUp('bobby')
     await carol.signUp('carol')
+    await dave.signUp('dave')
+    await eve.signUp('eve')
 
     const household = (await alice.post(`${V1}/households`, { name: 'A' })).body.id
     await alice.post(`${V1}/households/${household}/members`, { username: 'bobby' })
+    await alice.post(`${V1}/households/${household}/members`, { username: 'dave', role: 'child' })
+    await alice.post(`${V1}/households/${household}/members`, { username: 'eve', role: 'device' })
     await carol.post(`${V1}/households`, { name: 'B' })
     const dashboard = (
       await alice.post(`${V1}/households/${household}/dashboards`, { name: 'Family' })
@@ -271,6 +285,47 @@ describe.each(['memory', 'sqlite'] as const)('household isolation over HTTP (%s)
         }
       },
     )
+  })
+
+  describe.each(['child', 'device'] as const)('a %s account', (role) => {
+    const who = () => (role === 'child' ? dave : eve)
+
+    it.each(cases)('$key: only what the role allows, enforced by the API', async (c) => {
+      const before = await state()
+      const res = await c.call(who(), ids)
+      if (c.memberAllowed) {
+        expect(res.status).toBe(200)
+      } else {
+        expect(res.status).toBe(403)
+        expect(await state()).toEqual(before)
+      }
+    })
+
+    it('never learns who else is in the household', async () => {
+      const one = (await who().get(`${V1}/households/${ids.household}`)).body
+      expect(one.members).toHaveLength(1)
+      const listed = (await who().get(`${V1}/households`)).body.households
+      expect(listed[0].members).toHaveLength(1)
+    })
+  })
+
+  it('lets owners change a role, with the API enforcing the new limits at once', async () => {
+    const bobId = (await bob.get(`${V1}/auth/me`)).body.id
+    const changed = await alice.patch(`${V1}/households/${ids.household}/members/${bobId}`, {
+      role: 'device',
+    })
+    expect(changed.status).toBe(200)
+    expect(changed.body.members.find((m: { userId: string }) => m.userId === bobId).role).toBe(
+      'device',
+    )
+    expect((await bob.get(`${V1}/households/${ids.household}/invitations`)).status).toBe(403)
+    expect((await bob.get(`${V1}/dashboards/${ids.dashboard}`)).status).toBe(200)
+  })
+
+  it('refuses to demote the last owner and unknown roles', async () => {
+    const url = `${V1}/households/${ids.household}/members/${ids.alice}`
+    expect((await alice.patch(url, { role: 'member' })).status).toBe(422)
+    expect((await alice.patch(url, { role: 'admin' })).status).toBe(400)
   })
 
   it('stops serving a removed member immediately', async () => {

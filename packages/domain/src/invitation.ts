@@ -1,6 +1,6 @@
 import { invariant } from './errors.ts'
 import type { HouseholdId, InvitationId, UserId } from './ids.ts'
-import type { HouseholdRole } from './household.ts'
+import { INVITABLE_ROLES, type HouseholdRole } from './household.ts'
 
 export const DEFAULT_INVITATION_TTL_DAYS = 7
 export const MAX_INVITATION_TTL_DAYS = 30
@@ -35,6 +35,10 @@ export function createInvitation(input: {
   now: Date
   ttlDays?: number | undefined
 }): Invitation {
+  invariant(
+    (INVITABLE_ROLES as readonly HouseholdRole[]).includes(input.role),
+    'An invitation cannot make someone an owner',
+  )
   const ttlDays = input.ttlDays ?? DEFAULT_INVITATION_TTL_DAYS
   invariant(
     Number.isInteger(ttlDays) && ttlDays >= 1 && ttlDays <= MAX_INVITATION_TTL_DAYS,

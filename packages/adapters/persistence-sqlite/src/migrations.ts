@@ -149,4 +149,39 @@ export const migrations: readonly Migration[] = [
       ) STRICT;
     `,
   },
+  {
+    // SQLite cannot change a CHECK constraint, so both tables are rebuilt with the new role list.
+    version: 6,
+    name: 'child-and-device-roles',
+    sql: `
+      CREATE TABLE household_members_new (
+        household_id TEXT NOT NULL REFERENCES households(id) ON DELETE CASCADE,
+        user_id TEXT NOT NULL,
+        role TEXT NOT NULL CHECK (role IN ('owner', 'member', 'child', 'device')),
+        position INTEGER NOT NULL,
+        PRIMARY KEY (household_id, user_id)
+      ) STRICT;
+      INSERT INTO household_members_new SELECT household_id, user_id, role, position FROM household_members;
+      DROP TABLE household_members;
+      ALTER TABLE household_members_new RENAME TO household_members;
+      CREATE INDEX household_members_by_user ON household_members(user_id);
+
+      CREATE TABLE invitations_new (
+        id TEXT PRIMARY KEY,
+        household_id TEXT NOT NULL,
+        role TEXT NOT NULL CHECK (role IN ('owner', 'member', 'child', 'device')),
+        token_hash TEXT NOT NULL UNIQUE,
+        created_by TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        accepted_by TEXT,
+        accepted_at TEXT,
+        revoked_at TEXT
+      ) STRICT;
+      INSERT INTO invitations_new SELECT id, household_id, role, token_hash, created_by, created_at, expires_at, accepted_by, accepted_at, revoked_at FROM invitations;
+      DROP TABLE invitations;
+      ALTER TABLE invitations_new RENAME TO invitations;
+      CREATE INDEX invitations_by_household ON invitations(household_id);
+    `,
+  },
 ]

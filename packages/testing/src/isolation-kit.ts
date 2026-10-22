@@ -13,7 +13,8 @@ import type { TestSystem } from './fixtures.ts'
 /**
  * Household isolation: the security invariant every protected operation must keep.
  *
- * Scenario: Alice owns household A and Bob is a plain member of it. Carol owns household B
+ * Scenario: Alice owns household A, Bob is a plain member of it, Dave is a child and Eve is a
+ * display device. Carol owns household B
  * and has no relation to A. Every operation that takes an id is tried by Carol against A's
  * resources, and by Bob where his role should not allow it.
  *
@@ -23,7 +24,7 @@ import type { TestSystem } from './fixtures.ts'
 export function describeHouseholdIsolation(name: string, create: () => TestSystem) {
   describe(`household isolation: ${name}`, () => {
     let sys: TestSystem
-    let alice: Actor, bob: Actor, carol: Actor
+    let alice: Actor, bob: Actor, carol: Actor, dave: Actor, eve: Actor
     let householdA: HouseholdId
     let dashboardA: DashboardId
     let widgetA: WidgetPlacementId
@@ -36,9 +37,13 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
       alice = await sys.newActor('alice')
       bob = await sys.newActor('bob')
       carol = await sys.newActor('carol')
+      dave = await sys.newActor('dave')
+      eve = await sys.newActor('eve')
       const { useCases: uc } = sys
       householdA = (await uc.createHousehold(alice, { name: 'A' })).id
       await uc.addHouseholdMember(alice, householdA, { userId: bob.userId })
+      await uc.addHouseholdMember(alice, householdA, { userId: dave.userId, role: 'child' })
+      await uc.addHouseholdMember(alice, householdA, { userId: eve.userId, role: 'device' })
       await uc.createHousehold(carol, { name: 'B' })
       const dashboard = await uc.createDashboard(alice, householdA, { name: 'Family' })
       dashboardA = dashboard.id
@@ -65,7 +70,9 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
         addHouseholdMemberByUsername: () =>
           uc().addHouseholdMemberByUsername(as(), householdA, { username: 'carol' }),
         removeHouseholdMember: () => uc().removeHouseholdMember(as(), householdA, alice.userId),
-        createInvitation: () => uc().createInvitation(as(), householdA, { role: 'owner' }),
+        changeHouseholdMemberRole: () =>
+          uc().changeHouseholdMemberRole(as(), householdA, bob.userId, 'owner'),
+        createInvitation: () => uc().createInvitation(as(), householdA, { role: 'member' }),
         listInvitations: () => uc().listInvitations(as(), householdA),
         revokeInvitation: () => uc().revokeInvitation(as(), householdA, invitationA),
         createFeed: () =>
@@ -121,6 +128,27 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
       })
     })
 
+    const writes = [
+      'addHouseholdMember',
+      'addHouseholdMemberByUsername',
+      'removeHouseholdMember',
+      'changeHouseholdMemberRole',
+      'createInvitation',
+      'listInvitations',
+      'revokeInvitation',
+      'createFeed',
+      'listFeeds',
+      'revokeFeed',
+      'createDashboard',
+      'renameDashboard',
+      'setDashboardColumns',
+      'addWidget',
+      'removeWidget',
+      'moveWidget',
+      'resizeWidget',
+      'configureWidget',
+      'deleteDashboard',
+    ]
     describe('a plain member', () => {
       it('can read', async () => {
         await expect(operations(() => bob).getHousehold()).resolves.toBeDefined()
@@ -129,31 +157,32 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
         await expect(operations(() => bob).getDashboard()).resolves.toBeDefined()
       })
 
-      const writes = [
-        'addHouseholdMember',
-        'addHouseholdMemberByUsername',
-        'removeHouseholdMember',
-        'createInvitation',
-        'listInvitations',
-        'revokeInvitation',
-        'createFeed',
-        'listFeeds',
-        'revokeFeed',
-        'createDashboard',
-        'renameDashboard',
-        'setDashboardColumns',
-        'addWidget',
-        'removeWidget',
-        'moveWidget',
-        'resizeWidget',
-        'configureWidget',
-        'deleteDashboard',
-      ]
       it.each(writes)('%s is forbidden and changes nothing', async (op) => {
         const before = await snapshot()
         const attempt = (operations(() => bob) as Record<string, () => Promise<unknown>>)[op]!
         await expect(attempt()).rejects.toBeInstanceOf(ForbiddenError)
         expect(await snapshot()).toEqual(before)
+      })
+    })
+
+    describe.each([
+      ['a child', () => dave],
+      ['a device', () => eve],
+    ] as const)('%s', (_label, who) => {
+      it.each(writes)('%s is forbidden and changes nothing', async (op) => {
+        const before = await snapshot()
+        const attempt = (operations(who) as Record<string, () => Promise<unknown>>)[op]!
+        await expect(attempt()).rejects.toBeInstanceOf(ForbiddenError)
+        expect(await snapshot()).toEqual(before)
+      })
+
+      it('can read dashboards but never learns who else is in the household', async () => {
+        await expect(operations(who).listDashboards()).resolves.toHaveLength(2)
+        await expect(operations(who).getDashboard()).resolves.toBeDefined()
+        const viewed = await operations(who).getHousehold()
+        expect(viewed.members.map((m) => m.userId)).toEqual([who().userId])
+        const listed = await sys.useCases.listHouseholds(who())
+        expect(listed[0]!.members.map((m) => m.userId)).toEqual([who().userId])
       })
     })
 
@@ -292,6 +321,29 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
       it('cannot remove the last owner', async () => {
         await expect(
           sys.useCases.removeHouseholdMember(alice, householdA, alice.userId),
+        ).rejects.toBeInstanceOf(InvariantViolation)
+      })
+
+      it('lets an owner change a role, which takes effect at once', async () => {
+        await sys.useCases.changeHouseholdMemberRole(alice, householdA, bob.userId, 'device')
+        await expect(operations(() => bob).listDashboards()).resolves.toHaveLength(2)
+        await expect(operations(() => bob).createDashboard()).rejects.toBeInstanceOf(ForbiddenError)
+        const viewed = await sys.useCases.getHousehold(bob, householdA)
+        expect(viewed.members.map((m) => m.userId)).toEqual([bob.userId])
+      })
+
+      it('cannot demote the last owner, and a missing member is not found', async () => {
+        await expect(
+          sys.useCases.changeHouseholdMemberRole(alice, householdA, alice.userId, 'member'),
+        ).rejects.toBeInstanceOf(InvariantViolation)
+        await expect(
+          sys.useCases.changeHouseholdMemberRole(alice, householdA, carol.userId, 'member'),
+        ).rejects.toBeInstanceOf(NotFoundError)
+      })
+
+      it('never makes an owner through an invitation', async () => {
+        await expect(
+          sys.useCases.createInvitation(alice, householdA, { role: 'owner' as never }),
         ).rejects.toBeInstanceOf(InvariantViolation)
       })
 

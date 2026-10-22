@@ -94,6 +94,17 @@ By default only the first account can register on the web page, but owners can b
 3. Copy the link and send it to the person privately. It is shown only once, works once, and expires after 7 days.
 4. They open the link, choose their own username and password, and land in the household.
 
+Roles you can give:
+
+| Role     | What it is for                                                                                                     |
+| -------- | ------------------------------------------------------------------------------------------------------------------ |
+| `owner`  | Manages everything. Only the person who created the household, or someone an owner promotes.                       |
+| `member` | Adults. Can see the household and its members, and will edit shared lists.                                         |
+| `child`  | Like a member for lists and the calendar, but cannot see who else is in the household.                             |
+| `device` | A shared screen, such as a wall display. Shows dashboards, calendar and lists, and nothing else. Cannot edit them. |
+
+An invitation can give `member`, `child` or `device`, never `owner`. Owners change anyone's role on the household page, under **Members**. A household always keeps one owner: to hand it over, promote the second owner first. Limits are enforced by the server, not only hidden in the page ([ADR 0007](../architecture/adr/0007-household-authorization-model.md)).
+
 Open invitations are listed on the same page and can be revoked. If a link is lost, revoke it and make a new one: Orbit keeps only a hash of the secret and cannot show it again. The link looks like `https://orbit.example.com/join#<secret>`. The secret sits after the `#`, which browsers never send to the server, so it does not appear in logs. The link uses the address in your browser's address bar, so open Orbit at the address you want to hand out (the one in `ORBIT_PUBLIC_URL`).
 
 Other ways, when you do have shell access or the person already has an account:

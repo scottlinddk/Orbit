@@ -4,6 +4,7 @@ import {
   InvariantViolation,
   UserId,
   addMember,
+  changeMemberRole,
   createHousehold,
   removeMember,
   roleOf,
@@ -52,5 +53,15 @@ describe('household', () => {
     const h = base()
     addMember(h, bob)
     expect(h.members).toHaveLength(1)
+  })
+
+  it('changes a role, but never leaves a household without an owner', () => {
+    const h = addMember(base(), bob, 'member')
+    expect(roleOf(changeMemberRole(h, bob, 'child'), bob)).toBe('child')
+    expect(roleOf(changeMemberRole(h, bob, 'owner'), bob)).toBe('owner')
+    expect(() => changeMemberRole(h, alice, 'member')).toThrow(InvariantViolation)
+    const both = changeMemberRole(h, bob, 'owner')
+    expect(roleOf(changeMemberRole(both, alice, 'device'), alice)).toBe('device')
+    expect(() => changeMemberRole(h, UserId('nobody'), 'child')).toThrow(InvariantViolation)
   })
 })

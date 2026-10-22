@@ -9,6 +9,7 @@ import { z } from 'zod'
 import { useSignedIn } from './auth.ts'
 import { request } from './client.ts'
 import { keys } from './keys.ts'
+import type { InvitableRole } from '../features/households/roles.ts'
 
 const listSchema = z.object({ invitations: z.array(invitationSchema) })
 
@@ -31,7 +32,7 @@ export function useInvitations(householdId: string, enabled: boolean) {
 export function useCreateInvitation(householdId: string) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (input: { role: 'owner' | 'member' }) =>
+    mutationFn: (input: { role: InvitableRole }) =>
       request('POST', `/households/${encodeURIComponent(householdId)}/invitations`, {
         body: input,
         schema: createdInvitationSchema,

@@ -23,7 +23,7 @@ interface RequestOptions<T> {
 }
 
 export async function request<T = void>(
-  method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
   path: string,
   { body, schema }: RequestOptions<T> = {},
 ): Promise<T> {

@@ -4,6 +4,8 @@ import {
   WidgetPlacementId,
   addMember,
   addWidget,
+  can,
+  changeMemberRole,
   createDashboard,
   createHousehold,
   createFeed,
@@ -20,6 +22,7 @@ import {
   configureWidget,
   resizeWidget,
   removeMember,
+  roleOf,
   removeWidget,
   renameDashboard,
   setColumns,
@@ -69,6 +72,13 @@ export function createUseCases(deps: Dependencies) {
   const maxFeedBytes = deps.maxFeedBytes ?? MAX_FEED_BYTES
   const authorizer = createAuthorizer(households)
 
+  /** Roles that may not see the member list get a household that only contains themselves. */
+  function viewFor(actor: Actor, household: Household): Household {
+    const role = roleOf(household, actor.userId)
+    if (role && can(role, 'household:view-members')) return household
+    return { ...household, members: household.members.filter((m) => m.userId === actor.userId) }
+  }
+
   /** Loads a dashboard and authorizes against the household that owns it. */
   async function loadDashboard(
     actor: Actor,
@@ -110,12 +120,30 @@ export function createUseCases(deps: Dependencies) {
       return household
     },
 
-    listHouseholds(actor: Actor): Promise<Household[]> {
-      return households.listForUser(actor.userId)
+    /** What the actor may see: roles without `household:view-members` only see themselves. */
+    async listHouseholds(actor: Actor): Promise<Household[]> {
+      return (await households.listForUser(actor.userId)).map((h) => viewFor(actor, h))
     },
 
-    getHousehold(actor: Actor, id: HouseholdId): Promise<Household> {
-      return authorizer.require(actor, id, 'household:view')
+    async getHousehold(actor: Actor, id: HouseholdId): Promise<Household> {
+      return viewFor(actor, await authorizer.require(actor, id, 'household:view'))
+    },
+
+    /**
+     * Owners change anyone's role, their own included. The last owner cannot be demoted, so a
+     * household always has someone who can manage it.
+     */
+    async changeHouseholdMemberRole(
+      actor: Actor,
+      id: HouseholdId,
+      userId: UserId,
+      role: HouseholdRole,
+    ): Promise<Household> {
+      const household = await authorizer.require(actor, id, 'household:manage-members')
+      if (roleOf(household, userId) === undefined) throw new NotFoundError()
+      const updated = changeMemberRole(household, userId, role)
+      await households.save(updated)
+      return updated
     },
 
     async addHouseholdMember(

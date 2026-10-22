@@ -35,12 +35,12 @@ describe('invitations panel', () => {
       ...api(),
       'GET /api/v1/households/h1/invitations': () => ({ body: { invitations: listed } }),
       'POST /api/v1/households/h1/invitations': () => {
-        listed = [open('i1', 'owner')]
-        return { status: 201, body: { ...open('i1', 'owner'), token: 'secret-token_123' } }
+        listed = [open('i1', 'device')]
+        return { status: 201, body: { ...open('i1', 'device'), token: 'secret-token_123' } }
       },
     })
     const { user } = renderApp('/h/h1')
-    await user.selectOptions(await screen.findByLabelText('Role'), 'owner')
+    await user.selectOptions(await screen.findByLabelText('Role'), 'device')
     await user.click(screen.getByRole('button', { name: 'Create invitation link' }))
 
     const link = (await screen.findByLabelText('Invitation link')) as HTMLInputElement
@@ -48,11 +48,11 @@ describe('invitations panel', () => {
     expect(link.value).not.toContain('?')
     expect(link).toHaveAttribute('readonly')
     expect(stub.sent('POST', '/api/v1/households/h1/invitations')[0]?.body).toEqual({
-      role: 'owner',
+      role: 'device',
     })
     // The open list shows the invitation, but never the secret.
     const panel = screen.getByRole('region', { name: 'Invite someone' })
-    expect(await within(panel).findByText(/Owner invitation, expires/)).toBeInTheDocument()
+    expect(await within(panel).findByText(/Device invitation, expires/)).toBeInTheDocument()
     expect(within(panel).queryAllByText(/secret-token_123/)).toHaveLength(0)
   })
 

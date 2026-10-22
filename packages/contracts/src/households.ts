@@ -1,6 +1,8 @@
 import { z } from 'zod'
 
-export const roleSchema = z.enum(['owner', 'member'])
+export const roleSchema = z.enum(['owner', 'member', 'child', 'device'])
+/** Roles that can be handed out after the household exists. Owners are never invited. */
+export const invitableRoleSchema = z.enum(['member', 'child', 'device'])
 
 export const householdSchema = z
   .object({
@@ -15,11 +17,13 @@ export const createHouseholdRequestSchema = z.strictObject({ name: z.string().mi
 
 export const addMemberRequestSchema = z.strictObject({
   username: z.string().min(1).max(64),
-  role: roleSchema.optional(),
+  role: invitableRoleSchema.optional(),
 })
 
+export const changeMemberRoleRequestSchema = z.strictObject({ role: roleSchema })
+
 export const createInvitationRequestSchema = z.strictObject({
-  role: roleSchema.optional(),
+  role: invitableRoleSchema.optional(),
   /** How long the link works. Defaults to 7 days on the server. */
   expiresInDays: z.int().min(1).max(30).optional(),
 })

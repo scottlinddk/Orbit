@@ -1,5 +1,6 @@
 import {
   addMemberRequestSchema,
+  changeMemberRoleRequestSchema,
   createHouseholdRequestSchema,
   createInvitationRequestSchema,
   createDashboardRequestSchema,
@@ -107,6 +108,35 @@ export const householdRoutes =
             actorOf(request),
             HouseholdId(request.params.householdId),
             request.body,
+          ),
+        ),
+    )
+
+    app.patch(
+      '/households/:householdId/members/:userId',
+      {
+        schema: {
+          ...common,
+          summary: "Change a member's role (owners only). A household always keeps one owner.",
+          params: householdParams.extend({ userId: idSchema }),
+          body: changeMemberRoleRequestSchema,
+          response: {
+            200: householdSchema,
+            400: errors[400],
+            401: errors[401],
+            403: errors[403],
+            404: errors[404],
+            422: errors[422],
+          },
+        },
+      },
+      async (request) =>
+        householdResponse(
+          await useCases.changeHouseholdMemberRole(
+            actorOf(request),
+            HouseholdId(request.params.householdId),
+            UserId(request.params.userId),
+            request.body.role,
           ),
         ),
     )
