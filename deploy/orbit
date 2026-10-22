@@ -1,4 +1,4 @@
 #!/bin/sh
-# Operator commands inside the container: backup, verify, reset-password.
+# Operator commands inside the container: backup, verify, reset-password, config, doctor.
 # Usage: docker compose exec orbit orbit backup /data/backups/orbit.sqlite
 exec node --disable-warning=ExperimentalWarning /app/apps/api/src/cli.ts "$@"
