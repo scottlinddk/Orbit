@@ -4,6 +4,13 @@ import { MAX_ICS_BYTES, parseIcs, type ParseIcsOptions } from './parse.ts'
 
 const FETCH_TIMEOUT_MS = 15_000
 
+/** Extra egress rules for callers that fetch on behalf of something less trusted, like a Planet. */
+export interface IcsEgressOptions {
+  readonly allowedHosts?: readonly string[]
+  readonly allowPrivate?: boolean
+  readonly headers?: Readonly<Record<string, string>>
+}
+
 /** The calendar server answered, but not with a calendar. */
 export class IcsFetchError extends Error {
   override readonly name = 'IcsFetchError'
@@ -18,12 +25,15 @@ export async function fetchIcsEvents(
   fetcher: EgressFetcher,
   feedUrl: string,
   range: ParseIcsOptions,
+  egress: IcsEgressOptions = {},
 ): Promise<CalendarEvent[]> {
   const response = await fetcher.fetchText({
     url: normalizeFeedUrl(feedUrl),
     maxBytes: MAX_ICS_BYTES,
     timeoutMs: FETCH_TIMEOUT_MS,
-    headers: { accept: 'text/calendar, text/plain;q=0.5, */*;q=0.1' },
+    headers: { accept: 'text/calendar, text/plain;q=0.5, */*;q=0.1', ...egress.headers },
+    ...(egress.allowedHosts ? { allowedHosts: egress.allowedHosts } : {}),
+    ...(egress.allowPrivate === undefined ? {} : { allowPrivate: egress.allowPrivate }),
   })
   if (response.status < 200 || response.status >= 300) {
     throw new IcsFetchError(`The calendar server answered with status ${response.status}.`)

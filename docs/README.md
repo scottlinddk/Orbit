@@ -25,5 +25,6 @@
 
 - [Deploying with Docker](operations/deployment.md)
 - [Backup and restore](operations/backup-and-restore.md)
+- [Planets: install, permissions and authoring](operations/planets.md)
 
 Open decisions are tracked in [open questions](architecture/open-questions.md).

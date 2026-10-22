@@ -2,7 +2,7 @@ import http from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { EgressDeniedError, type EgressRequest } from '@orbit/application'
-import { createGuardedFetcher, type ResolvedAddress } from './guarded-fetcher.ts'
+import { createGuardedFetcher, hostAllowed, type ResolvedAddress } from './guarded-fetcher.ts'
 
 let server: http.Server
 let port: number
@@ -18,6 +18,12 @@ beforeAll(async () => {
     } else if (path === '/cookie') {
       res.setHeader('set-cookie', 'a=b')
       res.end(req.headers.cookie ?? 'no-cookie')
+    } else if (path === '/echo-headers') {
+      res.end(JSON.stringify({ authorization: req.headers.authorization ?? null }))
+    } else if (path === '/to-echo-on-other-origin') {
+      res.statusCode = 302
+      res.setHeader('location', `http://other.test:${port}/echo-headers`)
+      res.end()
     } else if (path === '/to-ok') {
       res.statusCode = 302
       res.setHeader('location', '/ok')
@@ -249,5 +255,96 @@ describe('createGuardedFetcher', () => {
     expect(first.body).toBe('no-cookie')
     const missing = await fetcher.fetchText(request(`http://nas.local:${port}/missing`))
     expect(missing).toMatchObject({ status: 404, body: 'nope' })
+  })
+
+  describe('allowed hosts', () => {
+    const setup = () => {
+      const dns = scriptedDns({ 'nas.local': [loopback], 'other.test': [loopback] })
+      return createGuardedFetcher({
+        resolve: dns.resolve,
+        allowPrivateHosts: new Set(['nas.local', 'other.test']),
+      })
+    }
+
+    it('refuses a host that is not on the list, and a redirect off the list', async () => {
+      const fetcher = setup()
+      const first = await denied(
+        fetcher.fetchText(
+          request(`http://nas.local:${port}/ok`, { allowedHosts: ['api.example.com'] }),
+        ),
+      )
+      expect(first.reason).toBe('host-not-allowed')
+      const hop = await denied(
+        fetcher.fetchText(
+          request(`http://nas.local:${port}/to-other-host`, { allowedHosts: ['nas.local'] }),
+        ),
+      )
+      expect(hop.reason).toBe('host-not-allowed')
+    })
+
+    it('accepts exact entries and *.domain entries, but not the bare domain for a wildcard', async () => {
+      const fetcher = setup()
+      const ok = await fetcher.fetchText(
+        request(`http://nas.local:${port}/ok`, { allowedHosts: ['NAS.local'] }),
+      )
+      expect(ok.status).toBe(200)
+      expect(hostAllowed('a.example.com', ['*.example.com'])).toBe(true)
+      expect(hostAllowed('example.com', ['*.example.com'])).toBe(false)
+      expect(hostAllowed('evilexample.com', ['*.example.com'])).toBe(false)
+    })
+  })
+
+  it('refuses an opted-in private host when the request says private is not allowed', async () => {
+    const dns = scriptedDns({ 'nas.local': [loopback] })
+    const fetcher = createGuardedFetcher({
+      resolve: dns.resolve,
+      allowPrivateHosts: new Set(['nas.local']),
+    })
+    const error = await denied(
+      fetcher.fetchText(request(`http://nas.local:${port}/ok`, { allowPrivate: false })),
+    )
+    expect(error.reason).toBe('blocked-address')
+  })
+
+  describe('request headers', () => {
+    it('sends caller headers to the named host and refuses cookie and framing headers', async () => {
+      const dns = scriptedDns({ 'nas.local': [loopback] })
+      const fetcher = createGuardedFetcher({
+        resolve: dns.resolve,
+        allowPrivateHosts: new Set(['nas.local']),
+      })
+      const sent = await fetcher.fetchText(
+        request(`http://nas.local:${port}/echo-headers`, {
+          headers: { authorization: 'Bearer abc' },
+        }),
+      )
+      expect(JSON.parse(sent.body)).toEqual({ authorization: 'Bearer abc' })
+      for (const name of ['Cookie', 'host', 'Transfer-Encoding']) {
+        const error = await denied(
+          fetcher.fetchText(request(`http://nas.local:${port}/ok`, { headers: { [name]: 'x' } })),
+        )
+        expect(error.reason).toBe('header')
+      }
+      const injected = await denied(
+        fetcher.fetchText(
+          request(`http://nas.local:${port}/ok`, { headers: { 'x-a': 'b\r\nx-evil: 1' } }),
+        ),
+      )
+      expect(injected.reason).toBe('header')
+    })
+
+    it('does not forward caller headers to another origin after a redirect', async () => {
+      const dns = scriptedDns({ 'nas.local': [loopback], 'other.test': [loopback] })
+      const fetcher = createGuardedFetcher({
+        resolve: dns.resolve,
+        allowPrivateHosts: new Set(['nas.local', 'other.test']),
+      })
+      const response = await fetcher.fetchText(
+        request(`http://nas.local:${port}/to-echo-on-other-origin`, {
+          headers: { authorization: 'Bearer abc' },
+        }),
+      )
+      expect(JSON.parse(response.body)).toEqual({ authorization: null })
+    })
   })
 })

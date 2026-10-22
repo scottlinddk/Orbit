@@ -1,0 +1,13 @@
+.frame {
+  display: block;
+  width: 100%;
+  min-height: 9rem;
+  border: 0;
+  background: transparent;
+}
+
+.note {
+  margin: 0 0 0.5rem;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}

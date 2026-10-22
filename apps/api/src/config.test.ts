@@ -16,6 +16,9 @@ describe('loadConfig', () => {
       migrationSnapshots: 5,
       backupIntervalMs: 24 * 60 * 60 * 1000,
       backupKeep: 14,
+      secretKey: undefined,
+      planetsDir: 'data/planets',
+      egressAllowPrivateHosts: new Set(),
       logLevel: 'info',
     })
   })

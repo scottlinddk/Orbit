@@ -23,7 +23,11 @@ describe('migrate', () => {
       'household_members',
       'households',
       'invitations',
+      'planet_state',
+      'planet_webhooks',
+      'scheduled_jobs',
       'schema_migrations',
+      'secrets',
       'sessions',
       'users',
     ])
@@ -39,7 +43,7 @@ describe('migrate', () => {
     ).run()
     expect(tables(db)).not.toContain('invitations')
 
-    expect(migrate(db)).toEqual([3])
+    expect(migrate(db)).toEqual([3, 4])
 
     expect(tables(db)).toContain('invitations')
     expect(db.prepare('SELECT COUNT(*) AS n FROM users').get()).toEqual({ n: 1 })

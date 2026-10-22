@@ -15,7 +15,7 @@ import { CheckIcon, PencilIcon } from '../../components/icons.tsx'
 import { Loading } from '../../components/Loading.tsx'
 import { PageHeader } from '../../components/PageHeader.tsx'
 import { QueryError } from '../../components/QueryError.tsx'
-import { registry } from '../../widgets/registry.ts'
+import { useRegistry } from '../../widgets/useRegistry.ts'
 import { DashboardGrid } from './DashboardGrid.tsx'
 import styles from './DashboardPage.module.css'
 
@@ -31,6 +31,7 @@ export function DashboardPage() {
   const configure = useConfigureWidget(dashboardId)
   const remove = useRemoveWidget(dashboardId)
   const navigate = useNavigate()
+  const registry = useRegistry()
   const [editing, setEditing] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [announcement, setAnnouncement] = useState('')

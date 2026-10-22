@@ -1,3 +1,4 @@
+import type { PlanetRuntime } from '@orbit/module-planets/server'
 import {
   createAuth,
   createUseCases,
@@ -15,6 +16,8 @@ import {
 export interface Services {
   useCases: UseCases
   auth: Auth
+  /** Present when Planets are wired. Without it the Planet routes answer empty or 404. */
+  planets?: PlanetRuntime | undefined
 }
 
 export interface ServiceParts {
@@ -25,11 +28,12 @@ export interface ServiceParts {
   ids: IdGenerator
   registrationPolicy: RegistrationPolicy
   setupGate?: SetupGate | undefined
+  planets?: PlanetRuntime | undefined
 }
 
 /** Wires the application layer to concrete adapters. The only place that does so. */
 export function assembleServices(parts: ServiceParts): Services {
-  const { repos, hasher, tokens, clock, ids, registrationPolicy, setupGate } = parts
+  const { repos, hasher, tokens, clock, ids, registrationPolicy, setupGate, planets } = parts
   return {
     useCases: createUseCases({
       users: repos.users,
@@ -53,5 +57,6 @@ export function assembleServices(parts: ServiceParts): Services {
       registrationPolicy,
       setupGate,
     }),
+    planets,
   }
 }

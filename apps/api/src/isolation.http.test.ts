@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { PUBLIC_OPERATIONS } from './public-operations.ts'
-import { createTestEnv, type TestClient, type TestEnv } from './test-support.ts'
+import { createTestEnv, createTestPlanets, type TestClient, type TestEnv } from './test-support.ts'
 
 /**
  * The household-isolation kit, re-run through HTTP. Routes can bypass use cases, so the
@@ -15,6 +15,8 @@ interface Ids {
   household: string
   dashboard: string
   widget: string
+  /** A placement of an installed Planet, rendered by the Planet route. */
+  planetWidget: string
   invitation: string
   alice: string
 }
@@ -118,6 +120,12 @@ const cases: Case[] = [
     memberAllowed: false,
   },
   {
+    key: 'get /api/v1/dashboards/{dashboardId}/widgets/{widgetId}/planet',
+    call: (c, i) => c.get(`${V1}/dashboards/${i.dashboard}/widgets/${i.planetWidget}/planet`),
+    callMissing: (c) => c.get(`${V1}/dashboards/${GONE}/widgets/${GONE}/planet`),
+    memberAllowed: true,
+  },
+  {
     key: 'put /api/v1/dashboards/{dashboardId}/widgets/{widgetId}/position',
     call: (c, i) =>
       c.put(`${V1}/dashboards/${i.dashboard}/widgets/${i.widget}/position`, { toIndex: 0 }),
@@ -145,6 +153,7 @@ const NO_FOREIGN_ID = new Set([
   'get /api/v1/auth/me',
   'get /api/v1/households',
   'post /api/v1/households',
+  'get /api/v1/planets/widgets',
 ])
 
 describe.each(['memory', 'sqlite'] as const)('household isolation over HTTP (%s)', (storage) => {
@@ -153,7 +162,7 @@ describe.each(['memory', 'sqlite'] as const)('household isolation over HTTP (%s)
   let ids: Ids
 
   beforeEach(async () => {
-    env = await createTestEnv({ storage })
+    env = await createTestEnv({ storage, planets: createTestPlanets() })
     alice = env.client()
     bob = env.client()
     carol = env.client()
@@ -171,12 +180,18 @@ describe.each(['memory', 'sqlite'] as const)('household isolation over HTTP (%s)
     const withWidget = (
       await alice.post(`${V1}/dashboards/${dashboard.id}/widgets`, { type: 'calendar.agenda' })
     ).body
+    const withPlanet = (
+      await alice.post(`${V1}/dashboards/${dashboard.id}/widgets`, {
+        type: 'planet.dev.test.static',
+      })
+    ).body
     const invitation = (await alice.post(`${V1}/households/${household}/invitations`)).body
     ids = {
       household,
       invitation: invitation.id,
       dashboard: dashboard.id,
       widget: withWidget.widgets[0].id,
+      planetWidget: withPlanet.widgets.at(-1).id,
       alice: aliceUser.id,
     }
   })
