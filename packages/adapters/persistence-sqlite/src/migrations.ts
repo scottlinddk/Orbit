@@ -265,4 +265,43 @@ export const migrations: readonly Migration[] = [
       CREATE INDEX connections_by_household ON connections(household_id);
     `,
   },
+  {
+    version: 11,
+    name: 'notifications',
+    // The webhook address and the signing secret are credentials and live in the secret store.
+    sql: `
+      CREATE TABLE notification_endpoints (
+        id TEXT PRIMARY KEY,
+        household_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        host TEXT NOT NULL,
+        events TEXT NOT NULL,
+        lead_minutes INTEGER NOT NULL,
+        enabled INTEGER NOT NULL,
+        disabled_reason TEXT,
+        failures INTEGER NOT NULL,
+        created_by TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      ) STRICT;
+      CREATE INDEX notification_endpoints_by_household ON notification_endpoints(household_id);
+
+      CREATE TABLE notification_deliveries (
+        endpoint_id TEXT NOT NULL,
+        delivery_id TEXT NOT NULL,
+        event TEXT NOT NULL,
+        at TEXT NOT NULL,
+        attempt INTEGER NOT NULL,
+        outcome TEXT NOT NULL,
+        http_status INTEGER,
+        error TEXT
+      ) STRICT;
+      CREATE INDEX notification_deliveries_by_endpoint ON notification_deliveries(endpoint_id);
+
+      CREATE TABLE notification_dedupe (
+        key TEXT PRIMARY KEY,
+        relevant_until TEXT NOT NULL
+      ) STRICT;
+      CREATE INDEX notification_dedupe_by_age ON notification_dedupe(relevant_until);
+    `,
+  },
 ]

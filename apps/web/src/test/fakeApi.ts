@@ -68,8 +68,8 @@ export function stubApi(given: Record<string, Handler>) {
 }
 
 /**
- * A household with no calendars. Most pages ask for these, and most tests are about something
- * else, so an unstubbed calendar request gets the empty answer. A test about calendars stubs
+ * A household with no calendars and no notification webhooks. Most pages ask for these, and most
+ * tests are about something else, so an unstubbed request gets the empty answer. A test about calendars stubs
  * its own.
  */
 function noCalendars(method: string, path: string): Reply | undefined {
@@ -80,6 +80,8 @@ function noCalendars(method: string, path: string): Reply | undefined {
     return { body: { events: [], sources: [] } }
   // Owners' household page also asks for connections to other systems. None unless a test says.
   if (/^\/api\/v1\/households\/[^/]+\/connections$/.test(path)) return { body: { connections: [] } }
+  if (/^\/api\/v1\/households\/[^/]+\/notifications\/endpoints$/.test(path))
+    return { body: { endpoints: [] } }
   return undefined
 }
 

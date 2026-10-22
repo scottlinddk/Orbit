@@ -53,6 +53,7 @@ import type {
   UserRepository,
 } from './ports.ts'
 import { createListUseCases, type ExternalLists } from './lists.ts'
+import type { NotificationEventSink } from './notifications.ts'
 
 export interface Dependencies {
   users: UserRepository
@@ -64,6 +65,8 @@ export interface Dependencies {
   lists: ListRepository
   /** Lists mirrored from other systems. Read only. */
   externalLists?: ExternalLists | undefined
+  /** Told about list changes, for notifications. Optional. */
+  events?: NotificationEventSink | undefined
   /** Largest feed to accept. Defaults to MAX_FEED_BYTES; tests lower it. */
   maxFeedBytes?: number
   tokens: Pick<SessionTokens, 'generate'>
@@ -109,7 +112,14 @@ export function createUseCases(deps: Dependencies) {
   }
 
   return {
-    ...createListUseCases({ lists, authorizer, clock, ids, external: deps.externalLists }),
+    ...createListUseCases({
+      lists,
+      authorizer,
+      clock,
+      ids,
+      external: deps.externalLists,
+      events: deps.events,
+    }),
 
     /** The signed-in user's own profile. */
     async getProfile(userId: UserId): Promise<User> {

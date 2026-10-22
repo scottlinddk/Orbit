@@ -21,6 +21,7 @@
   - [0017 Planets: declarative, permission-scoped plugins](architecture/adr/0017-planets-declarative-plugins.md)
   - [0018 OIDC login](architecture/adr/0018-oidc-login.md)
   - [0019 Connections to other systems, and Home Assistant](architecture/adr/0019-connections-and-home-assistant.md)
+  - [0020 Notifications and reminders](architecture/adr/0020-notifications.md)
 
 - [Phase 0 architecture check](architecture/phase-0-architecture-check.md)
 - [Security model for the TRMNL feed and Planets](architecture/security-model.md)
@@ -32,6 +33,7 @@
 - [Shared lists](operations/lists.md)
 - [Calendars (ICS)](operations/calendar.md)
 - [Home Assistant](operations/home-assistant.md)
+- [Notifications and reminders](operations/notifications.md)
 - [Sign in with OpenID Connect](operations/oidc.md)
 - Hosting guides
   - [Home server with Tailscale](operations/hosting/home-server.md)

@@ -18,6 +18,7 @@ import type { Actor } from './actor.ts'
 import type { Clock } from './auth-ports.ts'
 import type { Authorizer } from './authorizer.ts'
 import { NotFoundError } from './errors.ts'
+import type { NotificationEventSink } from './notifications.ts'
 import type { IdGenerator, ListRepository } from './ports.ts'
 
 export interface ListDetail {
@@ -53,6 +54,8 @@ export interface ListUseCaseDependencies {
   clock: Clock
   ids: IdGenerator
   external?: ExternalLists | undefined
+  /** Told when an item is added or ticked off. Never makes the edit fail. */
+  events?: NotificationEventSink | undefined
 }
 
 /**
@@ -62,7 +65,7 @@ export interface ListUseCaseDependencies {
  * different items, or the same one, should never see a conflict dialog at the shop.
  */
 export function createListUseCases(deps: ListUseCaseDependencies) {
-  const { lists, authorizer, clock, ids, external } = deps
+  const { lists, authorizer, clock, ids, external, events } = deps
 
   /**
    * A mirrored list answers "read only" to any change, but only to someone who may edit lists
@@ -178,6 +181,13 @@ export function createListUseCases(deps: ListUseCaseDependencies) {
         now: clock.now(),
       })
       await lists.saveItems([item])
+      events?.publish(householdId, 'list.item.added', {
+        listId: list.id,
+        listName: list.name,
+        itemId: item.id,
+        text: item.text,
+        ...(item.quantity === undefined ? {} : { quantity: item.quantity }),
+      })
       return { list, items: [...current, item] }
     },
 
@@ -195,13 +205,16 @@ export function createListUseCases(deps: ListUseCaseDependencies) {
       },
     ): Promise<ListDetail> {
       const list = await loadList(actor, householdId, listId, 'list:edit')
-      const updated = updateListItem(
-        await loadItem(list, itemId),
-        change,
-        actor.userId,
-        clock.now(),
-      )
+      const before = await loadItem(list, itemId)
+      const updated = updateListItem(before, change, actor.userId, clock.now())
       await lists.saveItems([updated])
+      if (!before.done && updated.done)
+        events?.publish(householdId, 'list.item.completed', {
+          listId: list.id,
+          listName: list.name,
+          itemId: updated.id,
+          text: updated.text,
+        })
       return detail(list)
     },
 

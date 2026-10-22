@@ -3,12 +3,17 @@ import type {
   CalendarSourceRepository,
   Clock,
   ConnectionRepository,
+  DeliveryLogRepository,
+  NotificationDedupeRepository,
+  NotificationEndpointRepository,
   Credential,
   DashboardRepository,
   ExternalIdentityRepository,
   HouseholdRepository,
   IdentityCreateOutcome,
   IdGenerator,
+  JobScheduler,
+  ScheduledJob,
   FeedRepository,
   InvitationRepository,
   ListRepository,
@@ -27,6 +32,10 @@ import type {
   Connection,
   ConnectionId,
   Dashboard,
+  DeliveryLogEntry,
+  NotificationEndpoint,
+  NotificationEndpointId,
+  NotificationEvent,
   DashboardId,
   ExternalIdentity,
   Household,
@@ -458,6 +467,102 @@ export class InMemoryConnectionRepository implements ConnectionRepository {
 
   async delete(id: ConnectionId) {
     this.#byId.delete(id)
+  }
+}
+
+export class InMemoryNotificationEndpointRepository implements NotificationEndpointRepository {
+  readonly #byId = new Map<NotificationEndpointId, NotificationEndpoint>()
+
+  async create(endpoint: NotificationEndpoint) {
+    if (this.#byId.has(endpoint.id)) throw new Error('Duplicate notification endpoint')
+    this.#byId.set(endpoint.id, endpoint)
+  }
+
+  async get(id: NotificationEndpointId) {
+    return this.#byId.get(id)
+  }
+
+  async listForHousehold(householdId: HouseholdId) {
+    return [...this.#byId.values()].filter((e) => e.householdId === householdId)
+  }
+
+  async save(endpoint: NotificationEndpoint) {
+    if (this.#byId.has(endpoint.id)) this.#byId.set(endpoint.id, endpoint)
+  }
+
+  async delete(id: NotificationEndpointId) {
+    this.#byId.delete(id)
+  }
+
+  async listEnabledFor(event: NotificationEvent) {
+    return [...this.#byId.values()].filter((e) => e.enabled && e.events.includes(event))
+  }
+}
+
+export class InMemoryDeliveryLogRepository implements DeliveryLogRepository {
+  readonly #entries: DeliveryLogEntry[] = []
+
+  async append(entry: DeliveryLogEntry, keep: number) {
+    this.#entries.push(entry)
+    const own = this.#entries.filter((e) => e.endpointId === entry.endpointId)
+    for (const old of own.slice(0, Math.max(0, own.length - keep)))
+      this.#entries.splice(this.#entries.indexOf(old), 1)
+  }
+
+  async recent(endpointId: NotificationEndpointId, limit: number) {
+    return this.#entries
+      .filter((e) => e.endpointId === endpointId)
+      .reverse()
+      .slice(0, limit)
+  }
+
+  async deleteForEndpoint(endpointId: NotificationEndpointId) {
+    for (let i = this.#entries.length - 1; i >= 0; i--)
+      if (this.#entries[i]!.endpointId === endpointId) this.#entries.splice(i, 1)
+  }
+}
+
+export class InMemoryNotificationDedupeRepository implements NotificationDedupeRepository {
+  readonly #keys = new Map<string, Date>()
+
+  async claim(key: string, relevantUntil: Date) {
+    if (this.#keys.has(key)) return false
+    this.#keys.set(key, relevantUntil)
+    return true
+  }
+
+  async prune(before: Date) {
+    for (const [key, until] of this.#keys) if (until < before) this.#keys.delete(key)
+  }
+
+  async deleteWithPrefix(prefix: string) {
+    for (const key of this.#keys.keys()) if (key.startsWith(prefix)) this.#keys.delete(key)
+  }
+}
+
+/** Jobs kept in memory, for tests. Claiming removes a job, like the durable adapter. */
+export class InMemoryJobScheduler implements JobScheduler {
+  readonly jobs = new Map<string, ScheduledJob>()
+
+  async schedule(job: ScheduledJob) {
+    this.jobs.set(job.id, job)
+  }
+
+  async has(id: string) {
+    return this.jobs.has(id)
+  }
+
+  async claimDue(now: Date, limit: number, prefix = '') {
+    const due = [...this.jobs.values()]
+      .filter((j) => j.runAt <= now && j.id.startsWith(prefix))
+      .sort((a, b) => a.runAt.getTime() - b.runAt.getTime() || a.id.localeCompare(b.id))
+      .slice(0, limit)
+    for (const job of due) this.jobs.delete(job.id)
+    return due
+  }
+
+  async cancelWithPrefix(prefix: string) {
+    for (const id of [...this.jobs.keys()]) if (id.startsWith(prefix)) this.jobs.delete(id)
   }
 }
 

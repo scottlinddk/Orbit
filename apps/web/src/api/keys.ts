@@ -19,6 +19,10 @@ export const keys = {
   connections: (householdId: string) => ['households', householdId, 'connections'] as const,
   connectionEntities: (householdId: string, connectionId: string) =>
     ['households', householdId, 'connections', connectionId, 'entities'] as const,
+  notificationEndpoints: (householdId: string) =>
+    ['households', householdId, 'notifications', 'endpoints'] as const,
+  notificationDeliveries: (householdId: string, endpointId: string) =>
+    ['households', householdId, 'notifications', 'endpoints', endpointId, 'deliveries'] as const,
   planetWidgets: ['planets', 'widgets'] as const,
   planetRender: (dashboardId: string, widgetId: string) =>
     ['dashboards', dashboardId, 'planet', widgetId] as const,

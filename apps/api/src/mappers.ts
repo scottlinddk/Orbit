@@ -3,6 +3,8 @@ import type {
   CalendarEventResponse,
   CalendarSourceResponse,
   ConnectionResponse,
+  DeliveryResponse,
+  NotificationEndpointResponse,
   DashboardResponse,
   FeedResponse,
   HouseholdResponse,
@@ -18,6 +20,8 @@ import {
   type Feed,
   type Household,
   type Invitation,
+  type DeliveryLogEntry,
+  type NotificationEndpoint,
 } from '@orbit/domain'
 import type { CalendarEventWithSource } from '@orbit/application'
 
@@ -118,3 +122,27 @@ export const calendarEventResponse = (e: CalendarEventWithSource): CalendarEvent
         ...(e.timeZone === undefined ? {} : { timeZone: e.timeZone }),
       }
 }
+
+export const notificationEndpointResponse = (
+  e: NotificationEndpoint,
+): NotificationEndpointResponse => ({
+  id: e.id,
+  name: e.name,
+  host: e.host,
+  events: [...e.events],
+  leadMinutes: e.leadMinutes,
+  enabled: e.enabled,
+  ...(e.disabledReason === undefined ? {} : { disabledReason: e.disabledReason }),
+  failures: e.failures,
+  createdAt: e.createdAt.toISOString(),
+})
+
+export const deliveryResponse = (d: DeliveryLogEntry): DeliveryResponse => ({
+  deliveryId: d.deliveryId,
+  event: d.event,
+  at: d.at.toISOString(),
+  attempt: d.attempt,
+  outcome: d.outcome,
+  ...(d.httpStatus === undefined ? {} : { httpStatus: d.httpStatus }),
+  ...(d.error === undefined ? {} : { error: d.error }),
+})

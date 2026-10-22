@@ -7,6 +7,7 @@ import {
   describeIdentityContracts,
   describeInvitationContracts,
   describeListContracts,
+  describeNotificationContracts,
   describeRepositoryContracts,
   describeSessionContracts,
 } from './repository-contracts.ts'
@@ -20,4 +21,5 @@ describeFeedContracts('sqlite', create)
 describeListContracts('sqlite', create)
 describeCalendarSourceContracts('sqlite', create)
 describeConnectionContracts('sqlite', create)
+describeNotificationContracts('sqlite', create)
 describeIdentityContracts('sqlite', create)

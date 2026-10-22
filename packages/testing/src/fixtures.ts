@@ -9,8 +9,12 @@ import {
   InMemoryExternalIdentityRepository,
   InMemoryFeedRepository,
   InMemoryHouseholdRepository,
+  InMemoryDeliveryLogRepository,
   InMemoryInvitationRepository,
+  InMemoryJobScheduler,
   InMemoryListRepository,
+  InMemoryNotificationDedupeRepository,
+  InMemoryNotificationEndpointRepository,
   InMemorySecretStore,
   InMemorySessionStore,
   InMemoryUserRepository,
@@ -23,8 +27,11 @@ import {
   SqliteExternalIdentityRepository,
   SqliteFeedRepository,
   SqliteHouseholdRepository,
+  SqliteDeliveryLogRepository,
   SqliteInvitationRepository,
   SqliteListRepository,
+  SqliteNotificationDedupeRepository,
+  SqliteNotificationEndpointRepository,
   SqliteSessionStore,
   SqliteUserRepository,
   migrate,
@@ -34,20 +41,25 @@ import {
   createCalendarService,
   createConnectionService,
   createFeedReader,
+  createNotificationService,
   createUseCases,
   type Actor,
   type CalendarService,
   type ConnectionService,
   type FeedReader,
   type SecretStore,
+  type NotificationService,
   type UseCases,
 } from '@orbit/application'
 import { UserId, Username, createUser } from '@orbit/domain'
 import { FakeCalendarFeedReader } from './calendar-fakes.ts'
 import { FakeIntegrationProvider } from './integration-fakes.ts'
+import { FakeNotificationPlatform, FakeWebhookFetcher } from './notification-fakes.ts'
 import type { RepositorySet } from './repository-contracts.ts'
 
 export interface TestSystem {
+  /** The repositories behind everything, to build a second service over the same data. */
+  repos: RepositorySet
   useCases: UseCases
   /** What a display with a feed token can do. */
   feedReader: FeedReader
@@ -59,6 +71,11 @@ export interface TestSystem {
   integrations: FakeIntegrationProvider
   /** Where connection addresses and tokens are kept, so tests can look for leaks. */
   secrets: SecretStore
+  /** Outgoing webhooks, delivered to `webhooks` instead of the network. */
+  notifications: NotificationService
+  webhooks: FakeWebhookFetcher
+  /** The queue behind `notifications`. */
+  jobs: InMemoryJobScheduler
   /** Moves time forward for invitations and anything else that expires. */
   clock: ManualClock
   /** Registers a user and returns the actor that user would log in as. */
@@ -68,8 +85,9 @@ export interface TestSystem {
 /** The platform wired with the given repositories. */
 export function createSystem(
   repos: RepositorySet,
-  options: { maxFeedBytes?: number; timeZone?: string } = {},
+  options: { maxFeedBytes?: number; timeZone?: string; notificationRateLimit?: number } = {},
 ): TestSystem {
+  const { timeZone, notificationRateLimit, ...useCaseOptions } = options
   const clock = new ManualClock()
   const tokens = new SequentialSessionTokens()
   const ids = new CounterIdGenerator()
@@ -93,16 +111,33 @@ export function createSystem(
     ids,
     external: connections.calendars,
   })
-  const { timeZone, ...useCaseOptions } = options
+  const webhooks = new FakeWebhookFetcher()
+  const jobs = new InMemoryJobScheduler()
+  const notifications = createNotificationService({
+    endpoints: repos.notificationEndpoints,
+    log: repos.deliveryLog,
+    dedupe: repos.notificationDedupe,
+    households: repos.households,
+    secrets: new InMemorySecretStore(),
+    fetcher: webhooks,
+    jobs,
+    platform: new FakeNotificationPlatform(),
+    calendar,
+    clock,
+    ids,
+    ...(notificationRateLimit === undefined ? {} : { rateLimitPerMinute: notificationRateLimit }),
+  })
   const useCases = createUseCases({
     ...repos,
     tokens,
     clock,
     ids,
     externalLists: connections.lists,
+    events: notifications.sink,
     ...useCaseOptions,
   })
   return {
+    repos,
     useCases,
     feedReader: createFeedReader({
       ...repos,
@@ -117,6 +152,9 @@ export function createSystem(
     connections,
     integrations,
     secrets,
+    notifications,
+    webhooks,
+    jobs,
     clock,
     async newActor(name) {
       const id = UserId(`user-${name}`)
@@ -144,6 +182,9 @@ export function createInMemoryRepositories(): RepositorySet {
     lists: new InMemoryListRepository(),
     calendarSources: new InMemoryCalendarSourceRepository(),
     connections: new InMemoryConnectionRepository(),
+    notificationEndpoints: new InMemoryNotificationEndpointRepository(),
+    deliveryLog: new InMemoryDeliveryLogRepository(),
+    notificationDedupe: new InMemoryNotificationDedupeRepository(),
     dashboards: new InMemoryDashboardRepository(),
   }
 }
@@ -163,6 +204,9 @@ export function createSqliteRepositories(): RepositorySet {
     lists: new SqliteListRepository(db),
     calendarSources: new SqliteCalendarSourceRepository(db),
     connections: new SqliteConnectionRepository(db),
+    notificationEndpoints: new SqliteNotificationEndpointRepository(db),
+    deliveryLog: new SqliteDeliveryLogRepository(db),
+    notificationDedupe: new SqliteNotificationDedupeRepository(db),
     dashboards: new SqliteDashboardRepository(db),
   }
 }

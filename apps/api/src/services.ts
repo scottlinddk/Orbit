@@ -4,6 +4,7 @@ import {
   createCalendarService,
   createConnectionService,
   createFeedReader,
+  createNotificationService,
   createUseCases,
   type Auth,
   type CalendarFeedReader,
@@ -11,8 +12,12 @@ import {
   type Clock,
   type ConnectionService,
   type FeedReader,
+  type EgressFetcher,
   type IdGenerator,
   type IntegrationProvider,
+  type JobScheduler,
+  type NotificationPlatform,
+  type NotificationService,
   type OidcProvider,
   type PasswordHasher,
   type Repositories,
@@ -30,6 +35,8 @@ export interface Services {
   calendar: CalendarService
   /** Other systems (Home Assistant) whose calendars and lists are mirrored. */
   connections: ConnectionService
+  /** Outgoing webhooks (ADR 0020). */
+  notifications: NotificationService
   /** Present when Planets are wired. Without it the Planet routes answer empty or 404. */
   planets?: PlanetRuntime | undefined
   /** Present when ORBIT_OIDC_* is configured. */
@@ -55,6 +62,13 @@ export interface ServiceParts {
     providers: readonly IntegrationProvider[]
     calendarTtlMs?: number
     listTtlMs?: number
+  }
+  /** Delivers notifications: the egress guard, the durable queue and the platform helpers. */
+  notifications: {
+    fetcher: EgressFetcher
+    jobs: JobScheduler
+    platform: NotificationPlatform
+    rateLimitPerMinute?: number
   }
   /** IANA zone that decides what "today" means in the display feed. Defaults to UTC. */
   timeZone?: string | undefined
@@ -84,6 +98,17 @@ export function assembleServices(parts: ServiceParts): Services {
     ...parts.calendar,
     external: connections.calendars,
   })
+  const notifications = createNotificationService({
+    endpoints: repos.notificationEndpoints,
+    log: repos.deliveryLog,
+    dedupe: repos.notificationDedupe,
+    households: repos.households,
+    secrets: parts.calendar.secrets,
+    calendar,
+    clock,
+    ids,
+    ...parts.notifications,
+  })
   return {
     useCases: createUseCases({
       users: repos.users,
@@ -94,6 +119,7 @@ export function assembleServices(parts: ServiceParts): Services {
       feeds: repos.feeds,
       lists: repos.lists,
       externalLists: connections.lists,
+      events: notifications.sink,
       tokens,
       clock,
       ids,
@@ -124,6 +150,7 @@ export function assembleServices(parts: ServiceParts): Services {
     }),
     calendar,
     connections,
+    notifications,
     planets,
     oidc,
   }

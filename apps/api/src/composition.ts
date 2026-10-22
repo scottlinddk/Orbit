@@ -1,15 +1,20 @@
 import { randomUUID } from 'node:crypto'
+import { createGuardedFetcher } from '@orbit/adapter-egress-guard'
+import { SqliteJobScheduler } from '@orbit/adapter-jobs-sqlite'
 import { Argon2PasswordHasher, RandomSessionTokens } from '@orbit/adapter-identity-local'
 import {
   SqliteAccountRepository,
   SqliteCalendarSourceRepository,
   SqliteConnectionRepository,
   SqliteDashboardRepository,
+  SqliteDeliveryLogRepository,
   SqliteExternalIdentityRepository,
   SqliteFeedRepository,
   SqliteHouseholdRepository,
   SqliteInvitationRepository,
   SqliteListRepository,
+  SqliteNotificationDedupeRepository,
+  SqliteNotificationEndpointRepository,
   SqliteSessionStore,
   SqliteUserRepository,
   type Database,
@@ -18,6 +23,7 @@ import type { OidcProvider, SetupGate } from '@orbit/application'
 import type { PlanetRuntime } from '@orbit/module-planets/server'
 import { createCalendarWiring } from './calendar.ts'
 import { createConnectionWiring } from './connections.ts'
+import { createNodeNotificationPlatform } from './notification-platform.ts'
 import type { Config } from './config.ts'
 import { assembleServices, type Services } from './services.ts'
 
@@ -42,6 +48,9 @@ export function createSqliteServices(
       lists: new SqliteListRepository(db),
       calendarSources: new SqliteCalendarSourceRepository(db),
       connections: new SqliteConnectionRepository(db),
+      notificationEndpoints: new SqliteNotificationEndpointRepository(db),
+      deliveryLog: new SqliteDeliveryLogRepository(db),
+      notificationDedupe: new SqliteNotificationDedupeRepository(db),
       dashboards: new SqliteDashboardRepository(db),
     },
     hasher: new Argon2PasswordHasher(),
@@ -53,6 +62,13 @@ export function createSqliteServices(
     planets,
     calendar: createCalendarWiring(db, config),
     connections: createConnectionWiring(config),
+    notifications: {
+      fetcher: createGuardedFetcher({
+        allowPrivateHosts: config.egressAllowPrivateHosts ?? new Set(),
+      }),
+      jobs: new SqliteJobScheduler(db),
+      platform: createNodeNotificationPlatform(),
+    },
     timeZone: config.timeZone,
     oidc,
     localLoginEnabled: config.localLogin ?? true,

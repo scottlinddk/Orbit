@@ -1,5 +1,6 @@
 import {
   CounterIdGenerator,
+  InMemoryJobScheduler,
   InMemorySecretStore,
   InsecureTestPasswordHasher,
   ManualClock,
@@ -23,6 +24,7 @@ import { EncryptedDbSecretStore } from '@orbit/adapter-secrets-encrypted-db'
 import { buildPackage, PlanetRuntime } from '@orbit/module-planets/server'
 import {
   FakeIntegrationProvider,
+  FakeWebhookFetcher,
   createInMemoryRepositories,
   createSqliteRepositories,
 } from '@orbit/testing'
@@ -30,6 +32,7 @@ import type { LightMyRequestResponse } from 'fastify'
 import { buildApp, type AppOptions, type App } from './app.ts'
 import { createIcsFeedReader } from './calendar.ts'
 import { loadConfig, type Config } from './config.ts'
+import { createNodeNotificationPlatform } from './notification-platform.ts'
 import { cookieName } from './http/session.ts'
 import { MissingKeySecretStore } from './secrets.ts'
 import { assembleServices, type Services } from './services.ts'
@@ -53,6 +56,9 @@ export interface TestEnv {
   ics: FakeIcsServer
   /** A Home Assistant for tests. Register a system with `integrations.add(url, token)`. */
   integrations: FakeIntegrationProvider
+  /** The receiver of outgoing webhooks, and the queue that feeds it. */
+  webhooks: FakeWebhookFetcher
+  jobs: InMemoryJobScheduler
   app: App
   config: Config
   clock: ManualClock
@@ -80,6 +86,8 @@ export async function createTestEnv(options: TestEnvOptions = {}): Promise<TestE
   const clock = new ManualClock()
   const ics = new FakeIcsServer()
   const integrations = new FakeIntegrationProvider()
+  const webhooks = new FakeWebhookFetcher()
+  const jobs = new InMemoryJobScheduler()
   const services = assembleServices({
     repos: options.storage === 'sqlite' ? createSqliteRepositories() : createInMemoryRepositories(),
     hasher: new InsecureTestPasswordHasher(),
@@ -97,6 +105,7 @@ export async function createTestEnv(options: TestEnvOptions = {}): Promise<TestE
       reader: createIcsFeedReader(ics),
     },
     connections: { providers: options.connectionProviders ?? [integrations] },
+    notifications: { fetcher: webhooks, jobs, platform: createNodeNotificationPlatform() },
     timeZone: config.timeZone,
     oidc: options.oidc,
     localLoginEnabled: config.localLogin,
@@ -113,6 +122,8 @@ export async function createTestEnv(options: TestEnvOptions = {}): Promise<TestE
   return {
     ics,
     integrations,
+    webhooks,
+    jobs,
     app,
     config,
     clock,
