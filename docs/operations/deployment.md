@@ -49,6 +49,19 @@ Copy `.env.example` to `.env` next to `compose.yaml` and change what you need. E
 | `ORBIT_TRUST_PROXY`  | `true` only behind a reverse proxy you control, so rate limits see real client addresses.                                                           |
 | `ORBIT_REGISTRATION` | `first-user-only` (default) or `open`.                                                                                                              |
 
+Check settings and the running instance from inside the container:
+
+```sh
+docker compose exec orbit orbit config validate
+docker compose exec orbit orbit config print --redacted
+docker compose exec orbit orbit doctor
+```
+
+`doctor` checks whether the data folder is writable, whether the configured URL's health endpoint
+answers from the server, and whether its HTTP Date is within five minutes of the local clock. It
+also warns when a non-local URL uses plain HTTP. Check public reachability separately from a device
+outside your network; a successful request from the server does not prove external access.
+
 ## HTTPS with Caddy
 
 Point a DNS name at the machine and open ports 80 and 443. Then:
@@ -59,6 +72,10 @@ docker compose -f compose.yaml -f deploy/compose.caddy.yaml up -d --build
 ```
 
 Caddy gets and renews the certificate by itself. The override sets `ORBIT_PUBLIC_URL` and `ORBIT_TRUST_PROXY` for you, and removes Orbit's own published port, so the only way in is through Caddy. With HTTPS the session cookie becomes `Secure` and `__Host-` prefixed automatically. If you use another proxy, forward to port 3000, set `ORBIT_PUBLIC_URL` to the public https address and `ORBIT_TRUST_PROXY=true`.
+
+The proposed TRMNL feed requires a public HTTPS address because TRMNL's cloud polls it. The Caddy
+override is the documented deployment path for that feature once the feed is available. A LAN-only
+install cannot use the feed.
 
 ## Adding people
 

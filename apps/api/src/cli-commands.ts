@@ -4,8 +4,11 @@ import {
   constants,
   copyFileSync,
   existsSync,
+  mkdtempSync,
   mkdirSync,
   renameSync,
+  rmSync,
+  writeFileSync,
 } from 'node:fs'
 import { dirname } from 'node:path'
 import { backupDatabase, openDatabase, verifyDatabase } from '@orbit/adapter-persistence-sqlite'
@@ -28,6 +31,9 @@ export const USAGE = `Orbit operator commands. Run on the server that holds the 
   restore <file>            Replace the database with a verified backup. Stop Orbit first.
   create-user <username>    Create an account even though registration is closed.
   reset-password <username> Set a new password and sign that user out everywhere.
+  config validate           Check configuration without opening the database.
+  config print --redacted   Print effective settings with secrets hidden.
+  doctor                    Check storage, URL reachability and clock skew.
 
 The database is the one ORBIT_DATABASE_PATH points to.`
 
@@ -44,6 +50,44 @@ export async function runCli(
   if (!command || command === 'help' || command === '--help' || command === '-h') {
     io.out(USAGE)
     return command ? EXIT_OK : EXIT_USAGE
+  }
+  if (command === 'config') {
+    if (
+      !['validate', 'print'].includes(argument ?? '') ||
+      (argument === 'print' && (argv[2] !== '--redacted' || argv.length !== 3)) ||
+      (argument === 'validate' && argv.length !== 2)
+    ) {
+      io.err(`Usage: orbit config validate | orbit config print --redacted`)
+      return EXIT_USAGE
+    }
+    try {
+      const config = loadConfig(env)
+      if (argument === 'validate') io.out('Configuration is valid.')
+      else
+        io.out(
+          JSON.stringify(
+            { ...config, setupCode: config.setupCode ? '[REDACTED]' : undefined },
+            null,
+            2,
+          ),
+        )
+      return EXIT_OK
+    } catch (error) {
+      io.err(error instanceof Error ? error.message : String(error))
+      return EXIT_FAILED
+    }
+  }
+  if (command === 'doctor') {
+    if (argv.length !== 1) {
+      io.err('Usage: orbit doctor')
+      return EXIT_USAGE
+    }
+    try {
+      return await doctor(loadConfig(env), io)
+    } catch (error) {
+      io.err(error instanceof Error ? error.message : String(error))
+      return EXIT_FAILED
+    }
   }
   if (!['backup', 'verify', 'restore', 'create-user', 'reset-password'].includes(command)) {
     io.err(`Unknown command "${command}".\n\n${USAGE}`)
@@ -77,6 +121,67 @@ export async function runCli(
     }
     return EXIT_FAILED
   }
+}
+
+/** Checks from this machine; external reachability still needs a check from outside the network. */
+export async function doctor(
+  config: ReturnType<typeof loadConfig>,
+  io: CliIo,
+  fetcher: typeof fetch = fetch,
+): Promise<number> {
+  let healthy = true
+  try {
+    const parent = dirname(config.databasePath)
+    const probe = mkdtempSync(`${parent}/.orbit-doctor-`)
+    try {
+      writeFileSync(`${probe}/probe`, 'ok', { flag: 'wx' })
+    } finally {
+      rmSync(probe, { recursive: true, force: true })
+    }
+    io.out(`OK: storage is writable at ${parent}`)
+  } catch (error) {
+    healthy = false
+    io.err(`PROBLEM: storage is not writable: ${error instanceof Error ? error.message : error}`)
+  }
+
+  if (
+    !config.secureCookies &&
+    !new URL(config.origin).hostname.match(/^(localhost|127\.0\.0\.1)$/)
+  ) {
+    healthy = false
+    io.err('PROBLEM: the public URL must use HTTPS for secure session cookies.')
+  }
+  try {
+    const response = await fetcher(`${config.origin}/api/v1/health`, {
+      signal: AbortSignal.timeout(5000),
+      redirect: 'error',
+    })
+    if (!response.ok || (await response.text()) !== '{"status":"ok"}') {
+      healthy = false
+      io.err(`PROBLEM: health endpoint returned HTTP ${response.status} or unexpected content.`)
+    } else io.out(`OK: ${config.origin} is reachable from this machine.`)
+
+    const date = response.headers.get('date')
+    if (!date || Number.isNaN(Date.parse(date))) {
+      healthy = false
+      io.err('PROBLEM: health response has no valid Date header; clock skew cannot be checked.')
+    } else {
+      const skew = Math.abs(Date.now() - Date.parse(date))
+      if (skew > 5 * 60_000) {
+        healthy = false
+        io.err(
+          `PROBLEM: clock differs from the server response by ${Math.round(skew / 1000)} seconds.`,
+        )
+      } else io.out('OK: clock differs from the server response by less than five minutes.')
+    }
+  } catch (error) {
+    healthy = false
+    io.err(
+      `PROBLEM: cannot reach ${config.origin} from this machine: ${error instanceof Error ? error.message : error}`,
+    )
+  }
+  io.out('Public reachability must also be checked from outside this network.')
+  return healthy ? EXIT_OK : EXIT_FAILED
 }
 
 async function backup(databasePath: string, destination: string, io: CliIo): Promise<number> {
