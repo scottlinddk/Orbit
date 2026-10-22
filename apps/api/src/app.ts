@@ -18,6 +18,7 @@ import { createRequireActor } from './http/session.ts'
 import { toProblem } from './problem.ts'
 import { authRoutes } from './routes/auth.ts'
 import { defaultFeedRateLimit, type FeedRateLimitOptions } from './http/feed-rate-limit.ts'
+import { calendarRoutes } from './routes/calendar.ts'
 import { dashboardRoutes } from './routes/dashboards.ts'
 import { feedRoutes } from './routes/feed.ts'
 import { errors } from './routes/schemas.ts'
@@ -142,6 +143,7 @@ export async function buildApp(options: AppOptions) {
       await api.register(async (protectedScope) => {
         protectedScope.addHook('onRequest', requireActor)
         await protectedScope.register(householdRoutes({ services }))
+        await protectedScope.register(calendarRoutes({ services }))
         await protectedScope.register(dashboardRoutes({ services }))
         await protectedScope.register(planetRoutes({ services }))
       })

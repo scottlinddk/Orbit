@@ -30,7 +30,7 @@ export function stubApi(handlers: Record<string, Handler>) {
         body: typeof init?.body === 'string' ? JSON.parse(init.body) : undefined,
       }
       calls.push(call)
-      const handler = handlers[`${method} ${url.pathname}`]
+      const handler = handlers[`${method} ${url.pathname}`] ?? noCalendars(method, url.pathname)
       if (!handler) {
         unhandled.push(`${method} ${url.pathname}`)
         return new Response('{}', { status: 500 })
@@ -59,6 +59,20 @@ export function stubApi(handlers: Record<string, Handler>) {
     sent: (method: string, path: string) =>
       calls.filter((c) => c.method === method && c.path === path),
   }
+}
+
+/**
+ * A household with no calendars. Most pages ask for these, and most tests are about something
+ * else, so an unstubbed calendar request gets the empty answer. A test about calendars stubs
+ * its own.
+ */
+function noCalendars(method: string, path: string): Reply | undefined {
+  if (method !== 'GET') return undefined
+  if (/^\/api\/v1\/households\/[^/]+\/calendar\/sources$/.test(path))
+    return { body: { sources: [] } }
+  if (/^\/api\/v1\/households\/[^/]+\/calendar\/events$/.test(path))
+    return { body: { events: [], sources: [] } }
+  return undefined
 }
 
 export const problem = (status: number, detail: string, type = 'rule-violation') => ({

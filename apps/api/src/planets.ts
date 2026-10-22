@@ -4,7 +4,7 @@ import { SqliteJobScheduler } from '@orbit/adapter-jobs-sqlite'
 import type { Database } from '@orbit/adapter-persistence-sqlite'
 import { SqlitePlanetStateStore } from '@orbit/adapter-planets-sqlite'
 import { EncryptedDbSecretStore } from '@orbit/adapter-secrets-encrypted-db'
-import type { EgressFetcher, SecretStore } from '@orbit/application'
+import type { EgressFetcher } from '@orbit/application'
 import {
   fetchIcsEvents,
   IcsFetchError,
@@ -21,31 +21,12 @@ import {
   type RefusedPlanet,
 } from '@orbit/module-planets/server'
 import type { Config } from './config.ts'
+import { MissingKeySecretStore } from './secrets.ts'
 
 /** The version Planets' `orbit` range is checked against: the one in apps/api/package.json. */
 export function orbitVersion(): string {
   const text = readFileSync(new URL('../package.json', import.meta.url), 'utf8')
   return (JSON.parse(text) as { version: string }).version
-}
-
-/** Refuses to store anything until the operator has set a master key. */
-class MissingKeySecretStore implements SecretStore {
-  #fail(): never {
-    throw new PlanetError(
-      'Storing secrets needs ORBIT_SECRET_KEY (at least 32 characters). Generate one with: openssl rand -base64 32',
-    )
-  }
-  async set(): Promise<void> {
-    this.#fail()
-  }
-  async get(): Promise<string | undefined> {
-    // No key means no secrets were ever stored under it.
-    return undefined
-  }
-  async names(): Promise<string[]> {
-    return []
-  }
-  async deleteScope(): Promise<void> {}
 }
 
 const mapEvent = (event: CalendarEvent) =>
@@ -122,7 +103,12 @@ export function createPlanetWiring(
     scheduler: new SqliteJobScheduler(db),
     secrets: config.secretKey
       ? new EncryptedDbSecretStore(db, config.secretKey)
-      : new MissingKeySecretStore(),
+      : new MissingKeySecretStore(
+          () =>
+            new PlanetError(
+              'Storing secrets needs ORBIT_SECRET_KEY (at least 32 characters). Generate one with: openssl rand -base64 32',
+            ),
+        ),
     clock: { now: () => new Date() },
     fetcher,
     readIcal: createIcalReader(fetcher),

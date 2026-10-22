@@ -12,13 +12,15 @@ Orbit can publish a read-only feed that a [TRMNL](https://trmnl.com) e-ink displ
 
 You choose the fields. Nothing else is published, and widget settings are never included.
 
-| Field               | Published as                                          |
-| ------------------- | ----------------------------------------------------- |
-| `household.name`    | `household.name`                                      |
-| `dashboard.name`    | `dashboard.name` (needs a dashboard)                  |
-| `dashboard.widgets` | `dashboard.widgets[]` with `type` and `span` per item |
+| Field               | Published as                                              |
+| ------------------- | --------------------------------------------------------- |
+| `household.name`    | `household.name`                                          |
+| `dashboard.name`    | `dashboard.name` (needs a dashboard)                      |
+| `dashboard.widgets` | `dashboard.widgets[]` with `type` and `span` per item     |
+| `calendar.today`    | `calendar.today[]`: events that touch today               |
+| `calendar.upcoming` | `calendar.upcoming[]`: events starting in the next 7 days |
 
-More fields (calendar events, list items) are added when those data sources are stored on the server. A feed is capped at 64 KB. TRMNL requires the combined data of a plugin to stay under 100 KB.
+Calendar fields need at least one [calendar](calendar.md). Each list holds at most 20 events, with `title`, `allDay`, `start` and `end` and nothing else (no location, no calendar name). Timed events use ISO instants in UTC; all-day events use dates, with an exclusive `end`. "Today" follows `ORBIT_TIME_ZONE` (default `UTC`, so set it to your own zone). The feed never waits for a calendar server: it answers from the last events Orbit read and refreshes them in the background, so the first poll after a restart can be empty and the next one has data. More fields (list items) are added when those data sources are stored on the server. A feed is capped at 64 KB. TRMNL requires the combined data of a plugin to stay under 100 KB.
 
 ## Create a feed
 
@@ -78,6 +80,17 @@ Paste this into the plugin's Markup editor. The polled JSON is available as top-
 ```
 
 If the dashboard was deleted, `dashboard` is `null` and the loop renders nothing.
+
+A calendar feed (`calendar.today` and `calendar.upcoming`) renders like this. Times are in UTC in the feed, so give them to Liquid's `date` filter with your zone:
+
+```liquid
+{% for event in calendar.today %}
+  <div class="item">
+    <span class="label">{% if event.allDay %}All day{% else %}{{ event.start | date: "%H:%M" }}{% endif %}</span>
+    <span class="title title--small">{{ event.title }}</span>
+  </div>
+{% endfor %}
+```
 
 ## What the endpoint does
 

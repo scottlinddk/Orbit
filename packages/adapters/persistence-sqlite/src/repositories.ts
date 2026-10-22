@@ -1,4 +1,5 @@
 import type {
+  CalendarSourceRepository,
   AccountRepository,
   Credential,
   DashboardRepository,
@@ -12,6 +13,8 @@ import type {
   UserRepository,
 } from '@orbit/application'
 import {
+  CalendarSourceId,
+  type CalendarSource,
   DashboardId,
   FeedId,
   HouseholdId,
@@ -447,5 +450,62 @@ function hydrateFeed(row: Row): Feed {
     createdBy: UserId(String(row.created_by)),
     createdAt: new Date(String(row.created_at)),
     ...(row.revoked_at === null ? {} : { revokedAt: new Date(String(row.revoked_at)) }),
+  }
+}
+
+export class SqliteCalendarSourceRepository implements CalendarSourceRepository {
+  readonly #db: Database
+
+  constructor(db: Database) {
+    this.#db = db
+  }
+
+  async create(source: CalendarSource): Promise<void> {
+    this.#db
+      .prepare(
+        `INSERT INTO calendar_sources (id, household_id, name, color, host, created_by, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        source.id,
+        source.householdId,
+        source.name,
+        source.color ?? null,
+        source.host,
+        source.createdBy,
+        source.createdAt.toISOString(),
+      )
+  }
+
+  async get(id: CalendarSourceId): Promise<CalendarSource | undefined> {
+    const row = this.#db.prepare(`${SELECT_CALENDAR_SOURCE} WHERE id = ?`).get(id) as
+      Row | undefined
+    return row && hydrateCalendarSource(row)
+  }
+
+  async listForHousehold(householdId: HouseholdId): Promise<CalendarSource[]> {
+    const rows = this.#db
+      .prepare(`${SELECT_CALENDAR_SOURCE} WHERE household_id = ? ORDER BY rowid`)
+      .all(householdId) as Row[]
+    return rows.map(hydrateCalendarSource)
+  }
+
+  async delete(id: CalendarSourceId): Promise<void> {
+    this.#db.prepare('DELETE FROM calendar_sources WHERE id = ?').run(id)
+  }
+}
+
+const SELECT_CALENDAR_SOURCE = `SELECT id, household_id, name, color, host, created_by, created_at
+  FROM calendar_sources`
+
+function hydrateCalendarSource(row: Row): CalendarSource {
+  return {
+    id: CalendarSourceId(String(row.id)),
+    householdId: HouseholdId(String(row.household_id)),
+    name: String(row.name),
+    ...(row.color === null ? {} : { color: String(row.color) }),
+    host: String(row.host),
+    createdBy: UserId(String(row.created_by)),
+    createdAt: new Date(String(row.created_at)),
   }
 }

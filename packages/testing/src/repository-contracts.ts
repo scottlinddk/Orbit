@@ -1,5 +1,6 @@
 import type { Repositories } from '@orbit/application'
 import {
+  CalendarSourceId,
   DashboardId,
   FeedId,
   HouseholdId,
@@ -9,6 +10,7 @@ import {
   WidgetPlacementId,
   addMember,
   addWidget,
+  createCalendarSource,
   createDashboard,
   createFeed,
   createHousehold,
@@ -416,6 +418,57 @@ export function describeFeedContracts(name: string, create: () => Promise<Reposi
       expect(await repos.feeds.revoke(FeedId('f1'), t0)).toBe(false)
       expect(await repos.feeds.revoke(FeedId('missing'), t0)).toBe(false)
       expect((await repos.feeds.get(FeedId('f1')))?.revokedAt).toEqual(t0)
+    })
+  })
+}
+
+export function describeCalendarSourceContracts(
+  name: string,
+  create: () => Promise<RepositorySet>,
+) {
+  describe(`calendar source contracts: ${name}`, () => {
+    let repos: RepositorySet
+    beforeEach(async () => {
+      repos = await create()
+    })
+
+    const t0 = new Date('2026-01-01T00:00:00.000Z')
+    const source = (id: string, household = 'h1', color?: string) =>
+      createCalendarSource({
+        id: CalendarSourceId(id),
+        householdId: HouseholdId(household),
+        name: `Calendar ${id}`,
+        color,
+        host: 'cal.example.com',
+        createdBy: UserId('alice'),
+        now: t0,
+      })
+
+    it('round-trips a source with and without a color', async () => {
+      const plain = source('s1')
+      const colored = source('s2', 'h1', '#aa00ff')
+      await repos.calendarSources.create(plain)
+      await repos.calendarSources.create(colored)
+      expect(await repos.calendarSources.get(plain.id)).toEqual(plain)
+      expect(await repos.calendarSources.get(colored.id)).toEqual(colored)
+      expect(await repos.calendarSources.get(CalendarSourceId('missing'))).toBeUndefined()
+    })
+
+    it('lists only the sources of one household, oldest first', async () => {
+      await repos.calendarSources.create(source('s1'))
+      await repos.calendarSources.create(source('s2', 'h2'))
+      await repos.calendarSources.create(source('s3'))
+      const list = await repos.calendarSources.listForHousehold(HouseholdId('h1'))
+      expect(list.map((s) => s.id)).toEqual(['s1', 's3'])
+    })
+
+    it('refuses a duplicate id and deletes only the one source', async () => {
+      await repos.calendarSources.create(source('s1'))
+      await expect(repos.calendarSources.create(source('s1'))).rejects.toThrow()
+      await repos.calendarSources.create(source('s2'))
+      await repos.calendarSources.delete(CalendarSourceId('s1'))
+      expect(await repos.calendarSources.get(CalendarSourceId('s1'))).toBeUndefined()
+      expect(await repos.calendarSources.get(CalendarSourceId('s2'))).toBeDefined()
     })
   })
 }

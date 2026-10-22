@@ -8,6 +8,8 @@ export type HouseholdAction =
   | 'dashboard:edit'
   | 'dashboard:delete'
   | 'feed:manage'
+  | 'calendar:view'
+  | 'calendar:manage'
 
 /**
  * Deny by default: an action is allowed only when listed for the role.
@@ -22,8 +24,10 @@ const grants: Record<HouseholdRole, ReadonlySet<HouseholdAction>> = {
     'dashboard:edit',
     'dashboard:delete',
     'feed:manage',
+    'calendar:view',
+    'calendar:manage',
   ]),
-  member: new Set<HouseholdAction>(['household:view', 'dashboard:view']),
+  member: new Set<HouseholdAction>(['household:view', 'dashboard:view', 'calendar:view']),
 }
 
 export function can(role: HouseholdRole, action: HouseholdAction): boolean {

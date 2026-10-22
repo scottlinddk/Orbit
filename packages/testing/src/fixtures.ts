@@ -3,15 +3,18 @@ import {
   ManualClock,
   SequentialSessionTokens,
   InMemoryAccountRepository,
+  InMemoryCalendarSourceRepository,
   InMemoryDashboardRepository,
   InMemoryFeedRepository,
   InMemoryHouseholdRepository,
   InMemoryInvitationRepository,
+  InMemorySecretStore,
   InMemorySessionStore,
   InMemoryUserRepository,
 } from '@orbit/adapter-in-memory'
 import {
   SqliteAccountRepository,
+  SqliteCalendarSourceRepository,
   SqliteDashboardRepository,
   SqliteFeedRepository,
   SqliteHouseholdRepository,
@@ -22,19 +25,25 @@ import {
   openDatabase,
 } from '@orbit/adapter-persistence-sqlite'
 import {
+  createCalendarService,
   createFeedReader,
   createUseCases,
   type Actor,
+  type CalendarService,
   type FeedReader,
   type UseCases,
 } from '@orbit/application'
 import { UserId, Username, createUser } from '@orbit/domain'
+import { FakeCalendarFeedReader } from './calendar-fakes.ts'
 import type { RepositorySet } from './repository-contracts.ts'
 
 export interface TestSystem {
   useCases: UseCases
   /** What a display with a feed token can do. */
   feedReader: FeedReader
+  /** Household calendars, reading from `calendarReader` instead of the network. */
+  calendar: CalendarService
+  calendarReader: FakeCalendarFeedReader
   /** Moves time forward for invitations and anything else that expires. */
   clock: ManualClock
   /** Registers a user and returns the actor that user would log in as. */
@@ -44,20 +53,34 @@ export interface TestSystem {
 /** The platform wired with the given repositories. */
 export function createSystem(
   repos: RepositorySet,
-  options: { maxFeedBytes?: number } = {},
+  options: { maxFeedBytes?: number; timeZone?: string } = {},
 ): TestSystem {
   const clock = new ManualClock()
   const tokens = new SequentialSessionTokens()
-  const useCases = createUseCases({
-    ...repos,
-    tokens,
+  const ids = new CounterIdGenerator()
+  const calendarReader = new FakeCalendarFeedReader()
+  const calendar = createCalendarService({
+    sources: repos.calendarSources,
+    households: repos.households,
+    secrets: new InMemorySecretStore(),
+    reader: calendarReader,
     clock,
-    ids: new CounterIdGenerator(),
-    ...options,
+    ids,
   })
+  const { timeZone, ...useCaseOptions } = options
+  const useCases = createUseCases({ ...repos, tokens, clock, ids, ...useCaseOptions })
   return {
     useCases,
-    feedReader: createFeedReader({ ...repos, tokens, ...options }),
+    feedReader: createFeedReader({
+      ...repos,
+      tokens,
+      clock,
+      calendar,
+      timeZone,
+      ...(options.maxFeedBytes === undefined ? {} : { maxFeedBytes: options.maxFeedBytes }),
+    }),
+    calendar,
+    calendarReader,
     clock,
     async newActor(name) {
       const id = UserId(`user-${name}`)
@@ -81,6 +104,7 @@ export function createInMemoryRepositories(): RepositorySet {
     households: new InMemoryHouseholdRepository(),
     invitations: new InMemoryInvitationRepository(),
     feeds: new InMemoryFeedRepository(),
+    calendarSources: new InMemoryCalendarSourceRepository(),
     dashboards: new InMemoryDashboardRepository(),
   }
 }
@@ -96,6 +120,7 @@ export function createSqliteRepositories(): RepositorySet {
     households: new SqliteHouseholdRepository(db),
     invitations: new SqliteInvitationRepository(db),
     feeds: new SqliteFeedRepository(db),
+    calendarSources: new SqliteCalendarSourceRepository(db),
     dashboards: new SqliteDashboardRepository(db),
   }
 }

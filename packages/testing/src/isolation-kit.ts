@@ -1,6 +1,7 @@
 import { ForbiddenError, NotFoundError, type Actor } from '@orbit/application'
 import type { HouseholdId } from '@orbit/domain'
 import {
+  CalendarSourceId,
   DashboardId,
   FeedId,
   InvariantViolation,
@@ -20,6 +21,13 @@ import type { TestSystem } from './fixtures.ts'
  * Add every new household-scoped use case to the tables below. A use case missing here is a
  * gap in the security test suite.
  */
+const CALENDAR_URL = 'https://calendar.example.com/private/abc123.ics'
+/** Inside the window around the test clock's 2026-01-01. */
+const CALENDAR_RANGE = {
+  from: new Date('2026-01-01T00:00:00Z'),
+  to: new Date('2026-01-08T00:00:00Z'),
+}
+
 export function describeHouseholdIsolation(name: string, create: () => TestSystem) {
   describe(`household isolation: ${name}`, () => {
     let sys: TestSystem
@@ -30,6 +38,7 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
     let invitationA: InvitationId
     let feedA: FeedId
     let feedTokenA: string
+    let calendarSourceA: CalendarSourceId
 
     beforeEach(async () => {
       sys = create()
@@ -52,6 +61,20 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
       })
       feedA = feed.feed.id
       feedTokenA = feed.token
+      sys.calendarReader.feeds.set(CALENDAR_URL, [
+        {
+          kind: 'timed',
+          id: 'e1',
+          title: 'Private appointment',
+          start: '2026-01-02T09:00:00.000Z',
+          end: '2026-01-02T10:00:00.000Z',
+          isOverride: false,
+          isRecurring: false,
+        },
+      ])
+      calendarSourceA = (
+        await sys.calendar.addSource(alice, householdA, { name: 'Family', url: CALENDAR_URL })
+      ).id
     })
 
     /** Every operation, parameterized by who performs it. */
@@ -72,6 +95,11 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
           uc().createFeed(as(), householdA, { name: 'Intruder', fields: ['household.name'] }),
         listFeeds: () => uc().listFeeds(as(), householdA),
         revokeFeed: () => uc().revokeFeed(as(), householdA, feedA),
+        addCalendarSource: () =>
+          sys.calendar.addSource(as(), householdA, { name: 'Intruder', url: CALENDAR_URL }),
+        listCalendarSources: () => sys.calendar.listSources(as(), householdA),
+        removeCalendarSource: () => sys.calendar.removeSource(as(), householdA, calendarSourceA),
+        calendarEvents: () => sys.calendar.events(as(), householdA, CALENDAR_RANGE),
         createDashboard: () => uc().createDashboard(as(), householdA, { name: 'Intruder' }),
         listDashboards: () => uc().listDashboards(as(), householdA),
         getDashboard: () => uc().getDashboard(as(), dashboardA),
@@ -88,6 +116,8 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
         revokeInvitationMissing: () =>
           uc().revokeInvitation(as(), householdA, InvitationId('missing')),
         revokeFeedMissing: () => uc().revokeFeed(as(), householdA, FeedId('missing')),
+        removeCalendarSourceMissing: () =>
+          sys.calendar.removeSource(as(), householdA, CalendarSourceId('missing')),
       }
     }
 
@@ -96,6 +126,7 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
       dashboards: await sys.useCases.listDashboards(alice, householdA),
       invitations: await sys.useCases.listInvitations(alice, householdA),
       feeds: await sys.useCases.listFeeds(alice, householdA),
+      calendarSources: await sys.calendar.listSources(alice, householdA),
     })
 
     describe('a user from another household', () => {
@@ -127,6 +158,10 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
         // The starter dashboard every household gets, and the one this kit creates.
         await expect(operations(() => bob).listDashboards()).resolves.toHaveLength(2)
         await expect(operations(() => bob).getDashboard()).resolves.toBeDefined()
+        await expect(operations(() => bob).listCalendarSources()).resolves.toHaveLength(1)
+        await expect(operations(() => bob).calendarEvents()).resolves.toMatchObject({
+          events: [{ title: 'Private appointment' }],
+        })
       })
 
       const writes = [
@@ -139,6 +174,8 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
         'createFeed',
         'listFeeds',
         'revokeFeed',
+        'addCalendarSource',
+        'removeCalendarSource',
         'createDashboard',
         'renameDashboard',
         'setDashboardColumns',
@@ -176,6 +213,33 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
           .catch((e) => e)
         expect(foreign).toBeInstanceOf(NotFoundError)
         expect(foreign.message).toBe(missing.message)
+      })
+    })
+
+    describe('calendars', () => {
+      const carolsHousehold = async () => (await sys.useCases.listHouseholds(carol))[0]!.id
+
+      it("cannot be removed through another household's id", async () => {
+        await expect(
+          sys.calendar.removeSource(carol, await carolsHousehold(), calendarSourceA),
+        ).rejects.toBeInstanceOf(NotFoundError)
+        expect(await sys.calendar.listSources(alice, householdA)).toHaveLength(1)
+      })
+
+      it('gives a foreign source id the same answer as a missing one', async () => {
+        const foreign = await sys.calendar
+          .removeSource(carol, await carolsHousehold(), calendarSourceA)
+          .catch((e) => e)
+        const missing = await sys.calendar
+          .removeSource(carol, await carolsHousehold(), CalendarSourceId('missing'))
+          .catch((e) => e)
+        expect(foreign).toBeInstanceOf(NotFoundError)
+        expect(foreign.message).toBe(missing.message)
+      })
+
+      it("never shows another household's events in your own", async () => {
+        const mine = await sys.calendar.events(carol, await carolsHousehold(), CALENDAR_RANGE)
+        expect(mine).toEqual({ events: [], sources: [] })
       })
     })
 

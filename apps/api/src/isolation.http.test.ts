@@ -19,6 +19,7 @@ interface Ids {
   planetWidget: string
   invitation: string
   feed: string
+  calendarSource: string
   alice: string
 }
 
@@ -34,6 +35,7 @@ interface Case {
 
 const V1 = '/api/v1'
 const GONE = 'does-not-exist'
+const CALENDAR_URL = 'https://calendar.example.com/private/abc123.ics'
 
 const cases: Case[] = [
   {
@@ -91,6 +93,36 @@ const cases: Case[] = [
     call: (c, i) => c.delete(`${V1}/households/${i.household}/feeds/${i.feed}`),
     callMissing: (c) => c.delete(`${V1}/households/${GONE}/feeds/${GONE}`),
     memberAllowed: false,
+  },
+  {
+    key: 'post /api/v1/households/{householdId}/calendar/sources',
+    call: (c, i) =>
+      c.post(`${V1}/households/${i.household}/calendar/sources`, {
+        name: 'Spy',
+        url: CALENDAR_URL,
+      }),
+    callMissing: (c) =>
+      c.post(`${V1}/households/${GONE}/calendar/sources`, { name: 'Spy', url: CALENDAR_URL }),
+    memberAllowed: false,
+  },
+  {
+    key: 'get /api/v1/households/{householdId}/calendar/sources',
+    call: (c, i) => c.get(`${V1}/households/${i.household}/calendar/sources`),
+    callMissing: (c) => c.get(`${V1}/households/${GONE}/calendar/sources`),
+    memberAllowed: true,
+  },
+  {
+    key: 'delete /api/v1/households/{householdId}/calendar/sources/{sourceId}',
+    call: (c, i) =>
+      c.delete(`${V1}/households/${i.household}/calendar/sources/${i.calendarSource}`),
+    callMissing: (c) => c.delete(`${V1}/households/${GONE}/calendar/sources/${GONE}`),
+    memberAllowed: false,
+  },
+  {
+    key: 'get /api/v1/households/{householdId}/calendar/events',
+    call: (c, i) => c.get(`${V1}/households/${i.household}/calendar/events`),
+    callMissing: (c) => c.get(`${V1}/households/${GONE}/calendar/events`),
+    memberAllowed: true,
   },
   {
     key: 'get /api/v1/households/{householdId}/dashboards',
@@ -207,6 +239,16 @@ describe.each(['memory', 'sqlite'] as const)('household isolation over HTTP (%s)
       })
     ).body
     const invitation = (await alice.post(`${V1}/households/${household}/invitations`)).body
+    env.ics.feeds.set(
+      CALENDAR_URL,
+      'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//t//EN\r\nEND:VCALENDAR',
+    )
+    const calendarSource = (
+      await alice.post(`${V1}/households/${household}/calendar/sources`, {
+        name: 'Family',
+        url: CALENDAR_URL,
+      })
+    ).body
     const feed = (
       await alice.post(`${V1}/households/${household}/feeds`, {
         name: 'Kitchen',
@@ -217,6 +259,7 @@ describe.each(['memory', 'sqlite'] as const)('household isolation over HTTP (%s)
       household,
       invitation: invitation.id,
       feed: feed.id,
+      calendarSource: calendarSource.id,
       dashboard: dashboard.id,
       widget: withWidget.widgets[0].id,
       planetWidget: withPlanet.widgets.at(-1).id,
@@ -230,6 +273,7 @@ describe.each(['memory', 'sqlite'] as const)('household isolation over HTTP (%s)
     dashboards: (await alice.get(`${V1}/households/${ids.household}/dashboards`)).body,
     invitations: (await alice.get(`${V1}/households/${ids.household}/invitations`)).body,
     feeds: (await alice.get(`${V1}/households/${ids.household}/feeds`)).body,
+    calendarSources: (await alice.get(`${V1}/households/${ids.household}/calendar/sources`)).body,
   })
 
   it('covers every protected operation in the OpenAPI document', async () => {

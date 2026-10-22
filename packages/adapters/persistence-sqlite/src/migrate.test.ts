@@ -17,6 +17,7 @@ describe('migrate', () => {
     const db = openDatabase(':memory:')
     expect(migrate(db)).toEqual(migrations.map((m) => m.version))
     expect(tables(db)).toEqual([
+      'calendar_sources',
       'credentials',
       'dashboard_widgets',
       'dashboards',
@@ -44,7 +45,7 @@ describe('migrate', () => {
     ).run()
     expect(tables(db)).not.toContain('invitations')
 
-    expect(migrate(db)).toEqual([3, 4, 5])
+    expect(migrate(db)).toEqual(migrations.slice(2).map((m) => m.version))
 
     expect(tables(db)).toContain('invitations')
     expect(db.prepare('SELECT COUNT(*) AS n FROM users').get()).toEqual({ n: 1 })
@@ -60,7 +61,7 @@ describe('migrate', () => {
     ).run()
     expect(tables(db)).not.toContain('feeds')
 
-    expect(migrate(db)).toEqual([4, 5])
+    expect(migrate(db)).toEqual(migrations.slice(3).map((m) => m.version))
 
     expect(tables(db)).toContain('feeds')
     expect(db.prepare('SELECT COUNT(*) AS n FROM invitations').get()).toEqual({ n: 1 })

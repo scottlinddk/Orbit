@@ -1,7 +1,13 @@
 import { z } from 'zod'
 
 /** Mirrors FEED_FIELDS in the domain. A contract test keeps the two lists equal. */
-export const feedFieldSchema = z.enum(['household.name', 'dashboard.name', 'dashboard.widgets'])
+export const feedFieldSchema = z.enum([
+  'household.name',
+  'dashboard.name',
+  'dashboard.widgets',
+  'calendar.today',
+  'calendar.upcoming',
+])
 
 export const createFeedRequestSchema = z.strictObject({
   name: z.string().min(1).max(80),
@@ -29,8 +35,23 @@ export const createdFeedSchema = feedSchema
 export type CreatedFeedResponse = z.infer<typeof createdFeedSchema>
 
 /** What a display reads. Only the fields the owner chose are present. */
+const feedCalendarEventSchema = z.object({
+  title: z.string(),
+  allDay: z.boolean(),
+  /** An ISO instant for timed events, `YYYY-MM-DD` for all-day ones. */
+  start: z.string(),
+  /** Same format as `start`. For all-day events the date is exclusive. */
+  end: z.string(),
+})
+
 export const feedContentSchema = z
   .object({
+    calendar: z
+      .object({
+        today: z.array(feedCalendarEventSchema).optional(),
+        upcoming: z.array(feedCalendarEventSchema).optional(),
+      })
+      .optional(),
     household: z.object({ name: z.string() }).optional(),
     dashboard: z
       .object({

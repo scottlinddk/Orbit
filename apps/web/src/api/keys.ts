@@ -8,6 +8,10 @@ export const keys = {
   invitationPreview: (token: string) => ['invitation-preview', token] as const,
   dashboards: (householdId: string) => ['households', householdId, 'dashboards'] as const,
   dashboard: (id: string) => ['dashboards', id] as const,
+  calendarSources: (householdId: string) =>
+    ['households', householdId, 'calendar', 'sources'] as const,
+  calendarEvents: (householdId: string) =>
+    ['households', householdId, 'calendar', 'events'] as const,
   planetWidgets: ['planets', 'widgets'] as const,
   planetRender: (dashboardId: string, widgetId: string) =>
     ['dashboards', dashboardId, 'planet', widgetId] as const,

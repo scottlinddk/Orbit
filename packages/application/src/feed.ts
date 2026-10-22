@@ -5,7 +5,8 @@ import {
   renderFeed,
   type JsonObject,
 } from '@orbit/domain'
-import type { SessionTokens } from './auth-ports.ts'
+import type { Clock, SessionTokens } from './auth-ports.ts'
+import type { CalendarService } from './calendar.ts'
 import { FeedTooLargeError, NotFoundError } from './errors.ts'
 import type { DashboardRepository, FeedRepository, HouseholdRepository } from './ports.ts'
 
@@ -16,6 +17,11 @@ export interface FeedReaderDependencies {
   tokens: Pick<SessionTokens, 'hash'>
   /** Defaults to MAX_FEED_BYTES; tests lower it. */
   maxFeedBytes?: number
+  /** Where `calendar.*` fields get their events. Without it those fields are empty. */
+  calendar?: Pick<CalendarService, 'cachedEventsForFeed'> | undefined
+  clock?: Clock | undefined
+  /** The zone that decides what "today" means. Defaults to UTC. */
+  timeZone?: string | undefined
 }
 
 export type FeedReader = ReturnType<typeof createFeedReader>
@@ -40,7 +46,16 @@ export function createFeedReader(deps: FeedReaderDependencies) {
         feed.dashboardId === undefined ? undefined : await dashboards.get(feed.dashboardId)
       // Belt and braces: a dashboard from another household is never published.
       const own = dashboard?.householdId === feed.householdId ? dashboard : undefined
-      const content = renderFeed(feed, { household, dashboard: own })
+      const wantsCalendar = feed.fields.some((f) => f.startsWith('calendar.'))
+      const calendar =
+        wantsCalendar && deps.calendar
+          ? {
+              events: await deps.calendar.cachedEventsForFeed(feed.householdId),
+              now: (deps.clock ?? { now: () => new Date() }).now(),
+              timeZone: deps.timeZone ?? 'UTC',
+            }
+          : undefined
+      const content = renderFeed(feed, { household, dashboard: own, calendar })
       if (feedByteLength(content) > maxFeedBytes) throw new FeedTooLargeError()
       return content
     },

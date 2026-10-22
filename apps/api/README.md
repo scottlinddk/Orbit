@@ -25,7 +25,7 @@ The OpenAPI document is served at `/api/v1/openapi.json` and committed as [`open
 
 All settings are environment variables. Invalid values stop the server with a readable message.
 
-Under Docker Compose only `ORBIT_PUBLIC_URL`, `ORBIT_REGISTRATION`, `ORBIT_SETUP_CODE`, `ORBIT_TRUST_PROXY`, `ORBIT_MIGRATION_SNAPSHOTS`, `ORBIT_BACKUP_INTERVAL_HOURS`, `ORBIT_BACKUP_KEEP`, `ORBIT_SECRET_KEY`, `ORBIT_EGRESS_ALLOW_PRIVATE_HOSTS` and `ORBIT_LOG_LEVEL` can be set (through `.env`). The image fixes `ORBIT_HOST`, `ORBIT_PORT`, `ORBIT_DATABASE_PATH` and `ORBIT_WEB_DIR`. [`.env.example`](../../.env.example) marks which applies where.
+Under Docker Compose only `ORBIT_PUBLIC_URL`, `ORBIT_REGISTRATION`, `ORBIT_SETUP_CODE`, `ORBIT_TRUST_PROXY`, `ORBIT_MIGRATION_SNAPSHOTS`, `ORBIT_BACKUP_INTERVAL_HOURS`, `ORBIT_BACKUP_KEEP`, `ORBIT_SECRET_KEY`, `ORBIT_EGRESS_ALLOW_PRIVATE_HOSTS`, `ORBIT_TIME_ZONE` and `ORBIT_LOG_LEVEL` can be set (through `.env`). The image fixes `ORBIT_HOST`, `ORBIT_PORT`, `ORBIT_DATABASE_PATH` and `ORBIT_WEB_DIR`. [`.env.example`](../../.env.example) marks which applies where.
 
 | Variable                           | Default                 | Purpose                                                                                                                    |
 | ---------------------------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------- |
@@ -43,6 +43,7 @@ Under Docker Compose only `ORBIT_PUBLIC_URL`, `ORBIT_REGISTRATION`, `ORBIT_SETUP
 | `ORBIT_SECRET_KEY`                 | unset                   | Master key (at least 32 characters) for stored secrets such as Planet API keys. Without it, secrets cannot be stored.      |
 | `ORBIT_PLANETS_DIR`                | `<data folder>/planets` | Where installed Planets and `planets.lock` live.                                                                           |
 | `ORBIT_EGRESS_ALLOW_PRIVATE_HOSTS` | unset                   | Comma separated host names that outbound requests may reach although they resolve to a private address. Per host.          |
+| `ORBIT_TIME_ZONE`                  | `UTC`                   | IANA time zone that decides what "today" means in the display feed, for example `Europe/Copenhagen`.                       |
 | `ORBIT_LOG_LEVEL`                  | `info`                  | `fatal`, `error`, `warn`, `info`, `debug`, `trace` or `silent`.                                                            |
 
 Security design: [ADR 0010](../../docs/architecture/adr/0010-sessions-and-http-hardening.md).

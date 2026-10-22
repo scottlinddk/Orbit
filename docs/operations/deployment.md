@@ -56,6 +56,7 @@ Copy `.env.example` to `.env` next to `compose.yaml` and change what you need. E
 | `ORBIT_IMAGE_TAG`                  | Published image tag to pull. Defaults to `latest`.                                                                                                  |
 | `ORBIT_SECRET_KEY`                 | Master key (at least 32 characters) for stored secrets such as Planet API keys. See [Planets](planets.md).                                          |
 | `ORBIT_EGRESS_ALLOW_PRIVATE_HOSTS` | Host names that outbound requests may reach on your local network. Per host. Empty by default.                                                      |
+| `ORBIT_TIME_ZONE`                  | The time zone that decides what "today" means in the TRMNL feed, for example `Europe/Copenhagen`. Default `UTC`.                                    |
 
 Check settings and the running instance from inside the container:
 

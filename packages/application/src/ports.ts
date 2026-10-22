@@ -1,5 +1,8 @@
 import type { AccountRepository, SessionStore } from './auth-ports.ts'
 import type {
+  CalendarEvent,
+  CalendarSource,
+  CalendarSourceId,
   Dashboard,
   DashboardId,
   Feed,
@@ -61,6 +64,28 @@ export interface FeedRepository {
   revoke(id: FeedId, now: Date): Promise<boolean>
 }
 
+export interface CalendarSourceRepository {
+  create(source: CalendarSource): Promise<void>
+  get(id: CalendarSourceId): Promise<CalendarSource | undefined>
+  /** Every source of a household, oldest first. */
+  listForHousehold(householdId: HouseholdId): Promise<CalendarSource[]>
+  delete(id: CalendarSourceId): Promise<void>
+}
+
+/**
+ * Reads the events of one ICS feed. The address is a secret, so implementations must never put
+ * it in an error message: failures are `CalendarFeedError` or `EgressDeniedError` with text
+ * that is safe to show.
+ */
+export interface CalendarFeedReader {
+  /**
+   * Checks an address a person typed (`webcal://` included) and returns the URL to fetch and
+   * its host. Throws `InvariantViolation` with a message fit for the owner.
+   */
+  parseAddress(input: string): { url: string; host: string }
+  read(url: string, range: { from: Date; to: Date }): Promise<CalendarEvent[]>
+}
+
 /** Produces unguessable, unique ids. The domain never generates ids itself. */
 export interface IdGenerator {
   next(): string
@@ -75,4 +100,5 @@ export interface Repositories {
   invitations: InvitationRepository
   dashboards: DashboardRepository
   feeds: FeedRepository
+  calendarSources: CalendarSourceRepository
 }
