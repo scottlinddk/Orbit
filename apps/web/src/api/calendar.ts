@@ -25,7 +25,7 @@ export function useCalendarSources(householdId: string, enabled = true) {
 }
 
 /**
- * The next week of events from all calendars. The server reads each calendar at most every five
+ * Fourteen local days cover the agenda's largest range. The server reads each calendar at most every five
  * minutes, so asking once a minute only re-reads what it already has.
  */
 export function useCalendarEvents(householdId: string, enabled: boolean) {
@@ -33,10 +33,16 @@ export function useCalendarEvents(householdId: string, enabled: boolean) {
   return useQuery({
     enabled: signedIn && enabled && householdId !== '',
     queryKey: keys.calendarEvents(householdId),
-    queryFn: () =>
-      request('GET', `/households/${enc(householdId)}/calendar/events`, {
+    queryFn: () => {
+      const from = new Date()
+      from.setHours(0, 0, 0, 0)
+      const to = new Date(from)
+      to.setDate(to.getDate() + 14)
+      const query = new URLSearchParams({ from: from.toISOString(), to: to.toISOString() })
+      return request('GET', `/households/${enc(householdId)}/calendar/events?${query}`, {
         schema: calendarEventsSchema,
-      }),
+      })
+    },
     refetchInterval: MINUTE,
     retry: false,
   })

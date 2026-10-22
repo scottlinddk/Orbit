@@ -11,6 +11,7 @@ const api = () => ({
     body: dashboard({ widgets: [widget('w1', 'calendar.today'), widget('w2', 'lists.shopping')] }),
   },
   'GET /api/v1/planets/widgets': { body: { widgets: [] } },
+  'GET /api/v1/households/h1/lists': { body: { lists: [] } },
 })
 
 afterEach(() => {
@@ -20,6 +21,86 @@ afterEach(() => {
 })
 
 describe('kiosk page', () => {
+  it('loads calendar, list and meal data for the wall display without editing controls', async () => {
+    const today = new Date()
+    const day = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+    const noon = new Date(today)
+    noon.setHours(12, 0, 0, 0)
+    stubApi({
+      ...api(),
+      'GET /api/v1/dashboards/d1': {
+        body: dashboard({
+          widgets: [
+            widget('w1', 'calendar.agenda'),
+            widget('w2', 'lists.shopping'),
+            widget('w3', 'meals.plan'),
+          ],
+        }),
+      },
+      'GET /api/v1/households/h1/calendar/events': {
+        body: {
+          events: [
+            {
+              id: 'e1',
+              sourceId: 's1',
+              kind: 'timed',
+              title: 'Dentist',
+              start: noon.toISOString(),
+              end: noon.toISOString(),
+              isRecurring: false,
+              isOverride: false,
+            },
+          ],
+          sources: [{ sourceId: 's1', ok: true, fetchedAt: noon.toISOString() }],
+        },
+      },
+      'GET /api/v1/households/h1/lists': {
+        body: {
+          lists: [
+            {
+              id: 'l1',
+              name: 'Groceries',
+              kind: 'shopping',
+              readOnly: false,
+              openCount: 1,
+              itemCount: 1,
+            },
+          ],
+        },
+      },
+      'GET /api/v1/households/h1/lists/l1': {
+        body: {
+          id: 'l1',
+          householdId: 'h1',
+          name: 'Groceries',
+          kind: 'shopping',
+          readOnly: false,
+          items: [
+            {
+              id: 'i1',
+              text: 'Milk',
+              done: false,
+              position: 0,
+              updatedBy: 'u-me',
+              updatedAt: noon.toISOString(),
+            },
+          ],
+        },
+      },
+      'GET /api/v1/households/h1/meals': {
+        body: {
+          entries: [{ id: 'm1', date: day, type: 'dinner', title: 'Chili' }],
+          sources: [{ sourceId: 'c1', name: 'Meals', ok: true, fetchedAt: noon.toISOString() }],
+        },
+      },
+    })
+    renderApp('/kiosk/d1')
+    expect(await screen.findByText('Dentist')).toBeInTheDocument()
+    expect(await screen.findByText('Chili')).toBeInTheDocument()
+    expect(await screen.findByRole('checkbox', { name: 'Milk' })).toBeDisabled()
+    expect(screen.queryByLabelText('Add an item')).not.toBeInTheDocument()
+  })
+
   it('shows the dashboard full screen without the app navigation', async () => {
     stubApi(api())
     renderApp('/kiosk/d1')

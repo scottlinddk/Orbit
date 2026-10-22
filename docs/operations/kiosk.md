@@ -35,7 +35,7 @@ The page asks the browser to keep the screen awake (the Screen Wake Lock API). T
 
 ### An account for the display
 
-The wall display uses a normal sign-in and can show everything that account can see. Do not leave your own account signed in on a screen that visitors can touch. Create a separate account for it ([adding people](deployment.md#adding-people)) and add it to the household as a **member**, which can look at dashboards but not change anything. A dedicated, more restricted `device` role is planned and will become the intended choice once it exists.
+The wall display uses a normal sign-in and can show everything that account can see. Create a separate account for it ([adding people](deployment.md#adding-people)) and add it to the household as a **device**, which can view the dashboard and its data but cannot edit lists or manage the household. Wall display mode hides list editing controls even when opened by an owner.
 
 **Sessions expire.** A session lasts a fixed 14 days from sign-in, with no sliding renewal ([ADR 0010](../architecture/adr/0010-sessions-and-http-hardening.md)). When it ends, the next refresh gets a 401 and the display shows the sign-in page. Someone has to sign in again about every two weeks. There is deliberately no permanent token in the address, because a URL that signs in by itself would be a password that ends up in browser history and logs.
 

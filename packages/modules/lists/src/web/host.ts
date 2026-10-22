@@ -46,6 +46,8 @@ export interface CreateListView {
  * provides these hooks. They are always called in the same order, so a host may use any hooks.
  */
 export interface ListsHost {
+  /** The display may show lists but must not offer changes. */
+  readonly readOnly?: boolean
   useLists(): ListsView
   useList(listId: string | undefined): ListView
   useCreateList(): CreateListView

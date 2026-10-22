@@ -5,6 +5,9 @@ import { useDashboard } from '../../api/dashboards.ts'
 import { Loading } from '../../components/Loading.tsx'
 import { QueryError } from '../../components/QueryError.tsx'
 import { useRegistry } from '../../widgets/useRegistry.ts'
+import { CalendarDataProvider } from '../../widgets/CalendarDataProvider.tsx'
+import { ListsHostProvider } from '../../widgets/ListsHostProvider.tsx'
+import { MealsHostProvider } from '../../widgets/MealsHostProvider.tsx'
 import { DashboardGrid } from '../dashboards/DashboardGrid.tsx'
 import styles from './KioskPage.module.css'
 import { SCALE_DEFAULT, loadScale, parseRefreshSeconds, parseScale, saveScale } from './settings.ts'
@@ -99,17 +102,29 @@ export function KioskPage() {
       {data.widgets.length === 0 ? (
         <p className={styles.empty}>This dashboard has no widgets yet.</p>
       ) : (
-        <DashboardGrid
-          dashboard={data}
-          registry={registry}
-          editing={false}
-          busy={false}
-          selectedId={null}
-          onSelect={() => {}}
-          onMove={() => {}}
-          onResize={() => {}}
-          onRemove={() => {}}
-        />
+        <ListsHostProvider householdId={data.householdId} readOnly>
+          <MealsHostProvider
+            householdId={data.householdId}
+            enabled={data.widgets.some((w) => w.type.startsWith('meals.'))}
+          >
+            <CalendarDataProvider
+              householdId={data.householdId}
+              enabled={data.widgets.some((w) => w.type.startsWith('calendar.'))}
+            >
+              <DashboardGrid
+                dashboard={data}
+                registry={registry}
+                editing={false}
+                busy={false}
+                selectedId={null}
+                onSelect={() => {}}
+                onMove={() => {}}
+                onResize={() => {}}
+                onRemove={() => {}}
+              />
+            </CalendarDataProvider>
+          </MealsHostProvider>
+        </ListsHostProvider>
       )}
 
       <div className={styles.status} role="status" aria-live="polite">

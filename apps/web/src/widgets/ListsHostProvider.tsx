@@ -15,13 +15,16 @@ import {
  */
 export function ListsHostProvider({
   householdId,
+  readOnly = false,
   children,
 }: {
   householdId: string
+  readOnly?: boolean
   children: ReactNode
 }) {
   const host = useMemo<ListsHost>(
     () => ({
+      readOnly,
       useLists() {
         const query = useListSummaries(householdId)
         return {
@@ -66,7 +69,7 @@ export function ListsHostProvider({
         }
       },
     }),
-    [householdId],
+    [householdId, readOnly],
   )
   return <ListsHostContext.Provider value={host}>{children}</ListsHostContext.Provider>
 }
