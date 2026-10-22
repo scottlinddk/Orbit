@@ -52,6 +52,8 @@ import { FakeNotificationPlatform, FakeWebhookFetcher } from './notification-fak
 import type { RepositorySet } from './repository-contracts.ts'
 
 export interface TestSystem {
+  /** The repositories behind everything, to build a second service over the same data. */
+  repos: RepositorySet
   useCases: UseCases
   /** What a display with a feed token can do. */
   feedReader: FeedReader
@@ -72,7 +74,7 @@ export interface TestSystem {
 /** The platform wired with the given repositories. */
 export function createSystem(
   repos: RepositorySet,
-  options: { maxFeedBytes?: number; timeZone?: string } = {},
+  options: { maxFeedBytes?: number; timeZone?: string; notificationRateLimit?: number } = {},
 ): TestSystem {
   const clock = new ManualClock()
   const tokens = new SequentialSessionTokens()
@@ -100,8 +102,11 @@ export function createSystem(
     calendar,
     clock,
     ids,
+    ...(options.notificationRateLimit === undefined
+      ? {}
+      : { rateLimitPerMinute: options.notificationRateLimit }),
   })
-  const { timeZone, ...useCaseOptions } = options
+  const { timeZone, notificationRateLimit: _rate, ...useCaseOptions } = options
   const useCases = createUseCases({
     ...repos,
     tokens,
@@ -111,6 +116,7 @@ export function createSystem(
     ...useCaseOptions,
   })
   return {
+    repos,
     useCases,
     feedReader: createFeedReader({
       ...repos,

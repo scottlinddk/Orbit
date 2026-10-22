@@ -7,6 +7,7 @@ import {
   InvitationId,
   ListId,
   ListItemId,
+  NotificationEndpointId,
   UserId,
   Username,
   WidgetPlacementId,
@@ -20,7 +21,11 @@ import {
   createHousehold,
   createInvitation,
   createList,
+  createNotificationEndpoint,
   createUser,
+  recordDeliveryResult,
+  updateNotificationEndpoint,
+  type DeliveryLogEntry,
   type HouseholdListItem,
 } from '@orbit/domain'
 import { beforeEach, describe, expect, it } from 'vitest'
@@ -724,6 +729,131 @@ export function describeIdentityContracts(name: string, create: () => Promise<Re
       expect(await repos.identities.link(identityOf('u1', 's1', 'https://other.example.com'))).toBe(
         'linked',
       )
+    })
+  })
+}
+
+export function describeNotificationContracts(name: string, create: () => Promise<RepositorySet>) {
+  describe(`notification contracts: ${name}`, () => {
+    let repos: RepositorySet
+    beforeEach(async () => {
+      repos = await create()
+    })
+
+    const t0 = new Date('2026-01-01T00:00:00.000Z')
+    const endpoint = (id: string, household = 'h1', events: string[] = ['list.item.added']) =>
+      createNotificationEndpoint({
+        id: NotificationEndpointId(id),
+        householdId: HouseholdId(household),
+        name: `Hook ${id}`,
+        host: 'hooks.example.com',
+        events,
+        leadMinutes: 30,
+        createdBy: UserId('alice'),
+        now: t0,
+      })
+    const entry = (endpointId: string, n: number, extra: Partial<DeliveryLogEntry> = {}) =>
+      ({
+        endpointId: NotificationEndpointId(endpointId),
+        deliveryId: `d${n}`,
+        event: 'list.item.added',
+        at: new Date(t0.getTime() + n * 1000),
+        attempt: 1,
+        outcome: 'delivered',
+        ...extra,
+      }) satisfies DeliveryLogEntry
+
+    it('round-trips an endpoint, including a switched-off one', async () => {
+      const on = endpoint('e1', 'h1', ['calendar.event.starting', 'list.item.added'])
+      await repos.notificationEndpoints.create(on)
+      expect(await repos.notificationEndpoints.get(on.id)).toEqual(on)
+      const off = updateNotificationEndpoint(endpoint('e2'), { enabled: false })
+      await repos.notificationEndpoints.create(off)
+      expect(await repos.notificationEndpoints.get(off.id)).toEqual(off)
+      expect(
+        await repos.notificationEndpoints.get(NotificationEndpointId('missing')),
+      ).toBeUndefined()
+    })
+
+    it('lists one household oldest first, and refuses a duplicate id', async () => {
+      await repos.notificationEndpoints.create(endpoint('e1'))
+      await repos.notificationEndpoints.create(endpoint('e2', 'h2'))
+      await repos.notificationEndpoints.create(endpoint('e3'))
+      const list = await repos.notificationEndpoints.listForHousehold(HouseholdId('h1'))
+      expect(list.map((e) => e.id)).toEqual(['e1', 'e3'])
+      await expect(repos.notificationEndpoints.create(endpoint('e1'))).rejects.toThrow()
+    })
+
+    it('saves changes and deletes only the one endpoint', async () => {
+      const e = endpoint('e1')
+      await repos.notificationEndpoints.create(e)
+      await repos.notificationEndpoints.create(endpoint('e2'))
+      const changed = recordDeliveryResult(e, { delivered: false, error: 'boom' })
+      await repos.notificationEndpoints.save(changed)
+      expect(await repos.notificationEndpoints.get(e.id)).toEqual(changed)
+      await repos.notificationEndpoints.delete(e.id)
+      expect(await repos.notificationEndpoints.get(e.id)).toBeUndefined()
+      expect(await repos.notificationEndpoints.get(NotificationEndpointId('e2'))).toBeDefined()
+    })
+
+    it('finds enabled endpoints of every household that want an event', async () => {
+      await repos.notificationEndpoints.create(endpoint('e1', 'h1', ['list.item.added']))
+      await repos.notificationEndpoints.create(endpoint('e2', 'h2', ['list.item.added']))
+      await repos.notificationEndpoints.create(endpoint('e3', 'h1', ['calendar.event.starting']))
+      await repos.notificationEndpoints.create(
+        updateNotificationEndpoint(endpoint('e4'), { enabled: false }),
+      )
+      const found = await repos.notificationEndpoints.listEnabledFor('list.item.added')
+      expect(found.map((e) => e.id)).toEqual(['e1', 'e2'])
+    })
+
+    it('keeps the newest log entries per endpoint, newest first', async () => {
+      for (const n of [1, 2, 3, 4]) await repos.deliveryLog.append(entry('e1', n), 3)
+      await repos.deliveryLog.append(entry('e2', 1), 3)
+      const own = await repos.deliveryLog.recent(NotificationEndpointId('e1'), 10)
+      expect(own.map((e) => e.deliveryId)).toEqual(['d4', 'd3', 'd2'])
+      expect(await repos.deliveryLog.recent(NotificationEndpointId('e2'), 10)).toHaveLength(1)
+      expect(await repos.deliveryLog.recent(NotificationEndpointId('e1'), 1)).toHaveLength(1)
+    })
+
+    it('round-trips a failed entry with its status and error, and deletes by endpoint', async () => {
+      const failed = entry('e1', 1, {
+        outcome: 'failed',
+        httpStatus: 500,
+        error: 'The server answered 500.',
+      })
+      await repos.deliveryLog.append(failed, 20)
+      await repos.deliveryLog.append(entry('e2', 1), 20)
+      expect(await repos.deliveryLog.recent(NotificationEndpointId('e1'), 5)).toEqual([failed])
+      await repos.deliveryLog.deleteForEndpoint(NotificationEndpointId('e1'))
+      expect(await repos.deliveryLog.recent(NotificationEndpointId('e1'), 5)).toEqual([])
+      expect(await repos.deliveryLog.recent(NotificationEndpointId('e2'), 5)).toHaveLength(1)
+    })
+
+    it('lets exactly one claim of a key win, until it is pruned', async () => {
+      const until = new Date(t0.getTime() + 1000)
+      const results = await Promise.all([
+        repos.notificationDedupe.claim('e1|x', until),
+        repos.notificationDedupe.claim('e1|x', until),
+      ])
+      expect(results.filter(Boolean)).toHaveLength(1)
+      await repos.notificationDedupe.prune(new Date(t0.getTime() + 500))
+      expect(await repos.notificationDedupe.claim('e1|x', until)).toBe(false)
+      await repos.notificationDedupe.prune(new Date(t0.getTime() + 2000))
+      expect(await repos.notificationDedupe.claim('e1|x', until)).toBe(true)
+    })
+
+    it('forgets keys by prefix, taking % and _ literally', async () => {
+      const until = new Date(t0.getTime() + 1000)
+      for (const key of ['e1|a', 'e1|b', 'e2|a', 'e%|a', 'eX|a']) {
+        await repos.notificationDedupe.claim(key, until)
+      }
+      await repos.notificationDedupe.deleteWithPrefix('e%|')
+      expect(await repos.notificationDedupe.claim('e%|a', until)).toBe(true)
+      expect(await repos.notificationDedupe.claim('eX|a', until)).toBe(false)
+      await repos.notificationDedupe.deleteWithPrefix('e1|')
+      expect(await repos.notificationDedupe.claim('e1|a', until)).toBe(true)
+      expect(await repos.notificationDedupe.claim('e2|a', until)).toBe(false)
     })
   })
 }

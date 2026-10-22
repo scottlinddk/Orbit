@@ -72,6 +72,23 @@ describe('SqliteJobScheduler', () => {
     expect([...first, ...rest].find((j) => j.id === 'x')?.payload).toBe('new')
   })
 
+  it('claims only jobs with the given prefix, so Planets and notifications share the table', async () => {
+    const jobs = new SqliteJobScheduler(db)
+    const runAt = at('2026-01-01T00:00:00Z')
+    await jobs.schedule({ id: 'planet:a:1', runAt, payload: 'planet' })
+    await jobs.schedule({ id: 'notify:e1:d1', runAt, payload: 'notify' })
+    await jobs.schedule({ id: 'notify:e1:d2', runAt: at('2027-01-01T00:00:00Z'), payload: 'later' })
+    const now = at('2026-06-01T00:00:00Z')
+    expect((await jobs.claimDue(now, 10, 'notify:')).map((j) => j.id)).toEqual(['notify:e1:d1'])
+    expect(await jobs.has('planet:a:1')).toBe(true)
+    expect(await jobs.has('notify:e1:d2')).toBe(true)
+    expect((await jobs.claimDue(now, 10, 'planet:')).map((j) => j.id)).toEqual(['planet:a:1'])
+    // A prefix with % in it is literal.
+    await jobs.schedule({ id: 'x%y', runAt, payload: '' })
+    await jobs.schedule({ id: 'xay', runAt, payload: '' })
+    expect((await jobs.claimDue(now, 10, 'x%')).map((j) => j.id)).toEqual(['x%y'])
+  })
+
   it('cancels by prefix literally, so % and _ are not wildcards', async () => {
     const jobs = new SqliteJobScheduler(db)
     for (const id of ['planet:a.b:1', 'planet:a.b:2', 'planet:axb:1', 'planet:a_b:1'])

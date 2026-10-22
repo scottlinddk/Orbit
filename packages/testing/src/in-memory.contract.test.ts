@@ -6,6 +6,7 @@ import {
   describeIdentityContracts,
   describeInvitationContracts,
   describeListContracts,
+  describeNotificationContracts,
   describeRepositoryContracts,
   describeSessionContracts,
 } from './repository-contracts.ts'
@@ -18,4 +19,5 @@ describeInvitationContracts('in-memory', create)
 describeFeedContracts('in-memory', create)
 describeListContracts('in-memory', create)
 describeCalendarSourceContracts('in-memory', create)
+describeNotificationContracts('in-memory', create)
 describeIdentityContracts('in-memory', create)
