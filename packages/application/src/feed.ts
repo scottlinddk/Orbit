@@ -7,12 +7,18 @@ import {
 } from '@orbit/domain'
 import type { SessionTokens } from './auth-ports.ts'
 import { FeedTooLargeError, NotFoundError } from './errors.ts'
-import type { DashboardRepository, FeedRepository, HouseholdRepository } from './ports.ts'
+import type {
+  DashboardRepository,
+  FeedRepository,
+  HouseholdRepository,
+  ListRepository,
+} from './ports.ts'
 
 export interface FeedReaderDependencies {
   feeds: FeedRepository
   households: HouseholdRepository
   dashboards: DashboardRepository
+  lists: ListRepository
   tokens: Pick<SessionTokens, 'hash'>
   /** Defaults to MAX_FEED_BYTES; tests lower it. */
   maxFeedBytes?: number
@@ -27,7 +33,7 @@ export type FeedReader = ReturnType<typeof createFeedReader>
  * with a token (missing, malformed, unknown, revoked) is the same NotFoundError.
  */
 export function createFeedReader(deps: FeedReaderDependencies) {
-  const { feeds, households, dashboards, tokens } = deps
+  const { feeds, households, dashboards, lists, tokens } = deps
   const maxFeedBytes = deps.maxFeedBytes ?? MAX_FEED_BYTES
   return {
     async read(token: string): Promise<JsonObject> {
@@ -40,7 +46,13 @@ export function createFeedReader(deps: FeedReaderDependencies) {
         feed.dashboardId === undefined ? undefined : await dashboards.get(feed.dashboardId)
       // Belt and braces: a dashboard from another household is never published.
       const own = dashboard?.householdId === feed.householdId ? dashboard : undefined
-      const content = renderFeed(feed, { household, dashboard: own })
+      const list = feed.listId === undefined ? undefined : await lists.getList(feed.listId)
+      // Same belt and braces for a list.
+      const ownList =
+        list?.householdId === feed.householdId
+          ? { list, items: await lists.items(list.id) }
+          : undefined
+      const content = renderFeed(feed, { household, dashboard: own, list: ownList })
       if (feedByteLength(content) > maxFeedBytes) throw new FeedTooLargeError()
       return content
     },

@@ -1,7 +1,13 @@
 import { z } from 'zod'
 
 /** Mirrors FEED_FIELDS in the domain. A contract test keeps the two lists equal. */
-export const feedFieldSchema = z.enum(['household.name', 'dashboard.name', 'dashboard.widgets'])
+export const feedFieldSchema = z.enum([
+  'household.name',
+  'dashboard.name',
+  'dashboard.widgets',
+  'list.name',
+  'list.items',
+])
 
 export const createFeedRequestSchema = z.strictObject({
   name: z.string().min(1).max(80),
@@ -9,6 +15,8 @@ export const createFeedRequestSchema = z.strictObject({
   fields: z.array(feedFieldSchema).min(1).max(feedFieldSchema.options.length),
   /** Required when a `dashboard.*` field is chosen. */
   dashboardId: z.string().min(1).max(128).optional(),
+  /** Required when a `list.*` field is chosen. */
+  listId: z.string().min(1).max(128).optional(),
 })
 
 export const feedSchema = z
@@ -17,6 +25,7 @@ export const feedSchema = z
     name: z.string(),
     fields: z.array(feedFieldSchema),
     dashboardId: z.string().optional(),
+    listId: z.string().optional(),
     createdAt: z.string(),
   })
   .meta({ id: 'Feed' })
@@ -36,6 +45,14 @@ export const feedContentSchema = z
       .object({
         name: z.string().optional(),
         widgets: z.array(z.object({ type: z.string(), span: z.number() })).optional(),
+      })
+      .nullable()
+      .optional(),
+    /** Open items only, in the order on the list, at most 50. */
+    list: z
+      .object({
+        name: z.string().optional(),
+        items: z.array(z.object({ text: z.string(), quantity: z.string().optional() })).optional(),
       })
       .nullable()
       .optional(),

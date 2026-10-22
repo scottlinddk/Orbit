@@ -20,6 +20,24 @@ interface Props {
   onClose: () => void
 }
 
+/** The form for a widget's settings: fixed `options`, or the ones its `useOptions` hook computes. */
+function DefinitionOptions({
+  definition,
+  config,
+  disabled,
+  onChange,
+}: {
+  definition: WidgetDefinition
+  config: Readonly<Record<string, unknown>>
+  disabled: boolean
+  onChange: (config: Record<string, unknown>) => void
+}) {
+  const dynamic = definition.useOptions?.()
+  const options = dynamic ?? definition.options
+  if (!options?.length) return <p className={styles.hint}>This widget has no settings.</p>
+  return <OptionFields options={options} config={config} disabled={disabled} onChange={onChange} />
+}
+
 /** Everything that can be changed about the selected widget: width, place, and its own settings. */
 export function WidgetOptionsPanel(props: Props) {
   const { placement, definition, columns, index, count, busy } = props
@@ -71,9 +89,11 @@ export function WidgetOptionsPanel(props: Props) {
         </Button>
       </div>
 
-      {definition?.options?.length ? (
-        <OptionFields
-          options={definition.options}
+      {definition ? (
+        // Keyed by type, because a widget's own options hook must not change under a mounted panel.
+        <DefinitionOptions
+          key={definition.type}
+          definition={definition}
           config={placement.config}
           disabled={busy}
           onChange={props.onConfig}

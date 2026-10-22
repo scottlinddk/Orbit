@@ -16,6 +16,7 @@ import {
   FeedId,
   HouseholdId,
   InvitationId,
+  ListId,
   UserId,
   Username,
   WidgetPlacementId,
@@ -392,8 +393,8 @@ export class SqliteFeedRepository implements FeedRepository {
     this.#db
       .prepare(
         `INSERT INTO feeds
-           (id, household_id, name, fields, dashboard_id, token_hash, created_by, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+           (id, household_id, name, fields, dashboard_id, list_id, token_hash, created_by, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         feed.id,
@@ -401,6 +402,7 @@ export class SqliteFeedRepository implements FeedRepository {
         feed.name,
         JSON.stringify(feed.fields),
         feed.dashboardId ?? null,
+        feed.listId ?? null,
         feed.tokenHash,
         feed.createdBy,
         feed.createdAt.toISOString(),
@@ -433,8 +435,8 @@ export class SqliteFeedRepository implements FeedRepository {
   }
 }
 
-const SELECT_FEED = `SELECT id, household_id, name, fields, dashboard_id, token_hash, created_by,
-  created_at, revoked_at FROM feeds`
+const SELECT_FEED = `SELECT id, household_id, name, fields, dashboard_id, list_id, token_hash,
+  created_by, created_at, revoked_at FROM feeds`
 
 function hydrateFeed(row: Row): Feed {
   return {
@@ -443,6 +445,7 @@ function hydrateFeed(row: Row): Feed {
     name: String(row.name),
     fields: JSON.parse(String(row.fields)) as FeedField[],
     ...(row.dashboard_id === null ? {} : { dashboardId: DashboardId(String(row.dashboard_id)) }),
+    ...(row.list_id === null ? {} : { listId: ListId(String(row.list_id)) }),
     tokenHash: String(row.token_hash),
     createdBy: UserId(String(row.created_by)),
     createdAt: new Date(String(row.created_at)),

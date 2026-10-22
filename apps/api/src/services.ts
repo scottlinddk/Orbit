@@ -45,6 +45,7 @@ export function assembleServices(parts: ServiceParts): Services {
       dashboards: repos.dashboards,
       invitations: repos.invitations,
       feeds: repos.feeds,
+      lists: repos.lists,
       tokens,
       clock,
       ids,
@@ -53,6 +54,7 @@ export function assembleServices(parts: ServiceParts): Services {
       feeds: repos.feeds,
       households: repos.households,
       dashboards: repos.dashboards,
+      lists: repos.lists,
       tokens,
     }),
     auth: createAuth({

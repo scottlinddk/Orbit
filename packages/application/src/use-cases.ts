@@ -32,6 +32,7 @@ import {
   type FeedField,
   type Household,
   type Invitation,
+  type ListId,
   type User,
   type HouseholdRole,
   type JsonObject,
@@ -48,8 +49,10 @@ import type {
   HouseholdRepository,
   IdGenerator,
   InvitationRepository,
+  ListRepository,
   UserRepository,
 } from './ports.ts'
+import { createListUseCases } from './lists.ts'
 
 export interface Dependencies {
   users: UserRepository
@@ -58,6 +61,7 @@ export interface Dependencies {
   dashboards: DashboardRepository
   invitations: InvitationRepository
   feeds: FeedRepository
+  lists: ListRepository
   /** Largest feed to accept. Defaults to MAX_FEED_BYTES; tests lower it. */
   maxFeedBytes?: number
   tokens: Pick<SessionTokens, 'generate'>
@@ -68,7 +72,8 @@ export interface Dependencies {
 export type UseCases = ReturnType<typeof createUseCases>
 
 export function createUseCases(deps: Dependencies) {
-  const { users, accounts, households, dashboards, invitations, feeds, tokens, clock, ids } = deps
+  const { users, accounts, households, dashboards, invitations, feeds, lists, tokens, clock, ids } =
+    deps
   const maxFeedBytes = deps.maxFeedBytes ?? MAX_FEED_BYTES
   const authorizer = createAuthorizer(households)
 
@@ -102,6 +107,8 @@ export function createUseCases(deps: Dependencies) {
   }
 
   return {
+    ...createListUseCases({ lists, authorizer, clock, ids }),
+
     /** The signed-in user's own profile. */
     async getProfile(userId: UserId): Promise<User> {
       const user = await users.get(userId)
@@ -241,14 +248,17 @@ export function createUseCases(deps: Dependencies) {
         name: string
         fields: readonly FeedField[]
         dashboardId?: DashboardId | undefined
+        listId?: ListId | undefined
       },
     ): Promise<{ feed: Feed; token: string }> {
       const household = await authorizer.require(actor, householdId, 'feed:manage')
-      // A dashboard of another household looks exactly like one that does not exist.
+      // A dashboard or list of another household looks exactly like one that does not exist.
       const dashboard =
         input.dashboardId === undefined ? undefined : await dashboards.get(input.dashboardId)
       if (input.dashboardId !== undefined && dashboard?.householdId !== householdId)
         throw new NotFoundError()
+      const list = input.listId === undefined ? undefined : await lists.getList(input.listId)
+      if (input.listId !== undefined && list?.householdId !== householdId) throw new NotFoundError()
       const { token, tokenHash } = tokens.generate()
       const feed = createFeed({
         id: FeedId(ids.next()),
@@ -256,12 +266,19 @@ export function createUseCases(deps: Dependencies) {
         name: input.name,
         fields: input.fields,
         dashboardId: input.dashboardId,
+        listId: input.listId,
         tokenHash,
         createdBy: actor.userId,
         now: clock.now(),
       })
       invariant(
-        feedByteLength(renderFeed(feed, { household, dashboard })) <= maxFeedBytes,
+        feedByteLength(
+          renderFeed(feed, {
+            household,
+            dashboard,
+            list: list && { list, items: await lists.items(list.id) },
+          }),
+        ) <= maxFeedBytes,
         'This feed would be too large for a display. Choose fewer fields.',
       )
       await feeds.create(feed)

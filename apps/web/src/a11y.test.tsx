@@ -53,10 +53,46 @@ describe('accessibility (axe)', () => {
       'GET /api/v1/households': { body: { households: [household()] } },
       'GET /api/v1/households/h1': { body: household() },
       'GET /api/v1/dashboards/d1': { body: d },
+      'GET /api/v1/households/h1/lists': { body: { lists: [] } },
     })
     const { user } = renderApp('/d/d1')
     await user.click(await screen.findByRole('button', { name: 'Edit layout' }))
     await screen.findByRole('heading', { name: 'Dashboard settings' })
+    await expectNoA11yViolations()
+  })
+
+  it('the shopping list widget with items', async () => {
+    const d = dashboard({ widgets: [widget('w1', 'lists.shopping')] })
+    const item = (id: string, text: string, done: boolean) => ({
+      id,
+      text,
+      done,
+      position: 0,
+      updatedBy: 'u-me',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    })
+    stubApi({
+      'GET /api/v1/auth/me': { body: ME },
+      'GET /api/v1/households': { body: { households: [household()] } },
+      'GET /api/v1/households/h1': { body: household() },
+      'GET /api/v1/dashboards/d1': { body: d },
+      'GET /api/v1/households/h1/lists': {
+        body: {
+          lists: [{ id: 'l1', name: 'Groceries', kind: 'shopping', openCount: 1, itemCount: 2 }],
+        },
+      },
+      'GET /api/v1/households/h1/lists/l1': {
+        body: {
+          id: 'l1',
+          householdId: 'h1',
+          name: 'Groceries',
+          kind: 'shopping',
+          items: [item('i1', 'Milk', false), item('i2', 'Bread', true)],
+        },
+      },
+    })
+    renderApp('/d/d1')
+    await screen.findByRole('list', { name: 'Groceries' })
     await expectNoA11yViolations()
   })
 

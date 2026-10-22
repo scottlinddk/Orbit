@@ -6,8 +6,12 @@ import type {
   FeedId,
   Household,
   HouseholdId,
+  HouseholdList,
+  HouseholdListItem,
   Invitation,
   InvitationId,
+  ListId,
+  ListItemId,
   User,
   UserId,
 } from '@orbit/domain'
@@ -61,6 +65,25 @@ export interface FeedRepository {
   revoke(id: FeedId, now: Date): Promise<boolean>
 }
 
+export interface ListRepository {
+  createList(list: HouseholdList): Promise<void>
+  getList(id: ListId): Promise<HouseholdList | undefined>
+  /** Saves a change to the list itself (its name). Items are untouched. */
+  saveList(list: HouseholdList): Promise<void>
+  /** Oldest first. */
+  listsForHousehold(householdId: HouseholdId): Promise<HouseholdList[]>
+  /** Removes the list and all its items. */
+  deleteList(id: ListId): Promise<void>
+  /** In position order. */
+  items(listId: ListId): Promise<HouseholdListItem[]>
+  getItem(id: ListItemId): Promise<HouseholdListItem | undefined>
+  /** Inserts or replaces the items, all or none. */
+  saveItems(items: readonly HouseholdListItem[]): Promise<void>
+  deleteItem(id: ListItemId): Promise<void>
+  /** Removes the ticked-off items of a list and says how many there were. */
+  deleteCompleted(listId: ListId): Promise<number>
+}
+
 /** Produces unguessable, unique ids. The domain never generates ids itself. */
 export interface IdGenerator {
   next(): string
@@ -75,4 +98,5 @@ export interface Repositories {
   invitations: InvitationRepository
   dashboards: DashboardRepository
   feeds: FeedRepository
+  lists: ListRepository
 }

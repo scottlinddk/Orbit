@@ -1,5 +1,6 @@
 export * from './backup.ts'
 export * from './database.ts'
+export * from './list-repository.ts'
 export * from './migrate.ts'
 export * from './migrations.ts'
 export * from './repositories.ts'

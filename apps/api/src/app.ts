@@ -22,6 +22,7 @@ import { dashboardRoutes } from './routes/dashboards.ts'
 import { feedRoutes } from './routes/feed.ts'
 import { errors } from './routes/schemas.ts'
 import { householdRoutes } from './routes/households.ts'
+import { listRoutes } from './routes/lists.ts'
 import { planetRoutes, planetWebhookRoutes } from './routes/planets.ts'
 import type { Services } from './services.ts'
 
@@ -143,6 +144,7 @@ export async function buildApp(options: AppOptions) {
         protectedScope.addHook('onRequest', requireActor)
         await protectedScope.register(householdRoutes({ services }))
         await protectedScope.register(dashboardRoutes({ services }))
+        await protectedScope.register(listRoutes({ services }))
         await protectedScope.register(planetRoutes({ services }))
       })
       await api.register(planetWebhookRoutes({ services }))

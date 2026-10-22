@@ -7,6 +7,7 @@ import {
   InMemoryFeedRepository,
   InMemoryHouseholdRepository,
   InMemoryInvitationRepository,
+  InMemoryListRepository,
   InMemorySessionStore,
   InMemoryUserRepository,
 } from '@orbit/adapter-in-memory'
@@ -16,6 +17,7 @@ import {
   SqliteFeedRepository,
   SqliteHouseholdRepository,
   SqliteInvitationRepository,
+  SqliteListRepository,
   SqliteSessionStore,
   SqliteUserRepository,
   migrate,
@@ -81,6 +83,7 @@ export function createInMemoryRepositories(): RepositorySet {
     households: new InMemoryHouseholdRepository(),
     invitations: new InMemoryInvitationRepository(),
     feeds: new InMemoryFeedRepository(),
+    lists: new InMemoryListRepository(),
     dashboards: new InMemoryDashboardRepository(),
   }
 }
@@ -96,6 +99,7 @@ export function createSqliteRepositories(): RepositorySet {
     households: new SqliteHouseholdRepository(db),
     invitations: new SqliteInvitationRepository(db),
     feeds: new SqliteFeedRepository(db),
+    lists: new SqliteListRepository(db),
     dashboards: new SqliteDashboardRepository(db),
   }
 }

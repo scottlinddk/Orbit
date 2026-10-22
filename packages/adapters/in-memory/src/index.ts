@@ -7,6 +7,7 @@ import type {
   IdGenerator,
   FeedRepository,
   InvitationRepository,
+  ListRepository,
   PasswordHasher,
   RegistrationOutcome,
   RegistrationPolicy,
@@ -22,8 +23,12 @@ import type {
   HouseholdId,
   Feed,
   FeedId,
+  HouseholdList,
+  HouseholdListItem,
   Invitation,
   InvitationId,
+  ListId,
+  ListItemId,
   User,
   UserId,
   Username,
@@ -159,6 +164,63 @@ export class InMemoryFeedRepository implements FeedRepository {
     if (!f || f.revokedAt) return false
     this.#byId.set(id, { ...f, revokedAt: now })
     return true
+  }
+}
+
+export class InMemoryListRepository implements ListRepository {
+  readonly #lists = new Map<ListId, HouseholdList>()
+  readonly #items = new Map<ListItemId, HouseholdListItem>()
+
+  async createList(list: HouseholdList) {
+    if (this.#lists.has(list.id)) throw new Error('Duplicate list')
+    this.#lists.set(list.id, list)
+  }
+
+  async getList(id: ListId) {
+    return this.#lists.get(id)
+  }
+
+  async saveList(list: HouseholdList) {
+    if (this.#lists.has(list.id)) this.#lists.set(list.id, list)
+  }
+
+  async listsForHousehold(householdId: HouseholdId) {
+    return [...this.#lists.values()].filter((l) => l.householdId === householdId)
+  }
+
+  async deleteList(id: ListId) {
+    this.#lists.delete(id)
+    for (const item of this.#items.values()) if (item.listId === id) this.#items.delete(item.id)
+  }
+
+  async items(listId: ListId) {
+    return [...this.#items.values()]
+      .filter((i) => i.listId === listId)
+      .sort((a, b) => a.position - b.position)
+  }
+
+  async getItem(id: ListItemId) {
+    return this.#items.get(id)
+  }
+
+  async saveItems(items: readonly HouseholdListItem[]) {
+    // Check everything first so a bad item leaves the store untouched.
+    for (const item of items) if (!this.#lists.has(item.listId)) throw new Error('Unknown list')
+    for (const item of items) this.#items.set(item.id, item)
+  }
+
+  async deleteItem(id: ListItemId) {
+    this.#items.delete(id)
+  }
+
+  async deleteCompleted(listId: ListId) {
+    let removed = 0
+    for (const item of this.#items.values())
+      if (item.listId === listId && item.done) {
+        this.#items.delete(item.id)
+        removed++
+      }
+    return removed
   }
 }
 

@@ -12,13 +12,15 @@ Orbit can publish a read-only feed that a [TRMNL](https://trmnl.com) e-ink displ
 
 You choose the fields. Nothing else is published, and widget settings are never included.
 
-| Field               | Published as                                          |
-| ------------------- | ----------------------------------------------------- |
-| `household.name`    | `household.name`                                      |
-| `dashboard.name`    | `dashboard.name` (needs a dashboard)                  |
-| `dashboard.widgets` | `dashboard.widgets[]` with `type` and `span` per item |
+| Field               | Published as                                                                                         |
+| ------------------- | ---------------------------------------------------------------------------------------------------- |
+| `household.name`    | `household.name`                                                                                     |
+| `dashboard.name`    | `dashboard.name` (needs a dashboard)                                                                 |
+| `dashboard.widgets` | `dashboard.widgets[]` with `type` and `span` per item                                                |
+| `list.name`         | `list.name` (needs a list)                                                                           |
+| `list.items`        | `list.items[]` with `text` and `quantity`, open items only, at most 50, in list order (needs a list) |
 
-More fields (calendar events, list items) are added when those data sources are stored on the server. A feed is capped at 64 KB. TRMNL requires the combined data of a plugin to stay under 100 KB.
+A list feed publishes the open items of one list, chosen with `listId` (see [lists](lists.md)). Item notes and who changed what are never published. If the list is deleted later, the feed answers `"list": null`. More fields (calendar events) are added when those data sources are stored on the server. A feed is capped at 64 KB. TRMNL requires the combined data of a plugin to stay under 100 KB.
 
 ## Create a feed
 
