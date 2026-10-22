@@ -7,6 +7,7 @@ export type UserId = Brand<string, 'UserId'>
 export type HouseholdId = Brand<string, 'HouseholdId'>
 export type DashboardId = Brand<string, 'DashboardId'>
 export type InvitationId = Brand<string, 'InvitationId'>
+export type FeedId = Brand<string, 'FeedId'>
 export type WidgetPlacementId = Brand<string, 'WidgetPlacementId'>
 
 function id<T extends string>(kind: string, value: string): T {
@@ -20,3 +21,4 @@ export const DashboardId = (value: string) => id<DashboardId>('DashboardId', val
 export const WidgetPlacementId = (value: string) =>
   id<WidgetPlacementId>('WidgetPlacementId', value)
 export const InvitationId = (value: string) => id<InvitationId>('InvitationId', value)
+export const FeedId = (value: string) => id<FeedId>('FeedId', value)

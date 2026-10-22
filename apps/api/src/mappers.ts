@@ -1,5 +1,10 @@
-import type { DashboardResponse, HouseholdResponse, InvitationResponse } from '@orbit/contracts'
-import type { Dashboard, Household, Invitation } from '@orbit/domain'
+import type {
+  DashboardResponse,
+  FeedResponse,
+  HouseholdResponse,
+  InvitationResponse,
+} from '@orbit/contracts'
+import type { Dashboard, Feed, Household, Invitation } from '@orbit/domain'
 
 export const householdResponse = (h: Household): HouseholdResponse => ({
   id: h.id,
@@ -20,4 +25,12 @@ export const invitationResponse = (i: Invitation): InvitationResponse => ({
   role: i.role,
   createdAt: i.createdAt.toISOString(),
   expiresAt: i.expiresAt.toISOString(),
+})
+
+export const feedResponse = (f: Feed): FeedResponse => ({
+  id: f.id,
+  name: f.name,
+  fields: [...f.fields],
+  ...(f.dashboardId === undefined ? {} : { dashboardId: f.dashboardId }),
+  createdAt: f.createdAt.toISOString(),
 })

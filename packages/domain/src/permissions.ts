@@ -7,6 +7,7 @@ export type HouseholdAction =
   | 'dashboard:create'
   | 'dashboard:edit'
   | 'dashboard:delete'
+  | 'feed:manage'
 
 /**
  * Deny by default: an action is allowed only when listed for the role.
@@ -20,6 +21,7 @@ const grants: Record<HouseholdRole, ReadonlySet<HouseholdAction>> = {
     'dashboard:create',
     'dashboard:edit',
     'dashboard:delete',
+    'feed:manage',
   ]),
   member: new Set<HouseholdAction>(['household:view', 'dashboard:view']),
 }

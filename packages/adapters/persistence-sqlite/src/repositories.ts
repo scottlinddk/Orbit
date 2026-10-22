@@ -2,6 +2,7 @@ import type {
   AccountRepository,
   Credential,
   DashboardRepository,
+  FeedRepository,
   HouseholdRepository,
   InvitationRepository,
   RegistrationOutcome,
@@ -12,6 +13,7 @@ import type {
 } from '@orbit/application'
 import {
   DashboardId,
+  FeedId,
   HouseholdId,
   InvitationId,
   UserId,
@@ -19,6 +21,8 @@ import {
   WidgetPlacementId,
   type Columns,
   type Dashboard,
+  type Feed,
+  type FeedField,
   type Household,
   type HouseholdRole,
   type Invitation,
@@ -373,6 +377,75 @@ function hydrateInvitation(row: Row): Invitation {
     expiresAt: new Date(String(row.expires_at)),
     ...(row.accepted_by === null ? {} : { acceptedBy: UserId(String(row.accepted_by)) }),
     ...(row.accepted_at === null ? {} : { acceptedAt: new Date(String(row.accepted_at)) }),
+    ...(row.revoked_at === null ? {} : { revokedAt: new Date(String(row.revoked_at)) }),
+  }
+}
+
+export class SqliteFeedRepository implements FeedRepository {
+  readonly #db: Database
+
+  constructor(db: Database) {
+    this.#db = db
+  }
+
+  async create(feed: Feed): Promise<void> {
+    this.#db
+      .prepare(
+        `INSERT INTO feeds
+           (id, household_id, name, fields, dashboard_id, token_hash, created_by, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        feed.id,
+        feed.householdId,
+        feed.name,
+        JSON.stringify(feed.fields),
+        feed.dashboardId ?? null,
+        feed.tokenHash,
+        feed.createdBy,
+        feed.createdAt.toISOString(),
+      )
+  }
+
+  async get(id: FeedId): Promise<Feed | undefined> {
+    const row = this.#db.prepare(`${SELECT_FEED} WHERE id = ?`).get(id) as Row | undefined
+    return row && hydrateFeed(row)
+  }
+
+  async findByTokenHash(tokenHash: string): Promise<Feed | undefined> {
+    const row = this.#db.prepare(`${SELECT_FEED} WHERE token_hash = ?`).get(tokenHash) as
+      Row | undefined
+    return row && hydrateFeed(row)
+  }
+
+  async listForHousehold(householdId: HouseholdId): Promise<Feed[]> {
+    const rows = this.#db
+      .prepare(`${SELECT_FEED} WHERE household_id = ? ORDER BY rowid`)
+      .all(householdId) as Row[]
+    return rows.map(hydrateFeed)
+  }
+
+  async revoke(id: FeedId, now: Date): Promise<boolean> {
+    const result = this.#db
+      .prepare('UPDATE feeds SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL')
+      .run(now.toISOString(), id)
+    return Number(result.changes) > 0
+  }
+}
+
+const SELECT_FEED = `SELECT id, household_id, name, fields, dashboard_id, token_hash, created_by,
+  created_at, revoked_at FROM feeds`
+
+function hydrateFeed(row: Row): Feed {
+  return {
+    id: FeedId(String(row.id)),
+    householdId: HouseholdId(String(row.household_id)),
+    name: String(row.name),
+    fields: JSON.parse(String(row.fields)) as FeedField[],
+    ...(row.dashboard_id === null ? {} : { dashboardId: DashboardId(String(row.dashboard_id)) }),
+    tokenHash: String(row.token_hash),
+    createdBy: UserId(String(row.created_by)),
+    createdAt: new Date(String(row.created_at)),
     ...(row.revoked_at === null ? {} : { revokedAt: new Date(String(row.revoked_at)) }),
   }
 }

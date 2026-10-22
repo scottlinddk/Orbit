@@ -16,3 +16,11 @@ export class ForbiddenError extends Error {
     this.name = 'ForbiddenError'
   }
 }
+
+/** A feed has grown past the size a display can take. The owner must pick fewer fields. */
+export class FeedTooLargeError extends Error {
+  constructor() {
+    super('The feed is too large to publish')
+    this.name = 'FeedTooLargeError'
+  }
+}

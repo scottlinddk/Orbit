@@ -16,6 +16,7 @@ interface Ids {
   dashboard: string
   widget: string
   invitation: string
+  feed: string
   alice: string
 }
 
@@ -67,6 +68,26 @@ const cases: Case[] = [
     key: 'delete /api/v1/households/{householdId}/invitations/{invitationId}',
     call: (c, i) => c.delete(`${V1}/households/${i.household}/invitations/${i.invitation}`),
     callMissing: (c) => c.delete(`${V1}/households/${GONE}/invitations/${GONE}`),
+    memberAllowed: false,
+  },
+  {
+    key: 'post /api/v1/households/{householdId}/feeds',
+    call: (c, i) =>
+      c.post(`${V1}/households/${i.household}/feeds`, { name: 'Spy', fields: ['household.name'] }),
+    callMissing: (c) =>
+      c.post(`${V1}/households/${GONE}/feeds`, { name: 'Spy', fields: ['household.name'] }),
+    memberAllowed: false,
+  },
+  {
+    key: 'get /api/v1/households/{householdId}/feeds',
+    call: (c, i) => c.get(`${V1}/households/${i.household}/feeds`),
+    callMissing: (c) => c.get(`${V1}/households/${GONE}/feeds`),
+    memberAllowed: false,
+  },
+  {
+    key: 'delete /api/v1/households/{householdId}/feeds/{feedId}',
+    call: (c, i) => c.delete(`${V1}/households/${i.household}/feeds/${i.feed}`),
+    callMissing: (c) => c.delete(`${V1}/households/${GONE}/feeds/${GONE}`),
     memberAllowed: false,
   },
   {
@@ -172,9 +193,16 @@ describe.each(['memory', 'sqlite'] as const)('household isolation over HTTP (%s)
       await alice.post(`${V1}/dashboards/${dashboard.id}/widgets`, { type: 'calendar.agenda' })
     ).body
     const invitation = (await alice.post(`${V1}/households/${household}/invitations`)).body
+    const feed = (
+      await alice.post(`${V1}/households/${household}/feeds`, {
+        name: 'Kitchen',
+        fields: ['household.name'],
+      })
+    ).body
     ids = {
       household,
       invitation: invitation.id,
+      feed: feed.id,
       dashboard: dashboard.id,
       widget: withWidget.widgets[0].id,
       alice: aliceUser.id,
@@ -186,6 +214,7 @@ describe.each(['memory', 'sqlite'] as const)('household isolation over HTTP (%s)
     household: (await alice.get(`${V1}/households/${ids.household}`)).body,
     dashboards: (await alice.get(`${V1}/households/${ids.household}/dashboards`)).body,
     invitations: (await alice.get(`${V1}/households/${ids.household}/invitations`)).body,
+    feeds: (await alice.get(`${V1}/households/${ids.household}/feeds`)).body,
   })
 
   it('covers every protected operation in the OpenAPI document', async () => {

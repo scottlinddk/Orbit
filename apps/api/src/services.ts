@@ -1,8 +1,10 @@
 import {
   createAuth,
+  createFeedReader,
   createUseCases,
   type Auth,
   type Clock,
+  type FeedReader,
   type IdGenerator,
   type PasswordHasher,
   type Repositories,
@@ -15,6 +17,7 @@ import {
 export interface Services {
   useCases: UseCases
   auth: Auth
+  feedReader: FeedReader
 }
 
 export interface ServiceParts {
@@ -37,9 +40,16 @@ export function assembleServices(parts: ServiceParts): Services {
       households: repos.households,
       dashboards: repos.dashboards,
       invitations: repos.invitations,
+      feeds: repos.feeds,
       tokens,
       clock,
       ids,
+    }),
+    feedReader: createFeedReader({
+      feeds: repos.feeds,
+      households: repos.households,
+      dashboards: repos.dashboards,
+      tokens,
     }),
     auth: createAuth({
       accounts: repos.accounts,

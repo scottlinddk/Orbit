@@ -6,4 +6,6 @@ export const PUBLIC_OPERATIONS: ReadonlySet<string> = new Set([
   'post /api/v1/invitations/preview',
   'post /api/v1/invitations/accept',
   'get /api/v1/health',
+  // Authenticated by a feed token, not a session. See ADR 0016.
+  'get /api/v1/feed',
 ])
