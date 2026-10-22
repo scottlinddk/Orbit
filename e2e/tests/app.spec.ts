@@ -283,6 +283,59 @@ test('an owner invites someone, who joins from the link without any server acces
   await expect(page.getByText('No open invitations.')).toBeVisible()
 })
 
+test('the app is installable and its service worker never keeps API answers', async () => {
+  const manifest = await page.request.get('/manifest.webmanifest')
+  expect(manifest.ok()).toBe(true)
+  const parsed = (await manifest.json()) as { name: string; icons: { src: string }[] }
+  expect(parsed.name).toBe('Orbit')
+  for (const icon of parsed.icons)
+    expect((await page.request.get(icon.src)).ok(), icon.src).toBe(true)
+
+  const worker = await page.request.get('/sw.js')
+  expect(worker.headers()['cache-control']).toBe('no-cache')
+  expect(await worker.text()).not.toContain('__BUILD_ID__')
+
+  await page.goto('/')
+  await page.evaluate(() => navigator.serviceWorker.ready.then(() => undefined))
+  // The shell is stored for offline use once the worker is active.
+  await expect
+    .poll(() =>
+      page.evaluate(async () => {
+        const names = (await caches.keys()).filter((n) => n.startsWith('orbit-shell-'))
+        const cache = names[0] ? await caches.open(names[0]) : undefined
+        return cache ? (await cache.match('/')) !== undefined : false
+      }),
+    )
+    .toBe(true)
+
+  // Ask for private data through the page, then look at everything the worker stored.
+  await page.evaluate(() => fetch('/api/v1/households').then((r) => r.text()))
+  const stored = await page.evaluate(async () => {
+    const urls: string[] = []
+    for (const name of await caches.keys()) {
+      for (const request of await (await caches.open(name)).keys()) urls.push(request.url)
+    }
+    return urls
+  })
+  expect(stored.filter((url) => new URL(url).pathname.startsWith('/api/'))).toEqual([])
+})
+
+test('the wall display shows a dashboard without the app navigation', async () => {
+  const households = (await (await page.request.get('/api/v1/households')).json()) as {
+    households: { id: string }[]
+  }
+  const list = (await (
+    await page.request.get(`/api/v1/households/${households.households[0]!.id}/dashboards`)
+  ).json()) as { dashboards: { id: string; name: string }[] }
+  const dashboard = list.dashboards[0]!
+
+  await page.goto(`/kiosk/${dashboard.id}?scale=1.25`)
+  await expect(page.getByRole('heading', { name: dashboard.name, level: 1 })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Orbit home' })).toHaveCount(0)
+  await expect(page.getByRole('link', { name: 'Exit wall display' })).toBeVisible()
+  expect(await page.evaluate(() => document.documentElement.style.fontSize)).toBe('125%')
+})
+
 test('the browser raised no policy violations, errors or unexpected failed requests', async () => {
   expect(cspViolations, 'Content Security Policy violations').toEqual([])
   expect(consoleErrors, 'console errors').toEqual([])

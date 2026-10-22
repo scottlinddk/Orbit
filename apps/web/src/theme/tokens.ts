@@ -63,4 +63,11 @@ export function applyTheme(theme: Theme, root: HTMLElement = document.documentEl
   }
   root.style.colorScheme = theme.scheme
   root.dataset.scheme = theme.scheme
+  // The browser's own chrome (address bar, installed-app title bar) follows the page color.
+  const background = themeToCssVars(theme)['--color-bg']
+  if (background) {
+    root.ownerDocument
+      .querySelector('meta[name="theme-color"]')
+      ?.setAttribute('content', background)
+  }
 }

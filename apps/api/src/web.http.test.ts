@@ -15,6 +15,8 @@ beforeAll(async () => {
   writeFileSync(join(dir, 'index.html'), '<!doctype html><title>Orbit</title><div id="root"></div>')
   writeFileSync(join(dir, 'assets', 'app-abc123.js'), 'console.log("app")')
   writeFileSync(join(dir, '.secret'), 'do not serve')
+  writeFileSync(join(dir, 'sw.js'), 'self.addEventListener("fetch", () => {})')
+  writeFileSync(join(dir, 'manifest.webmanifest'), '{"name":"Orbit"}')
   env = await createTestEnv({ app: { webDir: dir } })
 })
 afterAll(async () => {
@@ -82,6 +84,22 @@ describe('headers', () => {
     expect(shell.headers['cache-control']).toBe('no-cache')
     const route = await env.client().get('/d/abc', HTML)
     expect(route.headers['cache-control']).toBe('no-cache')
+  })
+
+  it('serves the service worker and manifest so the browser re-checks them every time', async () => {
+    const worker = await env.client().get('/sw.js', { accept: '*/*' })
+    expect(worker.status).toBe(200)
+    expect(worker.headers['content-type']).toMatch(/javascript/)
+    expect(worker.headers['cache-control']).toBe('no-cache')
+    const manifest = await env.client().get('/manifest.webmanifest', { accept: '*/*' })
+    expect(manifest.status).toBe(200)
+    expect(manifest.headers['content-type']).toMatch(/manifest\+json|application\/json/)
+    expect(manifest.headers['cache-control']).toBe('no-cache')
+  })
+
+  it('never answers a missing service worker with the app shell', async () => {
+    const res = await env.client().get('/sw-old.js', { accept: '*/*' })
+    expect(res.status).toBe(404)
   })
 
   it('gives the web app its own strict policy and the API an empty one', async () => {
