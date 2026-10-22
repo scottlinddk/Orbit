@@ -1,6 +1,6 @@
 # Security model for the TRMNL feed and Planets
 
-Status: draft, written ahead of the code. It covers the features proposed in [ADR 0016](adr/0016-trmnl-display-feed.md) and [ADR 0017](adr/0017-planets-declarative-plugins.md), neither of which is accepted yet. If an ADR is rejected, its rows are removed.
+Status: active. It covers the features accepted in [ADR 0016](adr/0016-trmnl-display-feed.md) and [ADR 0017](adr/0017-planets-declarative-plugins.md).
 
 ## Gate
 

@@ -29,3 +29,7 @@ Fingerprinted `/assets/*` are cached for a year, everything else `no-cache`. The
 - Building needs network access to the npm registry. Published images and signing are future work.
 - `node:sqlite` still prints an experimental warning, which the image silences. See ADR 0009.
 - Running more than one container against the same volume is unsupported.
+
+## Amendment 2026-10-22: public HTTPS for the TRMNL feed
+
+The TRMNL feed ([ADR 0016](0016-trmnl-display-feed.md)) needs a public HTTPS address, because TRMNL's cloud polls it. Decision: the Caddy override stays optional and the default stays loopback-only, so a plain install exposes nothing. The Caddy override is the documented path for owners who create a feed. A LAN-only or tailnet-only install cannot use the feed, and the docs say so. No local CA path is added until a real user needs one.
