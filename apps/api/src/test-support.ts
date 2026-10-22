@@ -126,7 +126,7 @@ export class TestClient {
   }
 
   async request(
-    method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+    method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
     url: string,
     body?: unknown,
     headers: Record<string, string> = {},
@@ -160,6 +160,7 @@ export class TestClient {
   post = (url: string, body?: unknown, headers?: Record<string, string>) =>
     this.request('POST', url, body ?? {}, headers)
   put = (url: string, body: unknown) => this.request('PUT', url, body)
+  patch = (url: string, body: unknown) => this.request('PATCH', url, body)
   delete = (url: string) => this.request('DELETE', url)
 
   /** Registers (open policy) and signs in. */

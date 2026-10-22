@@ -31,4 +31,6 @@ const { period, rows } = resolveOptions(options, config)
 
 Option keys are stored in dashboards, so treat them like the widget `type`: never rename them.
 
+When the choices depend on data (for example "which list"), give the definition a `useOptions` hook instead of fixed `options`. The options panel calls it, so it may read context and query data. A widget cannot reach the API client, so the app lends data through a context the module defines. `packages/modules/lists/src/web/host.ts` is the pattern: the module declares a small host interface and a context, and `apps/web` provides the implementation.
+
 `tone: 'accent'` asks for the theme's highlight card (a gradient by default). Draw with `currentColor` and translucent tints so it works in every theme. Style with the CSS variables from `apps/web/src/styles/tokens.css` (`--color-surface-2`, `--color-text-muted`, `--radius-sm`, ...), never raw colors. The card is a size container named `widget`, so `@container widget (max-width: 30rem)` adapts a widget to its width.

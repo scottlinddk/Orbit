@@ -8,6 +8,8 @@ const all: HouseholdAction[] = [
   'dashboard:create',
   'dashboard:edit',
   'dashboard:delete',
+  'list:view',
+  'list:edit',
   'feed:manage',
 ]
 
@@ -16,8 +18,8 @@ describe('permissions', () => {
     for (const action of all) expect(can('owner', action)).toBe(true)
   })
 
-  it('lets members only view', () => {
+  it('lets members view, and use the shared lists', () => {
     const allowed = all.filter((a) => can('member', a))
-    expect(allowed).toEqual(['household:view', 'dashboard:view'])
+    expect(allowed).toEqual(['household:view', 'dashboard:view', 'list:view', 'list:edit'])
   })
 })

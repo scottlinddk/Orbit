@@ -20,6 +20,7 @@ Domain and application code never import SQLite drivers, Google SDKs, or Fastify
 Only ports with a real boundary, security need, or plausible replacement:
 
 - `UserRepository`, `HouseholdRepository`, `DashboardRepository`
+- `ListRepository` (Orbit's own shared shopping and to-do lists, [lists](../operations/lists.md)). The household list model maps into the source-neutral `TodoList`, so a future Home Assistant or Grocy adapter targets the same shape without sharing this store.
 - `PasswordHasher`, `SessionStore` (local accounts, ADR 0002)
 - `SecretStore` (integration credentials, encrypted at rest; `adapters/secrets-encrypted-db`)
 - `JobScheduler` (sync jobs; `adapters/jobs-sqlite`)

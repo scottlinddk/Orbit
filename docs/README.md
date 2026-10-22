@@ -26,6 +26,7 @@
 
 - [Deploying with Docker](operations/deployment.md)
 - [Backup and restore](operations/backup-and-restore.md)
+- [Shared lists](operations/lists.md)
 - Hosting guides
   - [Home server with Tailscale](operations/hosting/home-server.md)
   - [HTTPS for a home network or a tailnet](operations/hosting/https-lan-and-tailscale.md)

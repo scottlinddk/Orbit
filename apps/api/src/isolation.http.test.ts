@@ -19,6 +19,8 @@ interface Ids {
   planetWidget: string
   invitation: string
   feed: string
+  list: string
+  item: string
   alice: string
 }
 
@@ -91,6 +93,76 @@ const cases: Case[] = [
     call: (c, i) => c.delete(`${V1}/households/${i.household}/feeds/${i.feed}`),
     callMissing: (c) => c.delete(`${V1}/households/${GONE}/feeds/${GONE}`),
     memberAllowed: false,
+  },
+  {
+    key: 'get /api/v1/households/{householdId}/lists',
+    call: (c, i) => c.get(`${V1}/households/${i.household}/lists`),
+    callMissing: (c) => c.get(`${V1}/households/${GONE}/lists`),
+    memberAllowed: true,
+  },
+  {
+    key: 'post /api/v1/households/{householdId}/lists',
+    call: (c, i) =>
+      c.post(`${V1}/households/${i.household}/lists`, { name: 'Intruder', kind: 'todo' }),
+    callMissing: (c) =>
+      c.post(`${V1}/households/${GONE}/lists`, { name: 'Intruder', kind: 'todo' }),
+    memberAllowed: true,
+  },
+  {
+    key: 'get /api/v1/households/{householdId}/lists/{listId}',
+    call: (c, i) => c.get(`${V1}/households/${i.household}/lists/${i.list}`),
+    callMissing: (c) => c.get(`${V1}/households/${GONE}/lists/${GONE}`),
+    memberAllowed: true,
+  },
+  {
+    key: 'delete /api/v1/households/{householdId}/lists/{listId}',
+    call: (c, i) => c.delete(`${V1}/households/${i.household}/lists/${i.list}`),
+    callMissing: (c) => c.delete(`${V1}/households/${GONE}/lists/${GONE}`),
+    memberAllowed: true,
+  },
+  {
+    key: 'put /api/v1/households/{householdId}/lists/{listId}/name',
+    call: (c, i) => c.put(`${V1}/households/${i.household}/lists/${i.list}/name`, { name: 'X' }),
+    callMissing: (c) => c.put(`${V1}/households/${GONE}/lists/${GONE}/name`, { name: 'X' }),
+    memberAllowed: true,
+  },
+  {
+    key: 'post /api/v1/households/{householdId}/lists/{listId}/items',
+    call: (c, i) =>
+      c.post(`${V1}/households/${i.household}/lists/${i.list}/items`, { text: 'Intruder' }),
+    callMissing: (c) =>
+      c.post(`${V1}/households/${GONE}/lists/${GONE}/items`, { text: 'Intruder' }),
+    memberAllowed: true,
+  },
+  {
+    key: 'patch /api/v1/households/{householdId}/lists/{listId}/items/{itemId}',
+    call: (c, i) =>
+      c.patch(`${V1}/households/${i.household}/lists/${i.list}/items/${i.item}`, { done: true }),
+    callMissing: (c) =>
+      c.patch(`${V1}/households/${GONE}/lists/${GONE}/items/${GONE}`, { done: true }),
+    memberAllowed: true,
+  },
+  {
+    key: 'delete /api/v1/households/{householdId}/lists/{listId}/items/{itemId}',
+    call: (c, i) => c.delete(`${V1}/households/${i.household}/lists/${i.list}/items/${i.item}`),
+    callMissing: (c) => c.delete(`${V1}/households/${GONE}/lists/${GONE}/items/${GONE}`),
+    memberAllowed: true,
+  },
+  {
+    key: 'put /api/v1/households/{householdId}/lists/{listId}/items/{itemId}/position',
+    call: (c, i) =>
+      c.put(`${V1}/households/${i.household}/lists/${i.list}/items/${i.item}/position`, {
+        index: 0,
+      }),
+    callMissing: (c) =>
+      c.put(`${V1}/households/${GONE}/lists/${GONE}/items/${GONE}/position`, { index: 0 }),
+    memberAllowed: true,
+  },
+  {
+    key: 'post /api/v1/households/{householdId}/lists/{listId}/clear-completed',
+    call: (c, i) => c.post(`${V1}/households/${i.household}/lists/${i.list}/clear-completed`),
+    callMissing: (c) => c.post(`${V1}/households/${GONE}/lists/${GONE}/clear-completed`),
+    memberAllowed: true,
   },
   {
     key: 'get /api/v1/households/{householdId}/dashboards',
@@ -213,7 +285,18 @@ describe.each(['memory', 'sqlite'] as const)('household isolation over HTTP (%s)
         fields: ['household.name'],
       })
     ).body
+    const list = (
+      await alice.post(`${V1}/households/${household}/lists`, {
+        name: 'Groceries',
+        kind: 'shopping',
+      })
+    ).body
+    const withItem = (
+      await alice.post(`${V1}/households/${household}/lists/${list.id}/items`, { text: 'Milk' })
+    ).body
     ids = {
+      list: list.id,
+      item: withItem.items[0].id,
       household,
       invitation: invitation.id,
       feed: feed.id,
@@ -230,6 +313,7 @@ describe.each(['memory', 'sqlite'] as const)('household isolation over HTTP (%s)
     dashboards: (await alice.get(`${V1}/households/${ids.household}/dashboards`)).body,
     invitations: (await alice.get(`${V1}/households/${ids.household}/invitations`)).body,
     feeds: (await alice.get(`${V1}/households/${ids.household}/feeds`)).body,
+    list: (await alice.get(`${V1}/households/${ids.household}/lists/${ids.list}`)).body,
   })
 
   it('covers every protected operation in the OpenAPI document', async () => {
@@ -264,7 +348,7 @@ describe.each(['memory', 'sqlite'] as const)('household isolation over HTTP (%s)
         const before = await state()
         const res = await c.call(bob, ids)
         if (c.memberAllowed) {
-          expect(res.status).toBe(200)
+          expect([200, 201, 204]).toContain(res.status)
         } else {
           expect(res.status).toBe(403)
           expect(await state()).toEqual(before)

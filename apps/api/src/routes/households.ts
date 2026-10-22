@@ -12,7 +12,7 @@ import {
   idSchema,
   invitationSchema,
 } from '@orbit/contracts'
-import { DashboardId, FeedId, HouseholdId, InvitationId, UserId } from '@orbit/domain'
+import { DashboardId, FeedId, HouseholdId, InvitationId, ListId, UserId } from '@orbit/domain'
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import { z } from 'zod'
 import { actorOf } from '../http/session.ts'
@@ -240,13 +240,14 @@ export const householdRoutes =
         },
       },
       async (request, reply) => {
-        const { dashboardId, ...rest } = request.body
+        const { dashboardId, listId, ...rest } = request.body
         const { feed, token } = await useCases.createFeed(
           actorOf(request),
           HouseholdId(request.params.householdId),
           {
             ...rest,
             dashboardId: dashboardId === undefined ? undefined : DashboardId(dashboardId),
+            listId: listId === undefined ? undefined : ListId(listId),
           },
         )
         return reply.code(201).send({ ...feedResponse(feed), token })

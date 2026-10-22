@@ -7,6 +7,8 @@ export type HouseholdAction =
   | 'dashboard:create'
   | 'dashboard:edit'
   | 'dashboard:delete'
+  | 'list:view'
+  | 'list:edit'
   | 'feed:manage'
 
 /**
@@ -21,9 +23,11 @@ const grants: Record<HouseholdRole, ReadonlySet<HouseholdAction>> = {
     'dashboard:create',
     'dashboard:edit',
     'dashboard:delete',
+    'list:view',
+    'list:edit',
     'feed:manage',
   ]),
-  member: new Set<HouseholdAction>(['household:view', 'dashboard:view']),
+  member: new Set<HouseholdAction>(['household:view', 'dashboard:view', 'list:view', 'list:edit']),
 }
 
 export function can(role: HouseholdRole, action: HouseholdAction): boolean {

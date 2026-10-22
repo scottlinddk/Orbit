@@ -20,6 +20,7 @@ const baseApi = (d = three(), h = household()) => ({
   'GET /api/v1/households/h1': { body: h },
   'GET /api/v1/dashboards/d1': { body: d },
   'GET /api/v1/planets/widgets': { body: { widgets: [] } },
+  'GET /api/v1/households/h1/lists': { body: { lists: [] } },
 })
 
 const titles = () =>
@@ -61,7 +62,8 @@ describe('dashboard page', () => {
     stubApi(baseApi())
     renderApp('/d/d1')
     await screen.findByRole('heading', { name: 'Week', level: 1 })
-    expect(screen.getAllByText('Preview')).toHaveLength(2)
+    // Only the agenda still shows placeholder data. The shopping list is real now.
+    expect(screen.getAllByText('Preview')).toHaveLength(1)
   })
 
   it('shows an empty state with a hint for owners and a plainer one for members', async () => {

@@ -15,6 +15,7 @@ import { CheckIcon, PencilIcon } from '../../components/icons.tsx'
 import { Loading } from '../../components/Loading.tsx'
 import { PageHeader } from '../../components/PageHeader.tsx'
 import { QueryError } from '../../components/QueryError.tsx'
+import { ListsHostProvider } from '../../widgets/ListsHostProvider.tsx'
 import { useRegistry } from '../../widgets/useRegistry.ts'
 import { DashboardGrid } from './DashboardGrid.tsx'
 import styles from './DashboardPage.module.css'
@@ -90,7 +91,7 @@ export function DashboardPage() {
   const greeting = me.data ? `Welcome back, ${me.data.displayName}` : 'Welcome back'
 
   return (
-    <>
+    <ListsHostProvider householdId={data.householdId}>
       <p className={styles.back}>
         <Link to={`/h/${data.householdId}`}>← Household</Link>
       </p>
@@ -170,6 +171,6 @@ export function DashboardPage() {
           </aside>
         ) : null}
       </div>
-    </>
+    </ListsHostProvider>
   )
 }

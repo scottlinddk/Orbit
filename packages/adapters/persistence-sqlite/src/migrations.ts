@@ -149,4 +149,36 @@ export const migrations: readonly Migration[] = [
       ) STRICT;
     `,
   },
+  {
+    version: 6,
+    name: 'household-lists',
+    sql: `
+      CREATE TABLE lists (
+        id TEXT PRIMARY KEY,
+        household_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        kind TEXT NOT NULL CHECK (kind IN ('shopping', 'todo')),
+        created_by TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      ) STRICT;
+      CREATE INDEX lists_by_household ON lists(household_id);
+
+      CREATE TABLE list_items (
+        id TEXT PRIMARY KEY,
+        list_id TEXT NOT NULL REFERENCES lists(id) ON DELETE CASCADE,
+        text TEXT NOT NULL,
+        done INTEGER NOT NULL CHECK (done IN (0, 1)),
+        quantity TEXT,
+        note TEXT,
+        position INTEGER NOT NULL,
+        created_by TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_by TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      ) STRICT;
+      CREATE INDEX list_items_by_list ON list_items(list_id, position);
+
+      ALTER TABLE feeds ADD COLUMN list_id TEXT;
+    `,
+  },
 ]

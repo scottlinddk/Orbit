@@ -3,6 +3,7 @@ import {
   describeAccountContracts,
   describeFeedContracts,
   describeInvitationContracts,
+  describeListContracts,
   describeRepositoryContracts,
   describeSessionContracts,
 } from './repository-contracts.ts'
@@ -13,3 +14,4 @@ describeAccountContracts('in-memory', create)
 describeSessionContracts('in-memory', create)
 describeInvitationContracts('in-memory', create)
 describeFeedContracts('in-memory', create)
+describeListContracts('in-memory', create)

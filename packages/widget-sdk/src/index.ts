@@ -58,6 +58,12 @@ export interface WidgetDefinition {
   readonly tone?: 'surface' | 'accent'
   /** Settings the user can change in the editor. Read them with `resolveOptions`. */
   readonly options?: readonly WidgetOption[]
+  /**
+   * Settings whose choices depend on data, such as "which list". A hook, called while the
+   * options panel is open, so it may read context and query data. It replaces `options` there.
+   * Saved values are still validated with `resolveOptions`.
+   */
+  readonly useOptions?: () => readonly WidgetOption[]
   readonly Component: ComponentType<WidgetProps>
 }
 

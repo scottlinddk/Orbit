@@ -5,6 +5,8 @@ import {
   FeedId,
   InvariantViolation,
   InvitationId,
+  ListId,
+  ListItemId,
   WidgetPlacementId,
 } from '@orbit/domain'
 import { beforeEach, describe, expect, it } from 'vitest'
@@ -30,6 +32,8 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
     let invitationA: InvitationId
     let feedA: FeedId
     let feedTokenA: string
+    let listA: ListId
+    let itemA: ListItemId
 
     beforeEach(async () => {
       sys = create()
@@ -52,6 +56,9 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
       })
       feedA = feed.feed.id
       feedTokenA = feed.token
+      const list = await uc.createList(alice, householdA, { name: 'Groceries', kind: 'shopping' })
+      listA = list.list.id
+      itemA = (await uc.addListItem(alice, householdA, listA, { text: 'Milk' })).items[0]!.id
     })
 
     /** Every operation, parameterized by who performs it. */
@@ -83,11 +90,25 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
         resizeWidget: () => uc().resizeWidget(as(), dashboardA, widgetA, 2),
         configureWidget: () => uc().configureWidget(as(), dashboardA, widgetA, { hacked: true }),
         deleteDashboard: () => uc().deleteDashboard(as(), dashboardA),
+        createList: () => uc().createList(as(), householdA, { name: 'Intruder', kind: 'todo' }),
+        listLists: () => uc().listLists(as(), householdA),
+        getList: () => uc().getList(as(), householdA, listA),
+        renameList: () => uc().renameList(as(), householdA, listA, 'Hacked'),
+        addListItem: () => uc().addListItem(as(), householdA, listA, { text: 'Intruder' }),
+        updateListItem: () =>
+          uc().updateListItem(as(), householdA, listA, itemA, { text: 'Hacked', done: true }),
+        moveListItem: () => uc().moveListItem(as(), householdA, listA, itemA, 0),
+        deleteListItem: () => uc().deleteListItem(as(), householdA, listA, itemA),
+        clearCompletedListItems: () => uc().clearCompletedListItems(as(), householdA, listA),
+        deleteList: () => uc().deleteList(as(), householdA, listA),
         // Operations on ids that do not exist must be indistinguishable from foreign ones.
         removeWidgetMissing: () => uc().removeWidget(as(), dashboardA, missingWidget),
         revokeInvitationMissing: () =>
           uc().revokeInvitation(as(), householdA, InvitationId('missing')),
         revokeFeedMissing: () => uc().revokeFeed(as(), householdA, FeedId('missing')),
+        getListMissing: () => uc().getList(as(), householdA, ListId('missing')),
+        updateListItemMissing: () =>
+          uc().updateListItem(as(), householdA, listA, ListItemId('missing'), { done: true }),
       }
     }
 
@@ -96,6 +117,8 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
       dashboards: await sys.useCases.listDashboards(alice, householdA),
       invitations: await sys.useCases.listInvitations(alice, householdA),
       feeds: await sys.useCases.listFeeds(alice, householdA),
+      lists: await sys.useCases.listLists(alice, householdA),
+      list: await sys.useCases.getList(alice, householdA, listA),
     })
 
     describe('a user from another household', () => {
@@ -154,6 +177,84 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
         const attempt = (operations(() => bob) as Record<string, () => Promise<unknown>>)[op]!
         await expect(attempt()).rejects.toBeInstanceOf(ForbiddenError)
         expect(await snapshot()).toEqual(before)
+      })
+    })
+
+    describe('lists', () => {
+      const carolsHousehold = async () => (await sys.useCases.listHouseholds(carol))[0]!.id
+
+      it('are shared: a plain member can read and change them', async () => {
+        await expect(operations(() => bob).listLists()).resolves.toHaveLength(1)
+        await expect(operations(() => bob).getList()).resolves.toBeDefined()
+        await expect(operations(() => bob).addListItem()).resolves.toBeDefined()
+        await expect(operations(() => bob).updateListItem()).resolves.toBeDefined()
+        await expect(operations(() => bob).clearCompletedListItems()).resolves.toBeDefined()
+        await expect(operations(() => bob).deleteList()).resolves.toBeUndefined()
+      })
+
+      it("cannot be reached through another household's id", async () => {
+        const carols = await carolsHousehold()
+        const before = await snapshot()
+        for (const attempt of [
+          () => sys.useCases.getList(carol, carols, listA),
+          () => sys.useCases.renameList(carol, carols, listA, 'Hacked'),
+          () => sys.useCases.addListItem(carol, carols, listA, { text: 'Intruder' }),
+          () => sys.useCases.updateListItem(carol, carols, listA, itemA, { done: true }),
+          () => sys.useCases.moveListItem(carol, carols, listA, itemA, 0),
+          () => sys.useCases.deleteListItem(carol, carols, listA, itemA),
+          () => sys.useCases.clearCompletedListItems(carol, carols, listA),
+          () => sys.useCases.deleteList(carol, carols, listA),
+        ])
+          await expect(attempt()).rejects.toBeInstanceOf(NotFoundError)
+        expect(await snapshot()).toEqual(before)
+      })
+
+      it('gives a foreign list the same answer as a missing one', async () => {
+        const carols = await carolsHousehold()
+        const foreign = await sys.useCases.getList(carol, carols, listA).catch((e) => e)
+        const missing = await sys.useCases.getList(carol, carols, ListId('nope')).catch((e) => e)
+        expect(foreign).toBeInstanceOf(NotFoundError)
+        expect(foreign.message).toBe(missing.message)
+      })
+
+      it("does not move an item through another household's own list", async () => {
+        const carols = await carolsHousehold()
+        const carolsList = (
+          await sys.useCases.createList(carol, carols, { name: 'Mine', kind: 'todo' })
+        ).list.id
+        await expect(
+          sys.useCases.updateListItem(carol, carols, carolsList, itemA, { done: true }),
+        ).rejects.toBeInstanceOf(NotFoundError)
+        expect((await sys.useCases.getList(alice, householdA, listA)).items[0]!.done).toBe(false)
+      })
+
+      it("cannot be published through another household's feed", async () => {
+        const carols = await carolsHousehold()
+        const foreign = await sys.useCases
+          .createFeed(carol, carols, { name: 'Spy', fields: ['list.items'], listId: listA })
+          .catch((e) => e)
+        const missing = await sys.useCases
+          .createFeed(carol, carols, {
+            name: 'Spy',
+            fields: ['list.items'],
+            listId: ListId('nope'),
+          })
+          .catch((e) => e)
+        expect(foreign).toBeInstanceOf(NotFoundError)
+        expect(foreign.message).toBe(missing.message)
+      })
+
+      it('are published only by the feed that names them', async () => {
+        const fridge = await sys.useCases.createFeed(alice, householdA, {
+          name: 'Fridge',
+          fields: ['list.items'],
+          listId: listA,
+        })
+        expect(await sys.feedReader.read(fridge.token)).toEqual({
+          list: { items: [{ text: 'Milk' }] },
+        })
+        // The kit's own feed names no list, so it shows none.
+        expect(JSON.stringify(await sys.feedReader.read(feedTokenA))).not.toContain('Milk')
       })
     })
 

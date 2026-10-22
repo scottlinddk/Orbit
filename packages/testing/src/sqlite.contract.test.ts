@@ -3,6 +3,7 @@ import {
   describeAccountContracts,
   describeFeedContracts,
   describeInvitationContracts,
+  describeListContracts,
   describeRepositoryContracts,
   describeSessionContracts,
 } from './repository-contracts.ts'
@@ -13,3 +14,4 @@ describeAccountContracts('sqlite', create)
 describeSessionContracts('sqlite', create)
 describeInvitationContracts('sqlite', create)
 describeFeedContracts('sqlite', create)
+describeListContracts('sqlite', create)

@@ -4,6 +4,8 @@ import {
   FeedId,
   HouseholdId,
   InvitationId,
+  ListId,
+  ListItemId,
   UserId,
   Username,
   WidgetPlacementId,
@@ -13,7 +15,9 @@ import {
   createFeed,
   createHousehold,
   createInvitation,
+  createList,
   createUser,
+  type HouseholdListItem,
 } from '@orbit/domain'
 import { beforeEach, describe, expect, it } from 'vitest'
 
@@ -397,6 +401,21 @@ export function describeFeedContracts(name: string, create: () => Promise<Reposi
       expect(await repos.feeds.get(f.id)).toEqual(f)
     })
 
+    it('round-trips a feed that publishes a list', async () => {
+      const f = createFeed({
+        id: FeedId('f1'),
+        householdId: HouseholdId('h1'),
+        name: 'Fridge',
+        fields: ['list.name', 'list.items'],
+        listId: ListId('l1'),
+        tokenHash: 'hash-f1',
+        createdBy: UserId('alice'),
+        now: t0,
+      })
+      await repos.feeds.create(f)
+      expect(await repos.feeds.get(f.id)).toEqual(f)
+    })
+
     it('refuses a second feed with the same token hash', async () => {
       await repos.feeds.create(feed('f1'))
       await expect(repos.feeds.create({ ...feed('f2'), tokenHash: 'hash-f1' })).rejects.toThrow()
@@ -416,6 +435,127 @@ export function describeFeedContracts(name: string, create: () => Promise<Reposi
       expect(await repos.feeds.revoke(FeedId('f1'), t0)).toBe(false)
       expect(await repos.feeds.revoke(FeedId('missing'), t0)).toBe(false)
       expect((await repos.feeds.get(FeedId('f1')))?.revokedAt).toEqual(t0)
+    })
+  })
+}
+
+export function describeListContracts(name: string, create: () => Promise<RepositorySet>) {
+  describe(`list contracts: ${name}`, () => {
+    let repos: RepositorySet
+    beforeEach(async () => {
+      repos = await create()
+    })
+
+    const t0 = new Date('2026-01-01T00:00:00.000Z')
+    const t1 = new Date('2026-01-02T00:00:00.000Z')
+    const alice = UserId('alice')
+    const list = (id: string, household = 'h1') =>
+      createList({
+        id: ListId(id),
+        householdId: HouseholdId(household),
+        name: `List ${id}`,
+        kind: 'shopping',
+        createdBy: alice,
+        now: t0,
+      })
+    const item = (
+      id: string,
+      listId: string,
+      position: number,
+      extra: Partial<HouseholdListItem> = {},
+    ): HouseholdListItem => ({
+      id: ListItemId(id),
+      listId: ListId(listId),
+      text: `Item ${id}`,
+      done: false,
+      position,
+      createdBy: alice,
+      createdAt: t0,
+      updatedBy: alice,
+      updatedAt: t0,
+      ...extra,
+    })
+
+    it('round-trips a list, renames it, and lists only one household', async () => {
+      const l = list('l1')
+      await repos.lists.createList(l)
+      await repos.lists.createList(list('l2', 'h2'))
+      await repos.lists.createList(list('l3'))
+      expect(await repos.lists.getList(l.id)).toEqual(l)
+      expect(await repos.lists.getList(ListId('missing'))).toBeUndefined()
+      expect((await repos.lists.listsForHousehold(HouseholdId('h1'))).map((x) => x.id)).toEqual([
+        'l1',
+        'l3',
+      ])
+      await repos.lists.saveList({ ...l, name: 'Renamed' })
+      expect((await repos.lists.getList(l.id))?.name).toBe('Renamed')
+    })
+
+    it('refuses a duplicate list id', async () => {
+      await repos.lists.createList(list('l1'))
+      await expect(repos.lists.createList(list('l1'))).rejects.toThrow()
+    })
+
+    it('stores items in position order with optional fields', async () => {
+      await repos.lists.createList(list('l1'))
+      const rich = item('b', 'l1', 1, { quantity: '2 l', note: 'oat' })
+      await repos.lists.saveItems([rich, item('a', 'l1', 0)])
+      const items = await repos.lists.items(ListId('l1'))
+      expect(items.map((i) => i.id)).toEqual(['a', 'b'])
+      expect(items[1]).toEqual(rich)
+      expect(items[0]!.quantity).toBeUndefined()
+      expect(await repos.lists.getItem(ListItemId('b'))).toEqual(rich)
+      expect(await repos.lists.getItem(ListItemId('missing'))).toBeUndefined()
+    })
+
+    it('replaces an item on save and can clear its optional fields', async () => {
+      await repos.lists.createList(list('l1'))
+      await repos.lists.saveItems([item('a', 'l1', 0, { quantity: '1', note: 'x' })])
+      const changed = item('a', 'l1', 3, { done: true, updatedAt: t1 })
+      await repos.lists.saveItems([changed])
+      expect(await repos.lists.getItem(ListItemId('a'))).toEqual(changed)
+    })
+
+    it('keeps items of different lists apart', async () => {
+      await repos.lists.createList(list('l1'))
+      await repos.lists.createList(list('l2'))
+      await repos.lists.saveItems([item('a', 'l1', 0), item('b', 'l2', 0)])
+      expect((await repos.lists.items(ListId('l1'))).map((i) => i.id)).toEqual(['a'])
+      expect((await repos.lists.items(ListId('l2'))).map((i) => i.id)).toEqual(['b'])
+    })
+
+    it('deletes one item, and the completed ones of one list', async () => {
+      await repos.lists.createList(list('l1'))
+      await repos.lists.createList(list('l2'))
+      await repos.lists.saveItems([
+        item('a', 'l1', 0),
+        item('b', 'l1', 1, { done: true }),
+        item('c', 'l1', 2, { done: true }),
+        item('d', 'l2', 0, { done: true }),
+      ])
+      await repos.lists.deleteItem(ListItemId('a'))
+      expect(await repos.lists.deleteCompleted(ListId('l1'))).toBe(2)
+      expect(await repos.lists.deleteCompleted(ListId('l1'))).toBe(0)
+      expect(await repos.lists.items(ListId('l1'))).toEqual([])
+      expect(await repos.lists.items(ListId('l2'))).toHaveLength(1)
+    })
+
+    it('deletes a list together with its items and nothing else', async () => {
+      await repos.lists.createList(list('l1'))
+      await repos.lists.createList(list('l2'))
+      await repos.lists.saveItems([item('a', 'l1', 0), item('b', 'l2', 0)])
+      await repos.lists.deleteList(ListId('l1'))
+      expect(await repos.lists.getList(ListId('l1'))).toBeUndefined()
+      expect(await repos.lists.getItem(ListItemId('a'))).toBeUndefined()
+      expect(await repos.lists.getItem(ListItemId('b'))).toBeDefined()
+    })
+
+    it('saves a batch of items all or none', async () => {
+      await repos.lists.createList(list('l1'))
+      await expect(
+        repos.lists.saveItems([item('a', 'l1', 0), item('b', 'no-such-list', 0)]),
+      ).rejects.toThrow()
+      expect(await repos.lists.items(ListId('l1'))).toEqual([])
     })
   })
 }
