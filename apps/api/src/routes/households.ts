@@ -3,17 +3,25 @@ import {
   createHouseholdRequestSchema,
   createInvitationRequestSchema,
   createDashboardRequestSchema,
+  createdFeedSchema,
   createdInvitationSchema,
+  createFeedRequestSchema,
+  feedSchema,
   dashboardSchema,
   householdSchema,
   idSchema,
   invitationSchema,
 } from '@orbit/contracts'
-import { HouseholdId, InvitationId, UserId } from '@orbit/domain'
+import { DashboardId, FeedId, HouseholdId, InvitationId, UserId } from '@orbit/domain'
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import { z } from 'zod'
 import { actorOf } from '../http/session.ts'
-import { dashboardResponse, householdResponse, invitationResponse } from '../mappers.ts'
+import {
+  dashboardResponse,
+  feedResponse,
+  householdResponse,
+  invitationResponse,
+} from '../mappers.ts'
 import type { Services } from '../services.ts'
 import { errors, noContent, sessionSecurity } from './schemas.ts'
 
@@ -205,6 +213,91 @@ export const householdRoutes =
           actorOf(request),
           HouseholdId(request.params.householdId),
           InvitationId(request.params.invitationId),
+        )
+        return reply.code(204).send(null)
+      },
+    )
+
+    app.post(
+      '/households/:householdId/feeds',
+      {
+        schema: {
+          ...common,
+          tags: ['feeds'],
+          summary: 'Create a read-only display feed (owners only)',
+          description:
+            'Returns the secret token once. The display sends it as `Authorization: Bearer <token>` to GET /feed. Orbit keeps only a hash and cannot show it again. The feed publishes exactly the chosen fields.',
+          params: householdParams,
+          body: createFeedRequestSchema,
+          response: {
+            201: createdFeedSchema,
+            400: errors[400],
+            401: errors[401],
+            403: errors[403],
+            404: errors[404],
+            422: errors[422],
+          },
+        },
+      },
+      async (request, reply) => {
+        const { dashboardId, ...rest } = request.body
+        const { feed, token } = await useCases.createFeed(
+          actorOf(request),
+          HouseholdId(request.params.householdId),
+          {
+            ...rest,
+            dashboardId: dashboardId === undefined ? undefined : DashboardId(dashboardId),
+          },
+        )
+        return reply.code(201).send({ ...feedResponse(feed), token })
+      },
+    )
+
+    app.get(
+      '/households/:householdId/feeds',
+      {
+        schema: {
+          ...common,
+          tags: ['feeds'],
+          summary: 'Feeds that can still be read (owners only)',
+          params: householdParams,
+          response: {
+            200: z.object({ feeds: z.array(feedSchema) }),
+            401: errors[401],
+            403: errors[403],
+            404: errors[404],
+          },
+        },
+      },
+      async (request) => ({
+        feeds: (
+          await useCases.listFeeds(actorOf(request), HouseholdId(request.params.householdId))
+        ).map(feedResponse),
+      }),
+    )
+
+    app.delete(
+      '/households/:householdId/feeds/:feedId',
+      {
+        schema: {
+          ...common,
+          tags: ['feeds'],
+          summary: 'Revoke a feed (owners only). Its token stops working at once.',
+          params: householdParams.extend({ feedId: idSchema }),
+          response: {
+            204: noContent,
+            401: errors[401],
+            403: errors[403],
+            404: errors[404],
+            422: errors[422],
+          },
+        },
+      },
+      async (request, reply) => {
+        await useCases.revokeFeed(
+          actorOf(request),
+          HouseholdId(request.params.householdId),
+          FeedId(request.params.feedId),
         )
         return reply.code(204).send(null)
       },

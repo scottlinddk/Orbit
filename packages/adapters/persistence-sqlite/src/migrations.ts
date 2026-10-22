@@ -92,4 +92,22 @@ export const migrations: readonly Migration[] = [
       CREATE INDEX invitations_by_household ON invitations(household_id);
     `,
   },
+  {
+    version: 4,
+    name: 'feeds',
+    sql: `
+      CREATE TABLE feeds (
+        id TEXT PRIMARY KEY,
+        household_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        fields TEXT NOT NULL,
+        dashboard_id TEXT,
+        token_hash TEXT NOT NULL UNIQUE,
+        created_by TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        revoked_at TEXT
+      ) STRICT;
+      CREATE INDEX feeds_by_household ON feeds(household_id);
+    `,
+  },
 ]

@@ -1,4 +1,5 @@
 import {
+  FeedTooLargeError,
   ForbiddenError,
   InvalidCredentialsError,
   NotFoundError,
@@ -45,6 +46,8 @@ export function toProblem(error: unknown): Problem {
   if (error instanceof InvalidCredentialsError)
     return problem(401, 'invalid-credentials', 'Unauthorized', error.message)
   if (error instanceof NotFoundError) return problem(404, 'not-found', 'Not Found', error.message)
+  if (error instanceof FeedTooLargeError)
+    return problem(413, 'feed-too-large', 'Content Too Large', error.message)
   if (error instanceof ForbiddenError) return problem(403, 'forbidden', 'Forbidden', error.message)
   if (error instanceof RegistrationClosedError)
     return problem(403, 'registration-closed', 'Forbidden', error.message)

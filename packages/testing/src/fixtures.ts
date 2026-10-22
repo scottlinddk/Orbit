@@ -4,6 +4,7 @@ import {
   SequentialSessionTokens,
   InMemoryAccountRepository,
   InMemoryDashboardRepository,
+  InMemoryFeedRepository,
   InMemoryHouseholdRepository,
   InMemoryInvitationRepository,
   InMemorySessionStore,
@@ -12,6 +13,7 @@ import {
 import {
   SqliteAccountRepository,
   SqliteDashboardRepository,
+  SqliteFeedRepository,
   SqliteHouseholdRepository,
   SqliteInvitationRepository,
   SqliteSessionStore,
@@ -19,12 +21,20 @@ import {
   migrate,
   openDatabase,
 } from '@orbit/adapter-persistence-sqlite'
-import { createUseCases, type Actor, type UseCases } from '@orbit/application'
+import {
+  createFeedReader,
+  createUseCases,
+  type Actor,
+  type FeedReader,
+  type UseCases,
+} from '@orbit/application'
 import { UserId, Username, createUser } from '@orbit/domain'
 import type { RepositorySet } from './repository-contracts.ts'
 
 export interface TestSystem {
   useCases: UseCases
+  /** What a display with a feed token can do. */
+  feedReader: FeedReader
   /** Moves time forward for invitations and anything else that expires. */
   clock: ManualClock
   /** Registers a user and returns the actor that user would log in as. */
@@ -32,16 +42,22 @@ export interface TestSystem {
 }
 
 /** The platform wired with the given repositories. */
-export function createSystem(repos: RepositorySet): TestSystem {
+export function createSystem(
+  repos: RepositorySet,
+  options: { maxFeedBytes?: number } = {},
+): TestSystem {
   const clock = new ManualClock()
+  const tokens = new SequentialSessionTokens()
   const useCases = createUseCases({
     ...repos,
-    tokens: new SequentialSessionTokens(),
+    tokens,
     clock,
     ids: new CounterIdGenerator(),
+    ...options,
   })
   return {
     useCases,
+    feedReader: createFeedReader({ ...repos, tokens, ...options }),
     clock,
     async newActor(name) {
       const id = UserId(`user-${name}`)
@@ -64,6 +80,7 @@ export function createInMemoryRepositories(): RepositorySet {
     sessions: new InMemorySessionStore(),
     households: new InMemoryHouseholdRepository(),
     invitations: new InMemoryInvitationRepository(),
+    feeds: new InMemoryFeedRepository(),
     dashboards: new InMemoryDashboardRepository(),
   }
 }
@@ -78,6 +95,7 @@ export function createSqliteRepositories(): RepositorySet {
     sessions: new SqliteSessionStore(db),
     households: new SqliteHouseholdRepository(db),
     invitations: new SqliteInvitationRepository(db),
+    feeds: new SqliteFeedRepository(db),
     dashboards: new SqliteDashboardRepository(db),
   }
 }

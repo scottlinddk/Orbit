@@ -79,8 +79,8 @@ docker compose -f compose.yaml -f deploy/compose.caddy.yaml up -d --build
 
 Caddy gets and renews the certificate by itself. The override sets `ORBIT_PUBLIC_URL` and `ORBIT_TRUST_PROXY` for you, and removes Orbit's own published port, so the only way in is through Caddy. With HTTPS the session cookie becomes `Secure` and `__Host-` prefixed automatically. If you use another proxy, forward to port 3000, set `ORBIT_PUBLIC_URL` to the public https address and `ORBIT_TRUST_PROXY=true`.
 
-The proposed TRMNL feed requires a public HTTPS address because TRMNL's cloud polls it. The Caddy
-override is the documented deployment path for that feature once the feed is available. A LAN-only
+The TRMNL display feed requires a public HTTPS address because TRMNL's cloud polls it. The Caddy
+override is the documented deployment path for that feature, and [the feed guide](trmnl-feed.md) walks through it. A LAN-only
 install cannot use the feed.
 
 ## Adding people

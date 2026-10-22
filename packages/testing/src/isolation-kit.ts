@@ -1,6 +1,12 @@
 import { ForbiddenError, NotFoundError, type Actor } from '@orbit/application'
 import type { HouseholdId } from '@orbit/domain'
-import { DashboardId, InvariantViolation, InvitationId, WidgetPlacementId } from '@orbit/domain'
+import {
+  DashboardId,
+  FeedId,
+  InvariantViolation,
+  InvitationId,
+  WidgetPlacementId,
+} from '@orbit/domain'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { TestSystem } from './fixtures.ts'
 
@@ -22,6 +28,8 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
     let dashboardA: DashboardId
     let widgetA: WidgetPlacementId
     let invitationA: InvitationId
+    let feedA: FeedId
+    let feedTokenA: string
 
     beforeEach(async () => {
       sys = create()
@@ -37,6 +45,13 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
       const withWidget = await uc.addWidget(alice, dashboardA, { type: 'calendar.agenda' })
       widgetA = withWidget.widgets[0]!.id
       invitationA = (await uc.createInvitation(alice, householdA, {})).invitation.id
+      const feed = await uc.createFeed(alice, householdA, {
+        name: 'Kitchen',
+        fields: ['household.name', 'dashboard.name'],
+        dashboardId: dashboardA,
+      })
+      feedA = feed.feed.id
+      feedTokenA = feed.token
     })
 
     /** Every operation, parameterized by who performs it. */
@@ -53,6 +68,10 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
         createInvitation: () => uc().createInvitation(as(), householdA, { role: 'owner' }),
         listInvitations: () => uc().listInvitations(as(), householdA),
         revokeInvitation: () => uc().revokeInvitation(as(), householdA, invitationA),
+        createFeed: () =>
+          uc().createFeed(as(), householdA, { name: 'Intruder', fields: ['household.name'] }),
+        listFeeds: () => uc().listFeeds(as(), householdA),
+        revokeFeed: () => uc().revokeFeed(as(), householdA, feedA),
         createDashboard: () => uc().createDashboard(as(), householdA, { name: 'Intruder' }),
         listDashboards: () => uc().listDashboards(as(), householdA),
         getDashboard: () => uc().getDashboard(as(), dashboardA),
@@ -68,6 +87,7 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
         removeWidgetMissing: () => uc().removeWidget(as(), dashboardA, missingWidget),
         revokeInvitationMissing: () =>
           uc().revokeInvitation(as(), householdA, InvitationId('missing')),
+        revokeFeedMissing: () => uc().revokeFeed(as(), householdA, FeedId('missing')),
       }
     }
 
@@ -75,6 +95,7 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
       household: await sys.useCases.getHousehold(alice, householdA),
       dashboards: await sys.useCases.listDashboards(alice, householdA),
       invitations: await sys.useCases.listInvitations(alice, householdA),
+      feeds: await sys.useCases.listFeeds(alice, householdA),
     })
 
     describe('a user from another household', () => {
@@ -115,6 +136,9 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
         'createInvitation',
         'listInvitations',
         'revokeInvitation',
+        'createFeed',
+        'listFeeds',
+        'revokeFeed',
         'createDashboard',
         'renameDashboard',
         'setDashboardColumns',
@@ -152,6 +176,104 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
           .catch((e) => e)
         expect(foreign).toBeInstanceOf(NotFoundError)
         expect(foreign.message).toBe(missing.message)
+      })
+    })
+
+    describe('feeds', () => {
+      const carolsHousehold = async () => (await sys.useCases.listHouseholds(carol))[0]!.id
+
+      it('cannot be revoked through another household id', async () => {
+        await expect(
+          sys.useCases.revokeFeed(carol, await carolsHousehold(), feedA),
+        ).rejects.toBeInstanceOf(NotFoundError)
+        expect(await sys.useCases.listFeeds(alice, householdA)).toHaveLength(1)
+      })
+
+      it('gives a foreign feed id the same answer as a missing one', async () => {
+        const foreign = await sys.useCases
+          .revokeFeed(carol, await carolsHousehold(), feedA)
+          .catch((e) => e)
+        const missing = await sys.useCases
+          .revokeFeed(carol, await carolsHousehold(), FeedId('missing'))
+          .catch((e) => e)
+        expect(foreign).toBeInstanceOf(NotFoundError)
+        expect(foreign.message).toBe(missing.message)
+      })
+
+      it("cannot publish another household's dashboard", async () => {
+        const foreign = await sys.useCases
+          .createFeed(carol, await carolsHousehold(), {
+            name: 'Spy',
+            fields: ['dashboard.name'],
+            dashboardId: dashboardA,
+          })
+          .catch((e) => e)
+        const missing = await sys.useCases
+          .createFeed(carol, await carolsHousehold(), {
+            name: 'Spy',
+            fields: ['dashboard.name'],
+            dashboardId: DashboardId('nope'),
+          })
+          .catch((e) => e)
+        expect(foreign).toBeInstanceOf(NotFoundError)
+        expect(foreign.message).toBe(missing.message)
+      })
+
+      it('reads only the fields of its own feed', async () => {
+        const content = await sys.feedReader.read(feedTokenA)
+        expect(content).toEqual({ household: { name: 'A' }, dashboard: { name: 'Family' } })
+      })
+
+      it("never lets another household's token read household A", async () => {
+        const carols = await sys.useCases.createFeed(carol, await carolsHousehold(), {
+          name: 'Hall',
+          fields: ['household.name'],
+        })
+        expect(await sys.feedReader.read(carols.token)).toEqual({ household: { name: 'B' } })
+      })
+
+      it('answers every bad token the same way', async () => {
+        await sys.useCases.revokeFeed(alice, householdA, feedA)
+        const attempts = await Promise.all(
+          [feedTokenA, 'unknown', '', 'x'.repeat(300)].map((t) =>
+            sys.feedReader.read(t).catch((e) => e),
+          ),
+        )
+        for (const e of attempts) {
+          expect(e).toBeInstanceOf(NotFoundError)
+          expect(e.message).toBe(attempts[0].message)
+        }
+      })
+
+      it('stops working the moment it is revoked, and only that feed', async () => {
+        const second = await sys.useCases.createFeed(alice, householdA, {
+          name: 'Hall',
+          fields: ['household.name'],
+        })
+        await sys.useCases.revokeFeed(alice, householdA, feedA)
+        await expect(sys.feedReader.read(feedTokenA)).rejects.toBeInstanceOf(NotFoundError)
+        await expect(sys.feedReader.read(second.token)).resolves.toBeDefined()
+        expect(await sys.useCases.listFeeds(alice, householdA)).toHaveLength(1)
+      })
+
+      it('never publishes widget configuration', async () => {
+        await sys.useCases.configureWidget(alice, dashboardA, widgetA, { secretRef: 'abc' })
+        const wide = await sys.useCases.createFeed(alice, householdA, {
+          name: 'Wide',
+          fields: ['dashboard.widgets'],
+          dashboardId: dashboardA,
+        })
+        const content = await sys.feedReader.read(wide.token)
+        expect(JSON.stringify(content)).not.toContain('secretRef')
+        expect(content).toEqual({ dashboard: { widgets: [{ type: 'calendar.agenda', span: 1 }] } })
+      })
+
+      it('shows an empty dashboard instead of failing when it was deleted', async () => {
+        await sys.useCases.deleteDashboard(alice, dashboardA)
+        expect(await sys.feedReader.read(feedTokenA)).toEqual({
+          household: { name: 'A' },
+          dashboard: null,
+        })
       })
     })
 

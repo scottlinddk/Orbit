@@ -30,7 +30,7 @@ export function registerSecurity(
     reply.header('referrer-policy', 'no-referrer')
     reply.header('x-request-id', request.id)
     if (isApi || !options.servesWebApp) {
-      reply.header('cache-control', 'no-store')
+      if (!reply.hasHeader('cache-control')) reply.header('cache-control', 'no-store')
       reply.header('content-security-policy', API_CSP)
       return
     }

@@ -17,7 +17,9 @@ import { registerWebApp } from './http/web.ts'
 import { createRequireActor } from './http/session.ts'
 import { toProblem } from './problem.ts'
 import { authRoutes } from './routes/auth.ts'
+import { defaultFeedRateLimit, type FeedRateLimitOptions } from './http/feed-rate-limit.ts'
 import { dashboardRoutes } from './routes/dashboards.ts'
+import { feedRoutes } from './routes/feed.ts'
 import { errors } from './routes/schemas.ts'
 import { householdRoutes } from './routes/households.ts'
 import type { Services } from './services.ts'
@@ -32,6 +34,8 @@ export interface AppOptions {
   authRateLimit?: { max: number; timeWindow: string }
   /** Limit for everything else, per client IP. */
   generalRateLimit?: { max: number; timeWindow: string }
+  /** Limits for the public display feed. The clock is injectable for tests. */
+  feedRateLimit?: Partial<FeedRateLimitOptions>
 }
 
 export const API_PREFIX = '/api/v1'
@@ -77,7 +81,10 @@ export async function buildApp(options: AppOptions) {
           'Authentication is a session cookie set by POST /auth/login (named orbit_session, or __Host-orbit_session over HTTPS). Errors use RFC 9457 problem details. A resource in a household you do not belong to is reported as 404, never 403.',
       },
       components: {
-        securitySchemes: { session: { type: 'apiKey', in: 'cookie', name: 'orbit_session' } },
+        securitySchemes: {
+          session: { type: 'apiKey', in: 'cookie', name: 'orbit_session' },
+          feedToken: { type: 'http', scheme: 'bearer' },
+        },
       },
     },
     transform: jsonSchemaTransform,
@@ -123,6 +130,12 @@ export async function buildApp(options: AppOptions) {
           config,
           requireActor: requireActor as never,
           rateLimit: authRateLimitOptions,
+        }),
+      )
+      await api.register(
+        feedRoutes({
+          services,
+          rateLimit: { ...defaultFeedRateLimit, ...options.feedRateLimit },
         }),
       )
       await api.register(async (protectedScope) => {

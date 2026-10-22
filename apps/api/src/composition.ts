@@ -3,6 +3,7 @@ import { Argon2PasswordHasher, RandomSessionTokens } from '@orbit/adapter-identi
 import {
   SqliteAccountRepository,
   SqliteDashboardRepository,
+  SqliteFeedRepository,
   SqliteHouseholdRepository,
   SqliteInvitationRepository,
   SqliteSessionStore,
@@ -26,6 +27,7 @@ export function createSqliteServices(
       sessions: new SqliteSessionStore(db),
       households: new SqliteHouseholdRepository(db),
       invitations: new SqliteInvitationRepository(db),
+      feeds: new SqliteFeedRepository(db),
       dashboards: new SqliteDashboardRepository(db),
     },
     hasher: new Argon2PasswordHasher(),
