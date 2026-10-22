@@ -168,7 +168,14 @@ const forbidden = [
     comment: 'Unreferenced source files are probably dead code.',
     from: {
       orphan: true,
-      pathNot: ['/index\\.ts$', '/main\\.tsx?$', '\\.d\\.ts$', '\\.config\\.ts$'],
+      // sw.js is read by the web build (vite.config.ts) and served as /sw.js, never imported.
+      pathNot: [
+        '/index\\.ts$',
+        '/main\\.tsx?$',
+        '\\.d\\.ts$',
+        '\\.config\\.ts$',
+        'apps/web/src/pwa/sw\\.js$',
+      ],
     },
     to: {},
   },

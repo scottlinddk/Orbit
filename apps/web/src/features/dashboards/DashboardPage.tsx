@@ -93,6 +93,8 @@ export function DashboardPage() {
     <>
       <p className={styles.back}>
         <Link to={`/h/${data.householdId}`}>← Household</Link>
+        {' · '}
+        <Link to={`/kiosk/${data.id}`}>Wall display</Link>
       </p>
       <PageHeader
         eyebrow={`${greeting}. Take control of your household with real-time insights`}

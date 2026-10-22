@@ -70,6 +70,15 @@ describe('applyTheme', () => {
     expect(root.dataset.scheme).toBe('dark')
   })
 
+  it('keeps the browser chrome color in step with the page background', () => {
+    document.head.insertAdjacentHTML('beforeend', '<meta name="theme-color" content="#fff">')
+    applyTheme(findPreset('graphite')!.theme)
+    expect(document.querySelector('meta[name="theme-color"]')?.getAttribute('content')).toBe(
+      '#0b0b0c',
+    )
+    document.querySelector('meta[name="theme-color"]')?.remove()
+  })
+
   it('replaces the previous theme completely', () => {
     applyTheme(findPreset('graphite')!.theme)
     applyTheme(ember)

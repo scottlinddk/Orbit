@@ -1,5 +1,14 @@
 import type { ComponentType } from 'react'
 
+/**
+ * The version of the widget contract in this file: `WidgetDefinition`, `WidgetProps`,
+ * `WidgetOption` and `resolveOptions`. It is a whole number that goes up only when a change
+ * would break an existing widget (a removed or renamed field, a changed meaning). Adding an
+ * optional field or a new option kind does not change it. A module can compare it with the
+ * version it was written against and refuse to load on a mismatch.
+ */
+export const WIDGET_API_VERSION = 1
+
 export interface WidgetProps {
   /** Saved settings for this placement. Plain JSON, validated and size-limited by the API. */
   readonly config: Readonly<Record<string, unknown>>

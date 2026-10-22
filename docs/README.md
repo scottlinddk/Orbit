@@ -26,11 +26,14 @@
 
 - [Deploying with Docker](operations/deployment.md)
 - [Backup and restore](operations/backup-and-restore.md)
+- [Wall display and installing the app](operations/kiosk.md)
 - Hosting guides
   - [Home server with Tailscale](operations/hosting/home-server.md)
   - [HTTPS for a home network or a tailnet](operations/hosting/https-lan-and-tailscale.md)
   - [Public VPS with Caddy](operations/hosting/vps.md)
 - [Naming](product/naming.md)
+- [HTTP API](api/README.md)
+- [Extending Orbit](extending/README.md)
 - [Planets: install, permissions and authoring](operations/planets.md)
 
 Open decisions are tracked in [open questions](architecture/open-questions.md).

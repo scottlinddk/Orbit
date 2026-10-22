@@ -1,0 +1,66 @@
+.kiosk {
+  min-height: 100dvh;
+  box-sizing: border-box;
+  padding: var(--space-6);
+  background: var(--color-bg);
+  color: var(--color-text);
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: var(--space-4);
+}
+
+/* After a few quiet seconds nothing on the wall should look like a computer. */
+.idle {
+  cursor: none;
+}
+
+.top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 2rem;
+  line-height: 1.1;
+}
+
+.exit {
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  transition: opacity 200ms;
+}
+
+.idle .exit:not(:focus-visible) {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.empty {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 1.25rem;
+}
+
+.status {
+  position: fixed;
+  inset: auto var(--space-4) var(--space-3) auto;
+  display: grid;
+  gap: var(--space-1);
+  justify-items: end;
+  max-width: 28rem;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+
+.status p {
+  margin: 0;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+}

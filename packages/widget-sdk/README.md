@@ -32,3 +32,17 @@ const { period, rows } = resolveOptions(options, config)
 Option keys are stored in dashboards, so treat them like the widget `type`: never rename them.
 
 `tone: 'accent'` asks for the theme's highlight card (a gradient by default). Draw with `currentColor` and translucent tints so it works in every theme. Style with the CSS variables from `apps/web/src/styles/tokens.css` (`--color-surface-2`, `--color-text-muted`, `--radius-sm`, ...), never raw colors. The card is a size container named `widget`, so `@container widget (max-width: 30rem)` adapts a widget to its width.
+
+## The contract and its version
+
+`WIDGET_API_VERSION` (currently `1`) is the version of everything exported here. It is a whole number that goes up only for a breaking change. Adding an optional field to `WidgetDefinition`, or a new option `kind`, does not change it. A module may compare it with the version it was written against and refuse to load on a mismatch.
+
+**Stable** (will not break without a version bump): `defineWidget`, the fields of `WidgetDefinition` (`type`, `title`, `description`, `defaultSpan`, `status`, `tone`, `options`, `Component`), `WidgetProps` (`config`, `span`), the four option kinds (`select`, `number`, `toggle`, `text`) and `resolveOptions`.
+
+**Permanent once saved**: a widget's `type` and each option's `key`. Dashboards store them.
+
+**Not part of the contract**: the CSS variable names (they follow the theme and can gain or lose entries), the error boundary around a widget, and how the editor lays out the options form.
+
+## Publishing
+
+The package is `private` and nothing is published. `package.json` carries the metadata a published package needs (repository, license, `files`, `sideEffects: false`), but its entry point is TypeScript source (`src/index.ts`), which consumers outside this workspace could not import without a build. Publishing needs a build step that emits JavaScript and type declarations, and a decision on a package scope. See [extending Orbit](../../docs/extending/README.md) for what is and is not offered to third parties.
