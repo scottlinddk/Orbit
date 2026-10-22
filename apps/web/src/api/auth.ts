@@ -1,7 +1,15 @@
-import { sessionUserSchema, setupStatusSchema, type SessionUser } from '@orbit/contracts'
+import {
+  authProvidersSchema,
+  oidcStartResponseSchema,
+  sessionUserSchema,
+  setupStatusSchema,
+  type AuthProviders,
+  type SessionUser,
+} from '@orbit/contracts'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ApiError, request } from './client.ts'
 import { keys } from './keys.ts'
+import { goTo } from './navigate.ts'
 
 /** The signed-in user, or null when signed out. Signed out is a normal state, not an error. */
 export function useMe() {
@@ -47,6 +55,50 @@ export function useSetupStatus(enabled: boolean) {
     enabled,
     retry: false,
     staleTime: 0,
+  })
+}
+
+const PASSWORDS_ONLY: AuthProviders = { local: true, oidc: null }
+
+/**
+ * How people can sign in here. If the call fails the page falls back to the password form, which
+ * is what an instance without single sign-on offers.
+ */
+export function useAuthProviders(): AuthProviders {
+  const query = useQuery({
+    queryKey: keys.providers,
+    queryFn: () => request('GET', '/auth/providers', { schema: authProvidersSchema }),
+    retry: false,
+    staleTime: 60_000,
+  })
+  return query.data ?? PASSWORDS_ONLY
+}
+
+/** Only follow an address the server gave us if it is a web address. */
+export function isWebAddress(value: string): boolean {
+  try {
+    return ['http:', 'https:'].includes(new URL(value).protocol)
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Asks the server to start a sign-in at the identity provider, then sends the browser there. The
+ * invitation token and setup code travel in the request body, never in a URL.
+ */
+export function useStartOidc() {
+  return useMutation({
+    mutationFn: async (input: { inviteToken?: string; setupCode?: string; link?: boolean }) => {
+      const { authorizationUrl } = await request('POST', '/auth/oidc/start', {
+        body: input,
+        schema: oidcStartResponseSchema,
+      })
+      if (!isWebAddress(authorizationUrl)) {
+        throw new ApiError(0, 'The server sent an address this app will not open.')
+      }
+      goTo(authorizationUrl)
+    },
   })
 }
 

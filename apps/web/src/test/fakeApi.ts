@@ -15,7 +15,13 @@ type Handler = Reply | ((call: RecordedCall) => Reply | Promise<Reply>)
  * its real network code. Any request without a handler fails the test, so a UI that starts
  * calling an endpoint nobody stubbed cannot pass silently.
  */
-export function stubApi(handlers: Record<string, Handler>) {
+export function stubApi(given: Record<string, Handler>) {
+  // Every page that can show a login form asks how people may sign in. Tests of single sign-on
+  // override this answer.
+  const handlers: Record<string, Handler> = {
+    'GET /api/v1/auth/providers': { body: { local: true, oidc: null } },
+    ...given,
+  }
   const calls: RecordedCall[] = []
   const unhandled: string[] = []
 

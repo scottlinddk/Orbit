@@ -3,6 +3,7 @@ import {
   describeAccountContracts,
   describeCalendarSourceContracts,
   describeFeedContracts,
+  describeIdentityContracts,
   describeInvitationContracts,
   describeListContracts,
   describeRepositoryContracts,
@@ -17,3 +18,4 @@ describeInvitationContracts('in-memory', create)
 describeFeedContracts('in-memory', create)
 describeListContracts('in-memory', create)
 describeCalendarSourceContracts('in-memory', create)
+describeIdentityContracts('in-memory', create)

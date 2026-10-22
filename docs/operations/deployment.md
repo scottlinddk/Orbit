@@ -47,16 +47,18 @@ Compose binds the port to `127.0.0.1` only. To reach Orbit from other devices, p
 
 Copy `.env.example` to `.env` next to `compose.yaml` and change what you need. Every variable is documented in [`apps/api/README.md`](../../apps/api/README.md). The ones that matter for Docker:
 
-| Variable                           | Why                                                                                                                                                 |
-| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ORBIT_PUBLIC_URL`                 | The address people type in the browser. Must match exactly, because the API rejects writes from any other origin. Use `https://...` behind a proxy. |
-| `ORBIT_HOST_PORT`                  | The port on this machine. Default 3000. The default `ORBIT_PUBLIC_URL` (`http://localhost:<port>`) follows it.                                      |
-| `ORBIT_TRUST_PROXY`                | `true` only behind a reverse proxy you control, so rate limits see real client addresses.                                                           |
-| `ORBIT_REGISTRATION`               | `first-user-only` (default) or `open`.                                                                                                              |
-| `ORBIT_IMAGE_TAG`                  | Published image tag to pull. Defaults to `latest`.                                                                                                  |
-| `ORBIT_SECRET_KEY`                 | Master key (at least 32 characters) for stored secrets such as Planet API keys. See [Planets](planets.md).                                          |
-| `ORBIT_EGRESS_ALLOW_PRIVATE_HOSTS` | Host names that outbound requests may reach on your local network. Per host. Empty by default.                                                      |
-| `ORBIT_TIME_ZONE`                  | The time zone that decides what "today" means in the TRMNL feed, for example `Europe/Copenhagen`. Default `UTC`.                                    |
+| Variable                                            | Why                                                                                                                                                 |
+| --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ORBIT_PUBLIC_URL`                                  | The address people type in the browser. Must match exactly, because the API rejects writes from any other origin. Use `https://...` behind a proxy. |
+| `ORBIT_HOST_PORT`                                   | The port on this machine. Default 3000. The default `ORBIT_PUBLIC_URL` (`http://localhost:<port>`) follows it.                                      |
+| `ORBIT_TRUST_PROXY`                                 | `true` only behind a reverse proxy you control, so rate limits see real client addresses.                                                           |
+| `ORBIT_REGISTRATION`                                | `first-user-only` (default) or `open`.                                                                                                              |
+| `ORBIT_IMAGE_TAG`                                   | Published image tag to pull. Defaults to `latest`.                                                                                                  |
+| `ORBIT_SECRET_KEY`                                  | Master key (at least 32 characters) for stored secrets such as Planet API keys. See [Planets](planets.md).                                          |
+| `ORBIT_OIDC_ISSUER`, `_CLIENT_ID`, `_CLIENT_SECRET` | Sign in with an identity provider. All three or none. See [OpenID Connect](oidc.md).                                                                |
+| `ORBIT_LOCAL_LOGIN`                                 | `enabled` (default) or `disabled`. Disabled turns off password sign-in and sign-up and needs OIDC.                                                  |
+| `ORBIT_EGRESS_ALLOW_PRIVATE_HOSTS`                  | Host names that outbound requests may reach on your local network. Per host. Empty by default.                                                      |
+| `ORBIT_TIME_ZONE`                                   | The time zone that decides what "today" means in the TRMNL feed, for example `Europe/Copenhagen`. Default `UTC`.                                    |
 
 Check settings and the running instance from inside the container:
 

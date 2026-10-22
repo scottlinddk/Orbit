@@ -3,6 +3,7 @@ import {
   describeAccountContracts,
   describeCalendarSourceContracts,
   describeFeedContracts,
+  describeIdentityContracts,
   describeInvitationContracts,
   describeListContracts,
   describeRepositoryContracts,
@@ -17,3 +18,4 @@ describeInvitationContracts('sqlite', create)
 describeFeedContracts('sqlite', create)
 describeListContracts('sqlite', create)
 describeCalendarSourceContracts('sqlite', create)
+describeIdentityContracts('sqlite', create)

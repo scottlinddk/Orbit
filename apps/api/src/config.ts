@@ -35,10 +35,31 @@ const environment = z.object({
     .string()
     .refine(isTimeZone, 'must be an IANA time zone such as Europe/Copenhagen')
     .default('UTC'),
+  /** OpenID Connect sign-in (ADR 0018). Issuer, client id and client secret go together. */
+  ORBIT_OIDC_ISSUER: z.url({ protocol: /^https?$/ }).optional(),
+  ORBIT_OIDC_CLIENT_ID: z.string().min(1).max(256).optional(),
+  ORBIT_OIDC_CLIENT_SECRET: z.string().min(1).max(1024).optional(),
+  ORBIT_OIDC_SCOPES: z.string().min(1).max(256).default('openid profile'),
+  ORBIT_OIDC_BUTTON_LABEL: z.string().min(1).max(40).default('Single sign-on'),
+  /** `disabled` turns password sign-in and sign-up off. Needs OIDC. The orbit command line still works. */
+  ORBIT_LOCAL_LOGIN: z.enum(['enabled', 'disabled']).default('enabled'),
   ORBIT_LOG_LEVEL: z
     .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
     .default('info'),
 })
+
+export interface OidcConfig {
+  /** Exactly as configured. It must equal the `iss` of the ID tokens. */
+  issuer: string
+  clientId: string
+  clientSecret: string
+  scopes: string[]
+  label: string
+  /** The address to register at the provider. */
+  redirectUri: string
+  /** Endpoints may use http: the issuer is http and its host is on the private-host list. */
+  allowHttp: boolean
+}
 
 export interface Config {
   databasePath: string
@@ -62,6 +83,10 @@ export interface Config {
   egressAllowPrivateHosts: ReadonlySet<string>
   /** IANA time zone for "today" in the display feed. */
   timeZone: string
+  /** Undefined when no provider is configured. */
+  oidc: OidcConfig | undefined
+  /** False when ORBIT_LOCAL_LOGIN=disabled. */
+  localLogin: boolean
   logLevel: z.infer<typeof environment>['ORBIT_LOG_LEVEL']
 }
 
@@ -79,6 +104,12 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     ORBIT_SETUP_CODE: env.ORBIT_SETUP_CODE || undefined,
     ORBIT_SECRET_KEY: env.ORBIT_SECRET_KEY || undefined,
     ORBIT_PLANETS_DIR: env.ORBIT_PLANETS_DIR || undefined,
+    ORBIT_OIDC_ISSUER: env.ORBIT_OIDC_ISSUER || undefined,
+    ORBIT_OIDC_CLIENT_ID: env.ORBIT_OIDC_CLIENT_ID || undefined,
+    ORBIT_OIDC_CLIENT_SECRET: env.ORBIT_OIDC_CLIENT_SECRET || undefined,
+    ORBIT_OIDC_SCOPES: env.ORBIT_OIDC_SCOPES || undefined,
+    ORBIT_OIDC_BUTTON_LABEL: env.ORBIT_OIDC_BUTTON_LABEL || undefined,
+    ORBIT_LOCAL_LOGIN: env.ORBIT_LOCAL_LOGIN || undefined,
   })
   if (!parsed.success) {
     const lines = parsed.error.issues.map((i) => `  ${i.path.join('.')}: ${i.message}`)
@@ -86,6 +117,18 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
   }
   const e = parsed.data
   const url = new URL(e.ORBIT_PUBLIC_URL)
+  const privateHosts = new Set(
+    (e.ORBIT_EGRESS_ALLOW_PRIVATE_HOSTS ?? '')
+      .split(',')
+      .map((h) => h.trim().toLowerCase())
+      .filter((h) => h !== ''),
+  )
+  const oidc = oidcConfig(e, url, privateHosts)
+  if (e.ORBIT_LOCAL_LOGIN === 'disabled' && !oidc) {
+    throw new ConfigError(
+      'Invalid configuration:\n  ORBIT_LOCAL_LOGIN: cannot be "disabled" without ORBIT_OIDC_ISSUER, or nobody could sign in',
+    )
+  }
   return {
     databasePath: e.ORBIT_DATABASE_PATH,
     host: e.ORBIT_HOST,
@@ -101,13 +144,43 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     backupKeep: e.ORBIT_BACKUP_KEEP,
     secretKey: e.ORBIT_SECRET_KEY,
     planetsDir: e.ORBIT_PLANETS_DIR ?? join(dirname(e.ORBIT_DATABASE_PATH), 'planets'),
-    egressAllowPrivateHosts: new Set(
-      (e.ORBIT_EGRESS_ALLOW_PRIVATE_HOSTS ?? '')
-        .split(',')
-        .map((h) => h.trim().toLowerCase())
-        .filter((h) => h !== ''),
-    ),
     timeZone: e.ORBIT_TIME_ZONE,
+    egressAllowPrivateHosts: privateHosts,
+    oidc,
+    localLogin: e.ORBIT_LOCAL_LOGIN === 'enabled',
     logLevel: e.ORBIT_LOG_LEVEL,
+  }
+}
+
+function oidcConfig(
+  e: z.infer<typeof environment>,
+  publicUrl: URL,
+  privateHosts: ReadonlySet<string>,
+): OidcConfig | undefined {
+  const given = [e.ORBIT_OIDC_ISSUER, e.ORBIT_OIDC_CLIENT_ID, e.ORBIT_OIDC_CLIENT_SECRET]
+  if (given.every((v) => v === undefined)) return undefined
+  if (given.some((v) => v === undefined)) {
+    throw new ConfigError(
+      'Invalid configuration:\n  ORBIT_OIDC_ISSUER, ORBIT_OIDC_CLIENT_ID and ORBIT_OIDC_CLIENT_SECRET must all be set, or none of them',
+    )
+  }
+  const issuer = e.ORBIT_OIDC_ISSUER!
+  const issuerUrl = new URL(issuer)
+  const allowHttp = issuerUrl.protocol === 'http:'
+  if (allowHttp && !privateHosts.has(issuerUrl.hostname.toLowerCase())) {
+    throw new ConfigError(
+      `Invalid configuration:\n  ORBIT_OIDC_ISSUER: must be https, or http with its host listed in ORBIT_EGRESS_ALLOW_PRIVATE_HOSTS (${issuerUrl.hostname})`,
+    )
+  }
+  // `openid` is what makes it OpenID Connect at all, so it is always asked for.
+  const scopes = [...new Set(['openid', ...e.ORBIT_OIDC_SCOPES.split(/\s+/).filter((v) => v)])]
+  return {
+    issuer,
+    clientId: e.ORBIT_OIDC_CLIENT_ID!,
+    clientSecret: e.ORBIT_OIDC_CLIENT_SECRET!,
+    scopes,
+    label: e.ORBIT_OIDC_BUTTON_LABEL,
+    redirectUri: `${publicUrl.origin}/api/v1/auth/oidc/callback`,
+    allowHttp,
   }
 }

@@ -11,6 +11,7 @@ export const errors = {
   413: problemSchema,
   422: problemSchema,
   429: problemSchema,
+  502: problemSchema,
 } as const
 
 export const noContent = z.null().describe('No content')

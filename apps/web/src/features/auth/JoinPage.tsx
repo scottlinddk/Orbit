@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Link, Navigate, useLocation } from 'react-router'
-import { useLogin, useMe } from '../../api/auth.ts'
+import { useAuthProviders, useLogin, useMe, useStartOidc } from '../../api/auth.ts'
 import { useAcceptInvitation, useInvitationPreview } from '../../api/invitations.ts'
 import { Alert } from '../../components/Alert.tsx'
 import { Button } from '../../components/Button.tsx'
@@ -26,6 +26,8 @@ export function JoinPage() {
   const preview = useInvitationPreview(token)
   const accept = useAcceptInvitation()
   const login = useLogin()
+  const providers = useAuthProviders()
+  const startOidc = useStartOidc()
   const [done, setDone] = useState(false)
 
   if (done && me.data) return <Navigate to="/" replace />
@@ -53,7 +55,7 @@ export function JoinPage() {
     }
   }
 
-  const error = accept.error ?? login.error
+  const error = accept.error ?? login.error ?? startOidc.error
   let body
   let offersForm = false
   if (me.data) {
@@ -89,32 +91,45 @@ export function JoinPage() {
           you will sign in.
         </p>
         {error ? <Alert>{error.message}</Alert> : null}
-        <TextField
-          label="Username"
-          name="username"
-          autoComplete="username"
-          required
-          autoCapitalize="none"
-          spellCheck={false}
-        />
-        <TextField
-          label="Display name (optional)"
-          name="displayName"
-          autoComplete="name"
-          maxLength={80}
-        />
-        <TextField
-          label="Password"
-          name="password"
-          type="password"
-          autoComplete="new-password"
-          required
-          minLength={12}
-          hint="At least 12 characters. A few random words work well."
-        />
-        <Button type="submit" variant="primary" busy={accept.isPending || login.isPending}>
-          Create account and join
-        </Button>
+        {providers.local ? (
+          <>
+            <TextField
+              label="Username"
+              name="username"
+              autoComplete="username"
+              required
+              autoCapitalize="none"
+              spellCheck={false}
+            />
+            <TextField
+              label="Display name (optional)"
+              name="displayName"
+              autoComplete="name"
+              maxLength={80}
+            />
+            <TextField
+              label="Password"
+              name="password"
+              type="password"
+              autoComplete="new-password"
+              required
+              minLength={12}
+              hint="At least 12 characters. A few random words work well."
+            />
+            <Button type="submit" variant="primary" busy={accept.isPending || login.isPending}>
+              Create account and join
+            </Button>
+          </>
+        ) : null}
+        {providers.oidc ? (
+          <Button
+            variant={providers.local ? 'secondary' : 'primary'}
+            busy={startOidc.isPending}
+            onClick={() => startOidc.mutate({ inviteToken: token })}
+          >
+            Join with {providers.oidc.label}
+          </Button>
+        ) : null}
       </>
     )
   }

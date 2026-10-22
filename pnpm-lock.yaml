@@ -56,6 +56,9 @@ importers:
       '@orbit/adapter-jobs-sqlite':
         specifier: workspace:*
         version: link:../../packages/adapters/jobs-sqlite
+      '@orbit/adapter-oidc':
+        specifier: workspace:*
+        version: link:../../packages/adapters/oidc
       '@orbit/adapter-persistence-sqlite':
         specifier: workspace:*
         version: link:../../packages/adapters/persistence-sqlite
@@ -295,6 +298,15 @@ importers:
       '@orbit/domain':
         specifier: workspace:*
         version: link:../../domain
+
+  packages/adapters/oidc:
+    dependencies:
+      '@orbit/application':
+        specifier: workspace:*
+        version: link:../../application
+      jose:
+        specifier: 6.2.12
+        version: 6.2.12
 
   packages/adapters/persistence-sqlite:
     dependencies:
@@ -1651,6 +1663,9 @@ packages:
 
   isexe@2.0.0:
     resolution: {integrity: sha512-RHxMLp9lnKHGHRng9QFhRCMbYAcVpn69smSGcq3f36xjgVVWThj4qqLbTLlq7Ssj8B+fIQ1EuCEGI2lKsyQeIw==}
+
+  jose@6.2.12:
+    resolution: {integrity: sha512-9NiFmJEex0sy2Dk58j2UGBSHgUs2ypF9eZSu4L6vjOX3Dp96Sw1F3uL+H+D1sx02jZZdzUT0HgvCy59CuvXcWw==}
 
   js-tokens@4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
@@ -3471,6 +3486,8 @@ snapshots:
   is-potential-custom-element-name@1.0.1: {}
 
   isexe@2.0.0: {}
+
+  jose@6.2.12: {}
 
   js-tokens@4.0.0: {}
 

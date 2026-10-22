@@ -10,6 +10,7 @@ import {
   type Clock,
   type FeedReader,
   type IdGenerator,
+  type OidcProvider,
   type PasswordHasher,
   type Repositories,
   type RegistrationPolicy,
@@ -26,6 +27,8 @@ export interface Services {
   calendar: CalendarService
   /** Present when Planets are wired. Without it the Planet routes answer empty or 404. */
   planets?: PlanetRuntime | undefined
+  /** Present when ORBIT_OIDC_* is configured. */
+  oidc?: OidcProvider | undefined
 }
 
 export interface ServiceParts {
@@ -41,11 +44,14 @@ export interface ServiceParts {
   calendar: { secrets: SecretStore; reader: CalendarFeedReader; ttlMs?: number }
   /** IANA zone that decides what "today" means in the display feed. Defaults to UTC. */
   timeZone?: string | undefined
+  oidc?: OidcProvider | undefined
+  /** False when ORBIT_LOCAL_LOGIN=disabled. */
+  localLoginEnabled?: boolean | undefined
 }
 
 /** Wires the application layer to concrete adapters. The only place that does so. */
 export function assembleServices(parts: ServiceParts): Services {
-  const { repos, hasher, tokens, clock, ids, registrationPolicy, setupGate, planets } = parts
+  const { repos, hasher, tokens, clock, ids, registrationPolicy, setupGate, planets, oidc } = parts
   const calendar = createCalendarService({
     sources: repos.calendarSources,
     households: repos.households,
@@ -85,10 +91,13 @@ export function assembleServices(parts: ServiceParts): Services {
       ids,
       invitations: repos.invitations,
       households: repos.households,
+      identities: repos.identities,
+      localLoginEnabled: parts.localLoginEnabled,
       registrationPolicy,
       setupGate,
     }),
     calendar,
     planets,
+    oidc,
   }
 }

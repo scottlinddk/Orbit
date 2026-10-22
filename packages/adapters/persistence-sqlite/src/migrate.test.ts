@@ -21,6 +21,7 @@ describe('migrate', () => {
       'credentials',
       'dashboard_widgets',
       'dashboards',
+      'external_identities',
       'feeds',
       'household_members',
       'households',

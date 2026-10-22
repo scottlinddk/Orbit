@@ -11,6 +11,7 @@ import {
   type EgressFetcher,
   type EgressRequest,
   type EgressResponse,
+  type OidcProvider,
   type SetupGate,
   type UseCases,
 } from '@orbit/application'
@@ -61,6 +62,7 @@ export interface TestEnvOptions {
   planets?: PlanetRuntime
   /** `missing` behaves like a server without ORBIT_SECRET_KEY. */
   calendarSecrets?: 'working' | 'missing'
+  oidc?: OidcProvider
 }
 
 /** The real HTTP app wired with fast, deterministic parts. Registration is open by default. */
@@ -85,6 +87,8 @@ export async function createTestEnv(options: TestEnvOptions = {}): Promise<TestE
       reader: createIcsFeedReader(ics),
     },
     timeZone: config.timeZone,
+    oidc: options.oidc,
+    localLoginEnabled: config.localLogin,
   })
   const app = await buildApp({
     services,

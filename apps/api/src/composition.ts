@@ -4,6 +4,7 @@ import {
   SqliteAccountRepository,
   SqliteCalendarSourceRepository,
   SqliteDashboardRepository,
+  SqliteExternalIdentityRepository,
   SqliteFeedRepository,
   SqliteHouseholdRepository,
   SqliteInvitationRepository,
@@ -12,7 +13,7 @@ import {
   SqliteUserRepository,
   type Database,
 } from '@orbit/adapter-persistence-sqlite'
-import type { SetupGate } from '@orbit/application'
+import type { OidcProvider, SetupGate } from '@orbit/application'
 import type { PlanetRuntime } from '@orbit/module-planets/server'
 import { createCalendarWiring } from './calendar.ts'
 import type { Config } from './config.ts'
@@ -22,9 +23,10 @@ import { assembleServices, type Services } from './services.ts'
 export function createSqliteServices(
   db: Database,
   config: Pick<Config, 'registration'> &
-    Partial<Pick<Config, 'secretKey' | 'egressAllowPrivateHosts' | 'timeZone'>>,
+    Partial<Pick<Config, 'secretKey' | 'egressAllowPrivateHosts' | 'timeZone' | 'localLogin'>>,
   setupGate?: SetupGate,
   planets?: PlanetRuntime,
+  oidc?: OidcProvider,
 ): Services {
   return assembleServices({
     repos: {
@@ -33,6 +35,7 @@ export function createSqliteServices(
       sessions: new SqliteSessionStore(db),
       households: new SqliteHouseholdRepository(db),
       invitations: new SqliteInvitationRepository(db),
+      identities: new SqliteExternalIdentityRepository(db),
       feeds: new SqliteFeedRepository(db),
       lists: new SqliteListRepository(db),
       calendarSources: new SqliteCalendarSourceRepository(db),
@@ -47,5 +50,7 @@ export function createSqliteServices(
     planets,
     calendar: createCalendarWiring(db, config),
     timeZone: config.timeZone,
+    oidc,
+    localLoginEnabled: config.localLogin ?? true,
   })
 }
