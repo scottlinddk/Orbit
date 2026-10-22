@@ -17,13 +17,18 @@
   - [0012 Docker deployment](architecture/adr/0012-docker-deployment.md)
   - [0014 Hosting flavors, and why serverless is out of scope](architecture/adr/0014-hosting-flavors-and-serverless.md)
   - [0015 Household invitations](architecture/adr/0015-household-invitations.md)
-  - [0016 TRMNL display feed (proposed)](architecture/adr/0016-trmnl-display-feed.md)
-  - [0017 Planets: declarative, permission-scoped plugins (proposed)](architecture/adr/0017-planets-declarative-plugins.md)
+  - [0016 TRMNL display feed](architecture/adr/0016-trmnl-display-feed.md)
+  - [0017 Planets: declarative, permission-scoped plugins](architecture/adr/0017-planets-declarative-plugins.md)
 
 - [Phase 0 architecture check](architecture/phase-0-architecture-check.md)
-- [Security model for the TRMNL feed and Planets (draft)](architecture/security-model.md)
+- [Security model for the TRMNL feed and Planets ](architecture/security-model.md)
 
 - [Deploying with Docker](operations/deployment.md)
 - [Backup and restore](operations/backup-and-restore.md)
+- Hosting guides
+  - [Home server with Tailscale](operations/hosting/home-server.md)
+  - [HTTPS for a home network or a tailnet](operations/hosting/https-lan-and-tailscale.md)
+  - [Public VPS with Caddy](operations/hosting/vps.md)
+- [Naming](product/naming.md)
 
 Open decisions are tracked in [open questions](architecture/open-questions.md).
