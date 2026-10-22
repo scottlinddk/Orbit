@@ -16,6 +16,10 @@ export const keys = {
     ['households', householdId, 'calendar', 'sources'] as const,
   calendarEvents: (householdId: string) =>
     ['households', householdId, 'calendar', 'events'] as const,
+  notificationEndpoints: (householdId: string) =>
+    ['households', householdId, 'notifications', 'endpoints'] as const,
+  notificationDeliveries: (householdId: string, endpointId: string) =>
+    ['households', householdId, 'notifications', 'endpoints', endpointId, 'deliveries'] as const,
   planetWidgets: ['planets', 'widgets'] as const,
   planetRender: (dashboardId: string, widgetId: string) =>
     ['dashboards', dashboardId, 'planet', widgetId] as const,

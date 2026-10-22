@@ -76,6 +76,7 @@ export function createSystem(
   repos: RepositorySet,
   options: { maxFeedBytes?: number; timeZone?: string; notificationRateLimit?: number } = {},
 ): TestSystem {
+  const { timeZone, notificationRateLimit, ...useCaseOptions } = options
   const clock = new ManualClock()
   const tokens = new SequentialSessionTokens()
   const ids = new CounterIdGenerator()
@@ -102,11 +103,8 @@ export function createSystem(
     calendar,
     clock,
     ids,
-    ...(options.notificationRateLimit === undefined
-      ? {}
-      : { rateLimitPerMinute: options.notificationRateLimit }),
+    ...(notificationRateLimit === undefined ? {} : { rateLimitPerMinute: notificationRateLimit }),
   })
-  const { timeZone, notificationRateLimit: _rate, ...useCaseOptions } = options
   const useCases = createUseCases({
     ...repos,
     tokens,

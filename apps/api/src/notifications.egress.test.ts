@@ -78,7 +78,10 @@ describe('notification webhooks through the egress guard', () => {
       dedupe: sys.repos.notificationDedupe,
       households: sys.repos.households,
       secrets: new InMemorySecretStore(),
-      fetcher: createGuardedFetcher({ allowPrivateHosts: new Set(allowPrivateHosts), resolve }),
+      fetcher: createGuardedFetcher({
+        allowPrivateHosts: new Set(allowPrivateHosts),
+        ...(resolve === undefined ? {} : { resolve }),
+      }),
       jobs: sys.jobs,
       platform: createNodeNotificationPlatform(),
       calendar: sys.calendar,

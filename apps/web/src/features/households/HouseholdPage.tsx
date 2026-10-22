@@ -11,6 +11,7 @@ import { QueryError } from '../../components/QueryError.tsx'
 import { TextField } from '../../components/TextField.tsx'
 import { CalendarPanel } from './CalendarPanel.tsx'
 import { InvitationsPanel } from './InvitationsPanel.tsx'
+import { NotificationsPanel } from './NotificationsPanel.tsx'
 import { MembersPanel } from './MembersPanel.tsx'
 import styles from './Household.module.css'
 
@@ -85,6 +86,7 @@ export function HouseholdPage() {
         </section>
         <MembersPanel household={household.data} meId={meId} isOwner={isOwner} />
         {isOwner ? <CalendarPanel householdId={household.data.id} /> : null}
+        {isOwner ? <NotificationsPanel householdId={household.data.id} /> : null}
         {isOwner ? <InvitationsPanel householdId={household.data.id} /> : null}
       </div>
     </>
