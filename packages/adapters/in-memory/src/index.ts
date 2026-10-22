@@ -5,6 +5,7 @@ import type {
   DashboardRepository,
   HouseholdRepository,
   IdGenerator,
+  FeedRepository,
   InvitationRepository,
   PasswordHasher,
   RegistrationOutcome,
@@ -19,6 +20,8 @@ import type {
   DashboardId,
   Household,
   HouseholdId,
+  Feed,
+  FeedId,
   Invitation,
   InvitationId,
   User,
@@ -125,6 +128,36 @@ export class InMemoryInvitationRepository implements InvitationRepository {
     const i = this.#byId.get(id)
     if (!i || i.acceptedAt || i.revokedAt) return false
     this.#byId.set(id, { ...i, revokedAt: now })
+    return true
+  }
+}
+
+export class InMemoryFeedRepository implements FeedRepository {
+  readonly #byId = new Map<FeedId, Feed>()
+
+  async create(feed: Feed) {
+    for (const existing of this.#byId.values())
+      if (existing.id === feed.id || existing.tokenHash === feed.tokenHash)
+        throw new Error('Duplicate feed')
+    this.#byId.set(feed.id, feed)
+  }
+
+  async get(id: FeedId) {
+    return this.#byId.get(id)
+  }
+
+  async findByTokenHash(tokenHash: string) {
+    return [...this.#byId.values()].find((f) => f.tokenHash === tokenHash)
+  }
+
+  async listForHousehold(householdId: HouseholdId) {
+    return [...this.#byId.values()].filter((f) => f.householdId === householdId)
+  }
+
+  async revoke(id: FeedId, now: Date) {
+    const f = this.#byId.get(id)
+    if (!f || f.revokedAt) return false
+    this.#byId.set(id, { ...f, revokedAt: now })
     return true
   }
 }

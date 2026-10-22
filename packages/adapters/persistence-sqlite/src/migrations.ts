@@ -92,4 +92,61 @@ export const migrations: readonly Migration[] = [
       CREATE INDEX invitations_by_household ON invitations(household_id);
     `,
   },
+  {
+    version: 4,
+    name: 'feeds',
+    sql: `
+      CREATE TABLE feeds (
+        id TEXT PRIMARY KEY,
+        household_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        fields TEXT NOT NULL,
+        dashboard_id TEXT,
+        token_hash TEXT NOT NULL UNIQUE,
+        created_by TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        revoked_at TEXT
+      ) STRICT;
+      CREATE INDEX feeds_by_household ON feeds(household_id);
+    `,
+  },
+  {
+    version: 5,
+    name: 'planets-secrets-and-jobs',
+    sql: `
+      CREATE TABLE secrets (
+        scope TEXT NOT NULL,
+        name TEXT NOT NULL,
+        ciphertext TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY (scope, name)
+      ) STRICT;
+
+      CREATE TABLE scheduled_jobs (
+        id TEXT PRIMARY KEY,
+        run_at TEXT NOT NULL,
+        payload TEXT NOT NULL
+      ) STRICT;
+      CREATE INDEX scheduled_jobs_by_run_at ON scheduled_jobs(run_at);
+
+      CREATE TABLE planet_state (
+        planet_id TEXT NOT NULL,
+        placement_id TEXT NOT NULL,
+        data TEXT NOT NULL,
+        updated_at TEXT,
+        failures INTEGER NOT NULL DEFAULT 0,
+        last_error TEXT,
+        PRIMARY KEY (planet_id, placement_id)
+      ) STRICT;
+
+      CREATE TABLE planet_webhooks (
+        token_hash TEXT PRIMARY KEY,
+        planet_id TEXT NOT NULL,
+        placement_id TEXT NOT NULL,
+        source_id TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        UNIQUE (planet_id, placement_id, source_id)
+      ) STRICT;
+    `,
+  },
 ]

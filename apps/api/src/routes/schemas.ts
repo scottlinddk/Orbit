@@ -8,6 +8,7 @@ export const errors = {
   403: problemSchema,
   404: problemSchema,
   409: problemSchema,
+  413: problemSchema,
   422: problemSchema,
   429: problemSchema,
 } as const

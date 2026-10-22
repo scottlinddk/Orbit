@@ -6,8 +6,14 @@ import {
   addWidget,
   createDashboard,
   createHousehold,
+  createFeed,
   createInvitation,
+  feedByteLength,
+  FeedId,
   invitationStatus,
+  isActiveFeed,
+  MAX_FEED_BYTES,
+  renderFeed,
   InvitationId,
   invariant,
   moveWidget,
@@ -19,6 +25,8 @@ import {
   setColumns,
   type Columns,
   type Dashboard,
+  type Feed,
+  type FeedField,
   type Household,
   type Invitation,
   type User,
@@ -33,6 +41,7 @@ import { createAuthorizer } from './authorizer.ts'
 import { NotFoundError } from './errors.ts'
 import type {
   DashboardRepository,
+  FeedRepository,
   HouseholdRepository,
   IdGenerator,
   InvitationRepository,
@@ -45,6 +54,9 @@ export interface Dependencies {
   households: HouseholdRepository
   dashboards: DashboardRepository
   invitations: InvitationRepository
+  feeds: FeedRepository
+  /** Largest feed to accept. Defaults to MAX_FEED_BYTES; tests lower it. */
+  maxFeedBytes?: number
   tokens: Pick<SessionTokens, 'generate'>
   clock: Clock
   ids: IdGenerator
@@ -53,7 +65,8 @@ export interface Dependencies {
 export type UseCases = ReturnType<typeof createUseCases>
 
 export function createUseCases(deps: Dependencies) {
-  const { users, accounts, households, dashboards, invitations, tokens, clock, ids } = deps
+  const { users, accounts, households, dashboards, invitations, feeds, tokens, clock, ids } = deps
+  const maxFeedBytes = deps.maxFeedBytes ?? MAX_FEED_BYTES
   const authorizer = createAuthorizer(households)
 
   /** Loads a dashboard and authorizes against the household that owns it. */
@@ -186,6 +199,59 @@ export function createUseCases(deps: Dependencies) {
           (await invitations.revoke(invitationId, now)),
         'This invitation was already used or revoked',
       )
+    },
+
+    /**
+     * The raw token is returned here and never again: only its hash is stored. The owner pastes
+     * it into the display's settings. A feed that would be too big to publish is refused now, so
+     * the owner finds out while setting it up and not when the display goes blank.
+     */
+    async createFeed(
+      actor: Actor,
+      householdId: HouseholdId,
+      input: {
+        name: string
+        fields: readonly FeedField[]
+        dashboardId?: DashboardId | undefined
+      },
+    ): Promise<{ feed: Feed; token: string }> {
+      const household = await authorizer.require(actor, householdId, 'feed:manage')
+      // A dashboard of another household looks exactly like one that does not exist.
+      const dashboard =
+        input.dashboardId === undefined ? undefined : await dashboards.get(input.dashboardId)
+      if (input.dashboardId !== undefined && dashboard?.householdId !== householdId)
+        throw new NotFoundError()
+      const { token, tokenHash } = tokens.generate()
+      const feed = createFeed({
+        id: FeedId(ids.next()),
+        householdId,
+        name: input.name,
+        fields: input.fields,
+        dashboardId: input.dashboardId,
+        tokenHash,
+        createdBy: actor.userId,
+        now: clock.now(),
+      })
+      invariant(
+        feedByteLength(renderFeed(feed, { household, dashboard })) <= maxFeedBytes,
+        'This feed would be too large for a display. Choose fewer fields.',
+      )
+      await feeds.create(feed)
+      return { feed, token }
+    },
+
+    /** Feeds that can still be read. Revoked ones are history. */
+    async listFeeds(actor: Actor, householdId: HouseholdId): Promise<Feed[]> {
+      await authorizer.require(actor, householdId, 'feed:manage')
+      return (await feeds.listForHousehold(householdId)).filter(isActiveFeed)
+    },
+
+    /** The id is looked up inside the household, so another household's feed id is not found. */
+    async revokeFeed(actor: Actor, householdId: HouseholdId, feedId: FeedId): Promise<void> {
+      await authorizer.require(actor, householdId, 'feed:manage')
+      const feed = await feeds.get(feedId)
+      if (!feed || feed.householdId !== householdId) throw new NotFoundError()
+      invariant(await feeds.revoke(feedId, clock.now()), 'This feed was already revoked')
     },
 
     async createDashboard(

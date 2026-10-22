@@ -47,13 +47,15 @@ Compose binds the port to `127.0.0.1` only. To reach Orbit from other devices, p
 
 Copy `.env.example` to `.env` next to `compose.yaml` and change what you need. Every variable is documented in [`apps/api/README.md`](../../apps/api/README.md). The ones that matter for Docker:
 
-| Variable             | Why                                                                                                                                                 |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ORBIT_PUBLIC_URL`   | The address people type in the browser. Must match exactly, because the API rejects writes from any other origin. Use `https://...` behind a proxy. |
-| `ORBIT_HOST_PORT`    | The port on this machine. Default 3000. The default `ORBIT_PUBLIC_URL` (`http://localhost:<port>`) follows it.                                      |
-| `ORBIT_TRUST_PROXY`  | `true` only behind a reverse proxy you control, so rate limits see real client addresses.                                                           |
-| `ORBIT_REGISTRATION` | `first-user-only` (default) or `open`.                                                                                                              |
-| `ORBIT_IMAGE_TAG`    | Published image tag to pull. Defaults to `latest`.                                                                                                  |
+| Variable                           | Why                                                                                                                                                 |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ORBIT_PUBLIC_URL`                 | The address people type in the browser. Must match exactly, because the API rejects writes from any other origin. Use `https://...` behind a proxy. |
+| `ORBIT_HOST_PORT`                  | The port on this machine. Default 3000. The default `ORBIT_PUBLIC_URL` (`http://localhost:<port>`) follows it.                                      |
+| `ORBIT_TRUST_PROXY`                | `true` only behind a reverse proxy you control, so rate limits see real client addresses.                                                           |
+| `ORBIT_REGISTRATION`               | `first-user-only` (default) or `open`.                                                                                                              |
+| `ORBIT_IMAGE_TAG`                  | Published image tag to pull. Defaults to `latest`.                                                                                                  |
+| `ORBIT_SECRET_KEY`                 | Master key (at least 32 characters) for stored secrets such as Planet API keys. See [Planets](planets.md).                                          |
+| `ORBIT_EGRESS_ALLOW_PRIVATE_HOSTS` | Host names that outbound requests may reach on your local network. Per host. Empty by default.                                                      |
 
 Check settings and the running instance from inside the container:
 
@@ -79,8 +81,8 @@ docker compose -f compose.yaml -f deploy/compose.caddy.yaml up -d --build
 
 Caddy gets and renews the certificate by itself. The override sets `ORBIT_PUBLIC_URL` and `ORBIT_TRUST_PROXY` for you, and removes Orbit's own published port, so the only way in is through Caddy. With HTTPS the session cookie becomes `Secure` and `__Host-` prefixed automatically. If you use another proxy, forward to port 3000, set `ORBIT_PUBLIC_URL` to the public https address and `ORBIT_TRUST_PROXY=true`.
 
-The proposed TRMNL feed requires a public HTTPS address because TRMNL's cloud polls it. The Caddy
-override is the documented deployment path for that feature once the feed is available. A LAN-only
+The TRMNL display feed requires a public HTTPS address because TRMNL's cloud polls it. The Caddy
+override is the documented deployment path for that feature, and [the feed guide](trmnl-feed.md) walks through it. A LAN-only
 install cannot use the feed.
 
 ## Adding people

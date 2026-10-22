@@ -21,8 +21,10 @@ Only ports with a real boundary, security need, or plausible replacement:
 
 - `UserRepository`, `HouseholdRepository`, `DashboardRepository`
 - `PasswordHasher`, `SessionStore` (local accounts, ADR 0002)
-- `SecretStore` (integration credentials, encrypted at rest)
-- `JobScheduler` (sync jobs)
+- `SecretStore` (integration credentials, encrypted at rest; `adapters/secrets-encrypted-db`)
+- `JobScheduler` (sync jobs; `adapters/jobs-sqlite`)
+- `EgressFetcher` (every outbound request to a user-supplied URL; `adapters/egress-guard`)
+- `PlanetStateStore` (what a Planet last fetched; `adapters/planets-sqlite`)
 - `IntegrationProvider` (calendar sources, ADR 0003)
 - `AuthorizationService` (platform-owned policies)
 

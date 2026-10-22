@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { PUBLIC_OPERATIONS } from './public-operations.ts'
-import { createTestEnv, type TestClient, type TestEnv } from './test-support.ts'
+import { createTestEnv, createTestPlanets, type TestClient, type TestEnv } from './test-support.ts'
 
 /**
  * The household-isolation kit, re-run through HTTP. Routes can bypass use cases, so the
@@ -15,7 +15,10 @@ interface Ids {
   household: string
   dashboard: string
   widget: string
+  /** A placement of an installed Planet, rendered by the Planet route. */
+  planetWidget: string
   invitation: string
+  feed: string
   alice: string
 }
 
@@ -70,6 +73,26 @@ const cases: Case[] = [
     memberAllowed: false,
   },
   {
+    key: 'post /api/v1/households/{householdId}/feeds',
+    call: (c, i) =>
+      c.post(`${V1}/households/${i.household}/feeds`, { name: 'Spy', fields: ['household.name'] }),
+    callMissing: (c) =>
+      c.post(`${V1}/households/${GONE}/feeds`, { name: 'Spy', fields: ['household.name'] }),
+    memberAllowed: false,
+  },
+  {
+    key: 'get /api/v1/households/{householdId}/feeds',
+    call: (c, i) => c.get(`${V1}/households/${i.household}/feeds`),
+    callMissing: (c) => c.get(`${V1}/households/${GONE}/feeds`),
+    memberAllowed: false,
+  },
+  {
+    key: 'delete /api/v1/households/{householdId}/feeds/{feedId}',
+    call: (c, i) => c.delete(`${V1}/households/${i.household}/feeds/${i.feed}`),
+    callMissing: (c) => c.delete(`${V1}/households/${GONE}/feeds/${GONE}`),
+    memberAllowed: false,
+  },
+  {
     key: 'get /api/v1/households/{householdId}/dashboards',
     call: (c, i) => c.get(`${V1}/households/${i.household}/dashboards`),
     callMissing: (c) => c.get(`${V1}/households/${GONE}/dashboards`),
@@ -118,6 +141,12 @@ const cases: Case[] = [
     memberAllowed: false,
   },
   {
+    key: 'get /api/v1/dashboards/{dashboardId}/widgets/{widgetId}/planet',
+    call: (c, i) => c.get(`${V1}/dashboards/${i.dashboard}/widgets/${i.planetWidget}/planet`),
+    callMissing: (c) => c.get(`${V1}/dashboards/${GONE}/widgets/${GONE}/planet`),
+    memberAllowed: true,
+  },
+  {
     key: 'put /api/v1/dashboards/{dashboardId}/widgets/{widgetId}/position',
     call: (c, i) =>
       c.put(`${V1}/dashboards/${i.dashboard}/widgets/${i.widget}/position`, { toIndex: 0 }),
@@ -145,6 +174,7 @@ const NO_FOREIGN_ID = new Set([
   'get /api/v1/auth/me',
   'get /api/v1/households',
   'post /api/v1/households',
+  'get /api/v1/planets/widgets',
 ])
 
 describe.each(['memory', 'sqlite'] as const)('household isolation over HTTP (%s)', (storage) => {
@@ -153,7 +183,7 @@ describe.each(['memory', 'sqlite'] as const)('household isolation over HTTP (%s)
   let ids: Ids
 
   beforeEach(async () => {
-    env = await createTestEnv({ storage })
+    env = await createTestEnv({ storage, planets: createTestPlanets() })
     alice = env.client()
     bob = env.client()
     carol = env.client()
@@ -171,12 +201,25 @@ describe.each(['memory', 'sqlite'] as const)('household isolation over HTTP (%s)
     const withWidget = (
       await alice.post(`${V1}/dashboards/${dashboard.id}/widgets`, { type: 'calendar.agenda' })
     ).body
+    const withPlanet = (
+      await alice.post(`${V1}/dashboards/${dashboard.id}/widgets`, {
+        type: 'planet.dev.test.static',
+      })
+    ).body
     const invitation = (await alice.post(`${V1}/households/${household}/invitations`)).body
+    const feed = (
+      await alice.post(`${V1}/households/${household}/feeds`, {
+        name: 'Kitchen',
+        fields: ['household.name'],
+      })
+    ).body
     ids = {
       household,
       invitation: invitation.id,
+      feed: feed.id,
       dashboard: dashboard.id,
       widget: withWidget.widgets[0].id,
+      planetWidget: withPlanet.widgets.at(-1).id,
       alice: aliceUser.id,
     }
   })
@@ -186,6 +229,7 @@ describe.each(['memory', 'sqlite'] as const)('household isolation over HTTP (%s)
     household: (await alice.get(`${V1}/households/${ids.household}`)).body,
     dashboards: (await alice.get(`${V1}/households/${ids.household}/dashboards`)).body,
     invitations: (await alice.get(`${V1}/households/${ids.household}/invitations`)).body,
+    feeds: (await alice.get(`${V1}/households/${ids.household}/feeds`)).body,
   })
 
   it('covers every protected operation in the OpenAPI document', async () => {

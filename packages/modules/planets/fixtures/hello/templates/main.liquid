@@ -1,0 +1,9 @@
+<div class="planet-hello">
+  <h3>Hello, {{ config.name }}</h3>
+  {% if config.show_tips %}
+  <ul>
+    {% for tip in data.tips %}<li>{{ tip }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</div>

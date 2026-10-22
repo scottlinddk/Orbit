@@ -20,10 +20,15 @@ describe('migrate', () => {
       'credentials',
       'dashboard_widgets',
       'dashboards',
+      'feeds',
       'household_members',
       'households',
       'invitations',
+      'planet_state',
+      'planet_webhooks',
+      'scheduled_jobs',
       'schema_migrations',
+      'secrets',
       'sessions',
       'users',
     ])
@@ -39,12 +44,27 @@ describe('migrate', () => {
     ).run()
     expect(tables(db)).not.toContain('invitations')
 
-    expect(migrate(db)).toEqual([3])
+    expect(migrate(db)).toEqual([3, 4, 5])
 
     expect(tables(db)).toContain('invitations')
     expect(db.prepare('SELECT COUNT(*) AS n FROM users').get()).toEqual({ n: 1 })
     expect(db.prepare('SELECT COUNT(*) AS n FROM household_members').get()).toEqual({ n: 1 })
     expect(db.prepare('SELECT COUNT(*) AS n FROM invitations').get()).toEqual({ n: 0 })
+  })
+
+  it('adds feeds to a version 3 database without touching invitations', () => {
+    const db = openDatabase(':memory:')
+    migrate(db, migrations.slice(0, 3))
+    db.prepare(
+      "INSERT INTO invitations (id, household_id, role, token_hash, created_by, created_at, expires_at) VALUES ('i1', 'h1', 'member', 'x', 'u1', 'now', 'later')",
+    ).run()
+    expect(tables(db)).not.toContain('feeds')
+
+    expect(migrate(db)).toEqual([4, 5])
+
+    expect(tables(db)).toContain('feeds')
+    expect(db.prepare('SELECT COUNT(*) AS n FROM invitations').get()).toEqual({ n: 1 })
+    expect(db.prepare('SELECT COUNT(*) AS n FROM feeds').get()).toEqual({ n: 0 })
   })
 
   it('is idempotent', () => {

@@ -2,6 +2,8 @@ import type { AccountRepository, SessionStore } from './auth-ports.ts'
 import type {
   Dashboard,
   DashboardId,
+  Feed,
+  FeedId,
   Household,
   HouseholdId,
   Invitation,
@@ -48,6 +50,17 @@ export interface InvitationRepository {
   revoke(id: InvitationId, now: Date): Promise<boolean>
 }
 
+export interface FeedRepository {
+  /** Stores a new feed. Ids and token hashes are unique. */
+  create(feed: Feed): Promise<void>
+  get(id: FeedId): Promise<Feed | undefined>
+  findByTokenHash(tokenHash: string): Promise<Feed | undefined>
+  /** Every feed of a household, revoked ones included, oldest first. */
+  listForHousehold(householdId: HouseholdId): Promise<Feed[]>
+  /** Revokes a feed that is not yet revoked. False when it already was. */
+  revoke(id: FeedId, now: Date): Promise<boolean>
+}
+
 /** Produces unguessable, unique ids. The domain never generates ids itself. */
 export interface IdGenerator {
   next(): string
@@ -61,4 +74,5 @@ export interface Repositories {
   households: HouseholdRepository
   invitations: InvitationRepository
   dashboards: DashboardRepository
+  feeds: FeedRepository
 }

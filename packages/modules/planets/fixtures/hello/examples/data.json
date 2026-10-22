@@ -1,0 +1,5 @@
+{
+  "config": { "name": "Sam <script>", "show_tips": true },
+  "data": { "tips": ["Check the calendar", "Plan the week <together>"] },
+  "expect_contains": ["Hello, Sam &lt;script&gt;", "<li>Plan the week &lt;together&gt;</li>"]
+}

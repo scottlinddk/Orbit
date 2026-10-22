@@ -1,6 +1,7 @@
 import type { Repositories } from '@orbit/application'
 import {
   DashboardId,
+  FeedId,
   HouseholdId,
   InvitationId,
   UserId,
@@ -9,6 +10,7 @@ import {
   addMember,
   addWidget,
   createDashboard,
+  createFeed,
   createHousehold,
   createInvitation,
   createUser,
@@ -348,6 +350,72 @@ export function describeInvitationContracts(name: string, create: () => Promise<
       await repos.invitations.claim(InvitationId('i2'), UserId('u1'), t0)
       expect(await repos.invitations.revoke(InvitationId('i2'), later(1))).toBe(false)
       expect(await repos.invitations.revoke(InvitationId('missing'), t0)).toBe(false)
+    })
+  })
+}
+
+export function describeFeedContracts(name: string, create: () => Promise<RepositorySet>) {
+  describe(`feed contracts: ${name}`, () => {
+    let repos: RepositorySet
+    beforeEach(async () => {
+      repos = await create()
+    })
+
+    const t0 = new Date('2026-01-01T00:00:00.000Z')
+    const feed = (id: string, household = 'h1') =>
+      createFeed({
+        id: FeedId(id),
+        householdId: HouseholdId(household),
+        name: `Feed ${id}`,
+        fields: ['household.name', 'dashboard.widgets'],
+        dashboardId: DashboardId('d1'),
+        tokenHash: `hash-${id}`,
+        createdBy: UserId('alice'),
+        now: t0,
+      })
+
+    it('round-trips a feed, by id and by token hash', async () => {
+      const f = feed('f1')
+      await repos.feeds.create(f)
+      expect(await repos.feeds.get(f.id)).toEqual(f)
+      expect(await repos.feeds.findByTokenHash('hash-f1')).toEqual(f)
+      expect(await repos.feeds.get(FeedId('missing'))).toBeUndefined()
+      expect(await repos.feeds.findByTokenHash('nope')).toBeUndefined()
+    })
+
+    it('round-trips a feed without a dashboard', async () => {
+      const f = createFeed({
+        id: FeedId('f1'),
+        householdId: HouseholdId('h1'),
+        name: 'Hall',
+        fields: ['household.name'],
+        tokenHash: 'hash-f1',
+        createdBy: UserId('alice'),
+        now: t0,
+      })
+      await repos.feeds.create(f)
+      expect(await repos.feeds.get(f.id)).toEqual(f)
+    })
+
+    it('refuses a second feed with the same token hash', async () => {
+      await repos.feeds.create(feed('f1'))
+      await expect(repos.feeds.create({ ...feed('f2'), tokenHash: 'hash-f1' })).rejects.toThrow()
+    })
+
+    it('lists only the feeds of one household', async () => {
+      await repos.feeds.create(feed('f1', 'h1'))
+      await repos.feeds.create(feed('f2', 'h2'))
+      await repos.feeds.create(feed('f3', 'h1'))
+      const ids = (await repos.feeds.listForHousehold(HouseholdId('h1'))).map((f) => f.id)
+      expect(ids).toEqual(['f1', 'f3'])
+    })
+
+    it('revokes once and keeps the feed as history', async () => {
+      await repos.feeds.create(feed('f1'))
+      expect(await repos.feeds.revoke(FeedId('f1'), t0)).toBe(true)
+      expect(await repos.feeds.revoke(FeedId('f1'), t0)).toBe(false)
+      expect(await repos.feeds.revoke(FeedId('missing'), t0)).toBe(false)
+      expect((await repos.feeds.get(FeedId('f1')))?.revokedAt).toEqual(t0)
     })
   })
 }

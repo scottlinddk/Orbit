@@ -4,3 +4,5 @@
 - **Week-1 validation:** the household calendar, tasks and lists job is still a hypothesis until the interviews confirm it. Calendar and lists widgets wait for that.
 
 Decided: the project keeps the name Orbit. Usage measurement is opt-in and local ([ADR 0008](adr/0008-opt-in-local-usage-stats.md)).
+
+Decided: "Planet" is a lowercase descriptive term with "Satellite" as the fallback, and trademark clearance happens before 1.0 ([naming](../product/naming.md)).

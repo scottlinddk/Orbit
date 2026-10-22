@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "id": "dev.orbit.hello",
+  "version": "1.0.0",
+  "name": "Hello",
+  "authors": ["Orbit contributors"],
+  "license": "Apache-2.0",
+  "orbit": ">=0.0.0 <1.0.0",
+  "permissions": {},
+  "config_schema": [
+    {
+      "key": "name",
+      "label": "Who to greet",
+      "kind": "text",
+      "maxLength": 40,
+      "default": "household"
+    },
+    {
+      "key": "show_tips",
+      "label": "Show tips",
+      "kind": "toggle",
+      "default": true
+    }
+  ],
+  "data_sources": [
+    {
+      "id": "tips",
+      "type": "static",
+      "data": ["Check the calendar", "Water the plants", "Plan the week <together>"]
+    }
+  ],
+  "render": {
+    "title": "Hello",
+    "description": "A greeting and a few household tips. The authoring example for Planets.",
+    "default_span": 1,
+    "template": "templates/main.liquid"
+  }
+}

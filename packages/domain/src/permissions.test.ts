@@ -8,6 +8,7 @@ const all: HouseholdAction[] = [
   'dashboard:create',
   'dashboard:edit',
   'dashboard:delete',
+  'feed:manage',
 ]
 
 describe('permissions', () => {

@@ -3,6 +3,7 @@ import { Argon2PasswordHasher, RandomSessionTokens } from '@orbit/adapter-identi
 import {
   SqliteAccountRepository,
   SqliteDashboardRepository,
+  SqliteFeedRepository,
   SqliteHouseholdRepository,
   SqliteInvitationRepository,
   SqliteSessionStore,
@@ -10,6 +11,7 @@ import {
   type Database,
 } from '@orbit/adapter-persistence-sqlite'
 import type { SetupGate } from '@orbit/application'
+import type { PlanetRuntime } from '@orbit/module-planets/server'
 import type { Config } from './config.ts'
 import { assembleServices, type Services } from './services.ts'
 
@@ -18,6 +20,7 @@ export function createSqliteServices(
   db: Database,
   config: Pick<Config, 'registration'>,
   setupGate?: SetupGate,
+  planets?: PlanetRuntime,
 ): Services {
   return assembleServices({
     repos: {
@@ -26,6 +29,7 @@ export function createSqliteServices(
       sessions: new SqliteSessionStore(db),
       households: new SqliteHouseholdRepository(db),
       invitations: new SqliteInvitationRepository(db),
+      feeds: new SqliteFeedRepository(db),
       dashboards: new SqliteDashboardRepository(db),
     },
     hasher: new Argon2PasswordHasher(),
@@ -34,5 +38,6 @@ export function createSqliteServices(
     ids: { next: () => randomUUID() },
     registrationPolicy: config.registration,
     setupGate,
+    planets,
   })
 }

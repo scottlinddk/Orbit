@@ -1,6 +1,6 @@
 # 0017 Planets: declarative, permission-scoped plugins
 
-Status: proposed. Not accepted. Accepting it also needs the principle 3 and trust-model wording in `docs/product/principles-and-scope.md` to change, because the current text says a manifest does not imply sandboxing.
+Status: accepted. The principle 3 and trust-model wording in `docs/product/principles-and-scope.md` changed in the same commit.
 
 ## Context
 
@@ -18,7 +18,7 @@ The risk is third-party reach. Anything a Planet can execute or request is a rou
 6. **Secrets stay server side.** Planet secrets live in the existing `SecretStore` ([overview](../overview.md)) and are injected only into outgoing requests. They never reach template context or logs.
 7. **Widget identity.** Planet widgets use the type `planet.<id>`. The widget `type` is permanent (`packages/widget-sdk/README.md`), so the manifest `id` is permanent too.
 8. **One config-form model.** `config_schema` is compiled into the existing `options` model in `packages/widget-sdk`, not a second form system.
-9. **Template engine.** It must auto-escape by default, and raw output requires an explicit permission. The engine and its license are chosen in this ADR and checked against `tooling/check-licenses.mjs`.
+9. **Template engine: LiquidJS** (MIT, no runtime dependencies). It uses the same Liquid language as TRMNL, so one template skill covers both. Output is HTML-escaped by default. Templates are loaded from memory only: no filesystem access, no `include`, `render` or `layout` tags that read files. The `raw` filter is removed unless the manifest declares the `raw_output` permission. Rendering has a time and output-size limit.
 
 ## Manifest v1 (draft)
 
@@ -38,5 +38,5 @@ The JSON Schema for this block is the source of truth. Validation errors point a
 ## Consequences
 
 - The Planet runtime and connectors can only be built after this ADR is accepted.
-- The security model in `docs/architecture/security-model.md` (to be written) must cover every row above before Planet code merges.
+- The security model in `docs/architecture/security-model.md` covers every row above. Planet code merges only with the test named in its row.
 - If this ADR is rejected, Planets stay out of scope and the related issues close as not planned.
