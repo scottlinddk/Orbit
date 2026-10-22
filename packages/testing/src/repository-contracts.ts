@@ -1,6 +1,7 @@
 import type { Repositories } from '@orbit/application'
 import {
   CalendarSourceId,
+  ConnectionId,
   DashboardId,
   FeedId,
   HouseholdId,
@@ -12,8 +13,10 @@ import {
   WidgetPlacementId,
   addMember,
   addWidget,
+  withMirrors,
   changeMemberRole,
   createCalendarSource,
+  createConnection,
   createDashboard,
   createFeed,
   createExternalIdentity,
@@ -645,6 +648,65 @@ export function describeCalendarSourceContracts(
       await repos.calendarSources.delete(CalendarSourceId('s1'))
       expect(await repos.calendarSources.get(CalendarSourceId('s1'))).toBeUndefined()
       expect(await repos.calendarSources.get(CalendarSourceId('s2'))).toBeDefined()
+    })
+  })
+}
+
+export function describeConnectionContracts(name: string, create: () => Promise<RepositorySet>) {
+  describe(`connection contracts: ${name}`, () => {
+    let repos: RepositorySet
+    beforeEach(async () => {
+      repos = await create()
+    })
+
+    const t0 = new Date('2026-01-01T00:00:00.000Z')
+    const connection = (id: string, household = 'h1') =>
+      createConnection({
+        id: ConnectionId(id),
+        householdId: HouseholdId(household),
+        kind: 'homeassistant',
+        name: `Connection ${id}`,
+        host: 'ha.local:8123',
+        createdBy: UserId('alice'),
+        now: t0,
+      })
+
+    it('round-trips a connection with and without mirrors', async () => {
+      const plain = connection('c1')
+      const mirrored = withMirrors(connection('c2'), [
+        { entityId: 'calendar.family', role: 'calendar', name: 'Family' },
+        { entityId: 'todo.shopping_list', role: 'todo', name: 'Shopping' },
+      ])
+      await repos.connections.create(plain)
+      await repos.connections.create(mirrored)
+      expect(await repos.connections.get(plain.id)).toEqual(plain)
+      expect(await repos.connections.get(mirrored.id)).toEqual(mirrored)
+      expect(await repos.connections.get(ConnectionId('missing'))).toBeUndefined()
+    })
+
+    it('saves a change of mirrors without touching anything else', async () => {
+      const c = connection('c1')
+      await repos.connections.create(c)
+      const changed = withMirrors(c, [{ entityId: 'todo.a', role: 'todo', name: 'A' }])
+      await repos.connections.save(changed)
+      expect(await repos.connections.get(c.id)).toEqual(changed)
+    })
+
+    it('lists only the connections of one household, oldest first', async () => {
+      await repos.connections.create(connection('c1'))
+      await repos.connections.create(connection('c2', 'h2'))
+      await repos.connections.create(connection('c3'))
+      const list = await repos.connections.listForHousehold(HouseholdId('h1'))
+      expect(list.map((c) => c.id)).toEqual(['c1', 'c3'])
+    })
+
+    it('refuses a duplicate id and deletes only the one connection', async () => {
+      await repos.connections.create(connection('c1'))
+      await expect(repos.connections.create(connection('c1'))).rejects.toThrow()
+      await repos.connections.create(connection('c2'))
+      await repos.connections.delete(ConnectionId('c1'))
+      expect(await repos.connections.get(ConnectionId('c1'))).toBeUndefined()
+      expect(await repos.connections.get(ConnectionId('c2'))).toBeDefined()
     })
   })
 }

@@ -87,6 +87,7 @@ function Body({ host, listId }: { host: ListsHost; listId: string | undefined })
               <input
                 type="checkbox"
                 checked={item.done}
+                disabled={list.readOnly}
                 onChange={(event) => list.setDone(item.id, event.target.checked)}
               />
               <span>
@@ -97,8 +98,13 @@ function Body({ host, listId }: { host: ListsHost; listId: string | undefined })
           </li>
         ))}
       </ul>
-      <AddForm label="Add an item" button="Add" onSubmit={list.add} />
-      {done.length > 0 ? (
+      {list.readOnly ? (
+        <p className={styles.muted}>This list is kept in another system. Change it there.</p>
+      ) : (
+        <AddForm label="Add an item" button="Add" onSubmit={list.add} />
+      )}
+      {list.syncError ? <p role="status">Not up to date: {list.syncError}</p> : null}
+      {done.length > 0 && !list.readOnly ? (
         <button type="button" className={styles.link} onClick={list.clearCompleted}>
           Clear {done.length} completed
         </button>

@@ -78,7 +78,16 @@ describe('accessibility (axe)', () => {
       'GET /api/v1/dashboards/d1': { body: d },
       'GET /api/v1/households/h1/lists': {
         body: {
-          lists: [{ id: 'l1', name: 'Groceries', kind: 'shopping', openCount: 1, itemCount: 2 }],
+          lists: [
+            {
+              id: 'l1',
+              name: 'Groceries',
+              kind: 'shopping',
+              readOnly: false,
+              openCount: 1,
+              itemCount: 2,
+            },
+          ],
         },
       },
       'GET /api/v1/households/h1/lists/l1': {
@@ -87,6 +96,7 @@ describe('accessibility (axe)', () => {
           householdId: 'h1',
           name: 'Groceries',
           kind: 'shopping',
+          readOnly: false,
           items: [item('i1', 'Milk', false), item('i2', 'Bread', true)],
         },
       },

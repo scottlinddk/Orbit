@@ -22,6 +22,7 @@ interface Ids {
   list: string
   item: string
   calendarSource: string
+  connection: string
   alice: string
 }
 
@@ -38,6 +39,8 @@ interface Case {
 const V1 = '/api/v1'
 const GONE = 'does-not-exist'
 const CALENDAR_URL = 'https://calendar.example.com/private/abc123.ics'
+const HA_URL = 'http://ha.local:8123'
+const HA_TOKEN = 'ha-token-secret'
 
 const cases: Case[] = [
   {
@@ -198,6 +201,58 @@ const cases: Case[] = [
     memberAllowed: false,
   },
   {
+    key: 'post /api/v1/households/{householdId}/connections',
+    call: (c, i) =>
+      c.post(`${V1}/households/${i.household}/connections`, {
+        kind: 'homeassistant',
+        name: 'Spy',
+        url: HA_URL,
+        token: HA_TOKEN,
+      }),
+    callMissing: (c) =>
+      c.post(`${V1}/households/${GONE}/connections`, {
+        kind: 'homeassistant',
+        name: 'Spy',
+        url: HA_URL,
+        token: HA_TOKEN,
+      }),
+    memberAllowed: false,
+  },
+  {
+    key: 'get /api/v1/households/{householdId}/connections',
+    call: (c, i) => c.get(`${V1}/households/${i.household}/connections`),
+    callMissing: (c) => c.get(`${V1}/households/${GONE}/connections`),
+    memberAllowed: false,
+  },
+  {
+    key: 'delete /api/v1/households/{householdId}/connections/{connectionId}',
+    call: (c, i) => c.delete(`${V1}/households/${i.household}/connections/${i.connection}`),
+    callMissing: (c) => c.delete(`${V1}/households/${GONE}/connections/${GONE}`),
+    memberAllowed: false,
+  },
+  {
+    key: 'post /api/v1/households/{householdId}/connections/{connectionId}/test',
+    call: (c, i) => c.post(`${V1}/households/${i.household}/connections/${i.connection}/test`),
+    callMissing: (c) => c.post(`${V1}/households/${GONE}/connections/${GONE}/test`),
+    memberAllowed: false,
+  },
+  {
+    key: 'get /api/v1/households/{householdId}/connections/{connectionId}/entities',
+    call: (c, i) => c.get(`${V1}/households/${i.household}/connections/${i.connection}/entities`),
+    callMissing: (c) => c.get(`${V1}/households/${GONE}/connections/${GONE}/entities`),
+    memberAllowed: false,
+  },
+  {
+    key: 'put /api/v1/households/{householdId}/connections/{connectionId}/mirrors',
+    call: (c, i) =>
+      c.put(`${V1}/households/${i.household}/connections/${i.connection}/mirrors`, {
+        entityIds: [],
+      }),
+    callMissing: (c) =>
+      c.put(`${V1}/households/${GONE}/connections/${GONE}/mirrors`, { entityIds: [] }),
+    memberAllowed: false,
+  },
+  {
     key: 'get /api/v1/households/{householdId}/calendar/events',
     call: (c, i) => c.get(`${V1}/households/${i.household}/calendar/events`),
     callMissing: (c) => c.get(`${V1}/households/${GONE}/calendar/events`),
@@ -335,6 +390,24 @@ describe.each(['memory', 'sqlite'] as const)('household isolation over HTTP (%s)
         url: CALENDAR_URL,
       })
     ).body
+    const system = env.integrations.add(HA_URL, HA_TOKEN)
+    system.entities.push(
+      { entityId: 'calendar.family', role: 'calendar', name: 'Family' },
+      { entityId: 'todo.shopping', role: 'todo', name: 'Shopping' },
+    )
+    system.todos.set('todo.shopping', { id: 'todo.shopping', name: 'Shopping', items: [] })
+    system.calendars.set('calendar.family', [])
+    const connection = (
+      await alice.post(`${V1}/households/${household}/connections`, {
+        kind: 'homeassistant',
+        name: 'Home Assistant',
+        url: HA_URL,
+        token: HA_TOKEN,
+      })
+    ).body
+    await alice.put(`${V1}/households/${household}/connections/${connection.id}/mirrors`, {
+      entityIds: ['calendar.family', 'todo.shopping'],
+    })
     const feed = (
       await alice.post(`${V1}/households/${household}/feeds`, {
         name: 'Kitchen',
@@ -357,6 +430,7 @@ describe.each(['memory', 'sqlite'] as const)('household isolation over HTTP (%s)
       invitation: invitation.id,
       feed: feed.id,
       calendarSource: calendarSource.id,
+      connection: connection.id,
       dashboard: dashboard.id,
       widget: withWidget.widgets[0].id,
       planetWidget: withPlanet.widgets.at(-1).id,
@@ -372,6 +446,7 @@ describe.each(['memory', 'sqlite'] as const)('household isolation over HTTP (%s)
     feeds: (await alice.get(`${V1}/households/${ids.household}/feeds`)).body,
     list: (await alice.get(`${V1}/households/${ids.household}/lists/${ids.list}`)).body,
     calendarSources: (await alice.get(`${V1}/households/${ids.household}/calendar/sources`)).body,
+    connections: (await alice.get(`${V1}/households/${ids.household}/connections`)).body,
   })
 
   it('covers every protected operation in the OpenAPI document', async () => {

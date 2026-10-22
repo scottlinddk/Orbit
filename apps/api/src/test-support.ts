@@ -11,6 +11,7 @@ import {
   type EgressFetcher,
   type EgressRequest,
   type EgressResponse,
+  type IntegrationProvider,
   type OidcProvider,
   type SetupGate,
   type UseCases,
@@ -20,7 +21,11 @@ import { migrate, openDatabase } from '@orbit/adapter-persistence-sqlite'
 import { SqlitePlanetStateStore } from '@orbit/adapter-planets-sqlite'
 import { EncryptedDbSecretStore } from '@orbit/adapter-secrets-encrypted-db'
 import { buildPackage, PlanetRuntime } from '@orbit/module-planets/server'
-import { createInMemoryRepositories, createSqliteRepositories } from '@orbit/testing'
+import {
+  FakeIntegrationProvider,
+  createInMemoryRepositories,
+  createSqliteRepositories,
+} from '@orbit/testing'
 import type { LightMyRequestResponse } from 'fastify'
 import { buildApp, type AppOptions, type App } from './app.ts'
 import { createIcsFeedReader } from './calendar.ts'
@@ -46,6 +51,8 @@ export class FakeIcsServer implements EgressFetcher {
 
 export interface TestEnv {
   ics: FakeIcsServer
+  /** A Home Assistant for tests. Register a system with `integrations.add(url, token)`. */
+  integrations: FakeIntegrationProvider
   app: App
   config: Config
   clock: ManualClock
@@ -63,6 +70,8 @@ export interface TestEnvOptions {
   /** `missing` behaves like a server without ORBIT_SECRET_KEY. */
   calendarSecrets?: 'working' | 'missing'
   oidc?: OidcProvider
+  /** Replaces the fake Home Assistant, for tests that exercise the real provider and guard. */
+  connectionProviders?: IntegrationProvider[]
 }
 
 /** The real HTTP app wired with fast, deterministic parts. Registration is open by default. */
@@ -70,6 +79,7 @@ export async function createTestEnv(options: TestEnvOptions = {}): Promise<TestE
   const config = loadConfig({ ORBIT_REGISTRATION: 'open', ...options.env })
   const clock = new ManualClock()
   const ics = new FakeIcsServer()
+  const integrations = new FakeIntegrationProvider()
   const services = assembleServices({
     repos: options.storage === 'sqlite' ? createSqliteRepositories() : createInMemoryRepositories(),
     hasher: new InsecureTestPasswordHasher(),
@@ -86,6 +96,7 @@ export async function createTestEnv(options: TestEnvOptions = {}): Promise<TestE
           : new InMemorySecretStore(),
       reader: createIcsFeedReader(ics),
     },
+    connections: { providers: options.connectionProviders ?? [integrations] },
     timeZone: config.timeZone,
     oidc: options.oidc,
     localLoginEnabled: config.localLogin,
@@ -101,6 +112,7 @@ export async function createTestEnv(options: TestEnvOptions = {}): Promise<TestE
   await app.ready()
   return {
     ics,
+    integrations,
     app,
     config,
     clock,

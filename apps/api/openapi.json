@@ -209,6 +209,9 @@
           "sourceId": {
             "type": "string"
           },
+          "name": {
+            "type": "string"
+          },
           "ok": {
             "type": "boolean"
           },
@@ -287,6 +290,119 @@
           "type",
           "title",
           "status"
+        ]
+      },
+      "MirrorInput": {
+        "type": "object",
+        "properties": {
+          "entityId": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "calendar",
+              "todo"
+            ]
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "entityId",
+          "role",
+          "name"
+        ]
+      },
+      "ConnectionInput": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "homeassistant"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "host": {
+            "type": "string"
+          },
+          "mirrors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MirrorInput"
+            }
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "name",
+          "host",
+          "mirrors",
+          "createdAt"
+        ]
+      },
+      "ConnectionTestInput": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "calendars": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "todoLists": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "error": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "ok",
+          "calendars",
+          "todoLists"
+        ]
+      },
+      "DiscoveredEntityInput": {
+        "type": "object",
+        "properties": {
+          "entityId": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "calendar",
+              "todo"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "mirrored": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "entityId",
+          "role",
+          "name",
+          "mirrored"
         ]
       },
       "DashboardInput": {
@@ -760,6 +876,15 @@
               "todo"
             ]
           },
+          "readOnly": {
+            "type": "boolean"
+          },
+          "source": {
+            "type": "string"
+          },
+          "syncError": {
+            "type": "string"
+          },
           "items": {
             "type": "array",
             "items": {
@@ -772,6 +897,7 @@
           "householdId",
           "name",
           "kind",
+          "readOnly",
           "items"
         ]
       },
@@ -791,6 +917,15 @@
               "todo"
             ]
           },
+          "readOnly": {
+            "type": "boolean"
+          },
+          "source": {
+            "type": "string"
+          },
+          "syncError": {
+            "type": "string"
+          },
           "openCount": {
             "type": "integer",
             "minimum": -9007199254740991,
@@ -806,6 +941,7 @@
           "id",
           "name",
           "kind",
+          "readOnly",
           "openCount",
           "itemCount"
         ]
@@ -1009,6 +1145,9 @@
           "sourceId": {
             "type": "string"
           },
+          "name": {
+            "type": "string"
+          },
           "ok": {
             "type": "boolean"
           },
@@ -1090,6 +1229,123 @@
           "type",
           "title",
           "status"
+        ],
+        "additionalProperties": false
+      },
+      "Mirror": {
+        "type": "object",
+        "properties": {
+          "entityId": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "calendar",
+              "todo"
+            ]
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "entityId",
+          "role",
+          "name"
+        ],
+        "additionalProperties": false
+      },
+      "Connection": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "homeassistant"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "host": {
+            "type": "string"
+          },
+          "mirrors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Mirror"
+            }
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "name",
+          "host",
+          "mirrors",
+          "createdAt"
+        ],
+        "additionalProperties": false
+      },
+      "ConnectionTest": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "calendars": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "todoLists": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "error": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "ok",
+          "calendars",
+          "todoLists"
+        ],
+        "additionalProperties": false
+      },
+      "DiscoveredEntity": {
+        "type": "object",
+        "properties": {
+          "entityId": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "calendar",
+              "todo"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "mirrored": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "entityId",
+          "role",
+          "name",
+          "mirrored"
         ],
         "additionalProperties": false
       },
@@ -1583,6 +1839,15 @@
               "todo"
             ]
           },
+          "readOnly": {
+            "type": "boolean"
+          },
+          "source": {
+            "type": "string"
+          },
+          "syncError": {
+            "type": "string"
+          },
           "items": {
             "type": "array",
             "items": {
@@ -1595,6 +1860,7 @@
           "householdId",
           "name",
           "kind",
+          "readOnly",
           "items"
         ],
         "additionalProperties": false
@@ -1615,6 +1881,15 @@
               "todo"
             ]
           },
+          "readOnly": {
+            "type": "boolean"
+          },
+          "source": {
+            "type": "string"
+          },
+          "syncError": {
+            "type": "string"
+          },
           "openCount": {
             "type": "integer",
             "minimum": -9007199254740991,
@@ -1630,6 +1905,7 @@
           "id",
           "name",
           "kind",
+          "readOnly",
           "openCount",
           "itemCount"
         ],
@@ -4021,6 +4297,603 @@
             }
           },
           "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/households/{householdId}/connections": {
+      "post": {
+        "summary": "Connect another system, such as Home Assistant (owners only)",
+        "tags": [
+          "connections"
+        ],
+        "description": "Orbit calls the other system once to check the address and token, then keeps both encrypted. Neither is ever returned, only the host. Reaching a system on a private network needs the operator to list its host in ORBIT_EGRESS_ALLOW_PRIVATE_HOSTS.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "homeassistant"
+                    ]
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "url": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
+                  },
+                  "token": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 4000
+                  }
+                },
+                "required": [
+                  "kind",
+                  "name",
+                  "url",
+                  "token"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "in": "path",
+            "name": "householdId",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Connection"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "Connections of a household (owners only)",
+        "tags": [
+          "connections"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "in": "path",
+            "name": "householdId",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "connections": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Connection"
+                      }
+                    }
+                  },
+                  "required": [
+                    "connections"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/households/{householdId}/connections/{connectionId}": {
+      "delete": {
+        "summary": "Remove a connection and forget its token (owners only)",
+        "tags": [
+          "connections"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "in": "path",
+            "name": "householdId",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "in": "path",
+            "name": "connectionId",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string",
+                  "nullable": true,
+                  "enum": [
+                    null
+                  ],
+                  "description": "No content"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/households/{householdId}/connections/{connectionId}/test": {
+      "post": {
+        "summary": "Check that the other system still answers (owners only)",
+        "tags": [
+          "connections"
+        ],
+        "description": "Always answers 200. `ok` says whether the check worked.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "in": "path",
+            "name": "householdId",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "in": "path",
+            "name": "connectionId",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectionTest"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/households/{householdId}/connections/{connectionId}/entities": {
+      "get": {
+        "summary": "Calendars and lists in the other system, and which are shown (owners only)",
+        "tags": [
+          "connections"
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "in": "path",
+            "name": "householdId",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "in": "path",
+            "name": "connectionId",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "entities": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/DiscoveredEntity"
+                      }
+                    }
+                  },
+                  "required": [
+                    "entities"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/households/{householdId}/connections/{connectionId}/mirrors": {
+      "put": {
+        "summary": "Choose which calendars and lists are shown (owners only)",
+        "tags": [
+          "connections"
+        ],
+        "description": "Replaces the whole set. Calendars join the calendar events and lists join the household lists. Both are read only in Orbit.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "entityIds": {
+                    "maxItems": 50,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100
+                    }
+                  }
+                },
+                "required": [
+                  "entityIds"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "in": "path",
+            "name": "householdId",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "in": "path",
+            "name": "connectionId",
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Connection"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "403": {
             "description": "Default Response",
             "content": {
               "application/json": {

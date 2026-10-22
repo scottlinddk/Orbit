@@ -4,6 +4,7 @@ import {
   MAX_LISTS_PER_HOUSEHOLD,
   addListItem,
   createList,
+  InvariantViolation,
   invariant,
   moveListItem,
   renameList,
@@ -23,12 +24,27 @@ export interface ListDetail {
   readonly list: HouseholdList
   /** In display (position) order. Done items stay where they are. */
   readonly items: readonly HouseholdListItem[]
+  /** Mirrored lists only: why the last refresh failed. The items shown are then the last good ones. */
+  readonly syncError?: string
 }
 
 export interface ListSummary {
   readonly list: HouseholdList
   readonly openCount: number
   readonly itemCount: number
+  readonly syncError?: string
+}
+
+/**
+ * Lists mirrored from other systems (ADR 0019). They are never stored in the list tables, so
+ * they are read here and nowhere else. They are read only: every change is refused.
+ */
+export interface ExternalLists {
+  /** Whether an id has the shape of a mirrored list. It may still not exist in this household. */
+  owns(id: string): boolean
+  summaries(householdId: HouseholdId): Promise<ListSummary[]>
+  /** `undefined` when no such mirrored list exists in the household. */
+  detail(householdId: HouseholdId, id: string): Promise<ListDetail | undefined>
 }
 
 export interface ListUseCaseDependencies {
@@ -36,6 +52,7 @@ export interface ListUseCaseDependencies {
   authorizer: Authorizer
   clock: Clock
   ids: IdGenerator
+  external?: ExternalLists | undefined
 }
 
 /**
@@ -45,7 +62,18 @@ export interface ListUseCaseDependencies {
  * different items, or the same one, should never see a conflict dialog at the shop.
  */
 export function createListUseCases(deps: ListUseCaseDependencies) {
-  const { lists, authorizer, clock, ids } = deps
+  const { lists, authorizer, clock, ids, external } = deps
+
+  /**
+   * A mirrored list answers "read only" to any change, but only to someone who may edit lists
+   * and only when it really belongs to this household. Anyone else gets the usual 404.
+   */
+  async function refuseIfMirrored(householdId: HouseholdId, listId: ListId): Promise<void> {
+    if (external?.owns(listId) && (await external.detail(householdId, listId)))
+      throw new InvariantViolation(
+        'This list is mirrored from another system and is read only here. Change it there.',
+      )
+  }
 
   async function loadList(
     actor: Actor,
@@ -54,6 +82,7 @@ export function createListUseCases(deps: ListUseCaseDependencies) {
     action: 'list:view' | 'list:edit',
   ): Promise<HouseholdList> {
     await authorizer.require(actor, householdId, action)
+    if (action === 'list:edit') await refuseIfMirrored(householdId, listId)
     const list = await lists.getList(listId)
     if (!list || list.householdId !== householdId) throw new NotFoundError()
     return list
@@ -95,7 +124,7 @@ export function createListUseCases(deps: ListUseCaseDependencies) {
     async listLists(actor: Actor, householdId: HouseholdId): Promise<ListSummary[]> {
       await authorizer.require(actor, householdId, 'list:view')
       const all = await lists.listsForHousehold(householdId)
-      return Promise.all(
+      const own = await Promise.all(
         all.map(async (list) => {
           const items = await lists.items(list.id)
           return {
@@ -105,9 +134,15 @@ export function createListUseCases(deps: ListUseCaseDependencies) {
           }
         }),
       )
+      return [...own, ...((await external?.summaries(householdId)) ?? [])]
     },
 
     async getList(actor: Actor, householdId: HouseholdId, listId: ListId): Promise<ListDetail> {
+      await authorizer.require(actor, householdId, 'list:view')
+      if (external?.owns(listId)) {
+        const mirrored = await external.detail(householdId, listId)
+        if (mirrored) return mirrored
+      }
       return detail(await loadList(actor, householdId, listId, 'list:view'))
     },
 

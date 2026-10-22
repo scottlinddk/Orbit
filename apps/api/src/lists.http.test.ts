@@ -59,7 +59,14 @@ describe.each(['memory', 'sqlite'] as const)('lists over HTTP (%s)', (storage) =
     await alice.patch(`${base}/${list.id}/items/${a.id}`, { done: true })
     const summaries = (await bob.get(base)).body.lists
     expect(summaries).toEqual([
-      { id: list.id, name: 'Groceries', kind: 'shopping', openCount: 1, itemCount: 2 },
+      {
+        id: list.id,
+        name: 'Groceries',
+        kind: 'shopping',
+        readOnly: false,
+        openCount: 1,
+        itemCount: 2,
+      },
     ])
   })
 

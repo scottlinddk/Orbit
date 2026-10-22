@@ -29,9 +29,20 @@ export class FeedTooLargeError extends Error {
 export class SecretsNotConfiguredError extends Error {
   constructor() {
     super(
-      'Saving a calendar address needs ORBIT_SECRET_KEY (at least 32 characters) in the server settings. Ask whoever runs this server to set one. They can generate it with: openssl rand -base64 32',
+      'Saving a calendar address or an access token needs ORBIT_SECRET_KEY (at least 32 characters) in the server settings. Ask whoever runs this server to set one. They can generate it with: openssl rand -base64 32',
     )
     this.name = 'SecretsNotConfiguredError'
+  }
+}
+
+/**
+ * Another system (Home Assistant, Mealie) could not be read or answered unexpectedly. The message
+ * is safe to show: it never contains the address or the access token.
+ */
+export class IntegrationError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'IntegrationError'
   }
 }
 

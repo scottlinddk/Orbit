@@ -2,6 +2,7 @@ import type {
   AccountRepository,
   CalendarSourceRepository,
   Clock,
+  ConnectionRepository,
   Credential,
   DashboardRepository,
   ExternalIdentityRepository,
@@ -23,6 +24,8 @@ import type {
 import type {
   CalendarSource,
   CalendarSourceId,
+  Connection,
+  ConnectionId,
   Dashboard,
   DashboardId,
   ExternalIdentity,
@@ -429,6 +432,31 @@ export class InMemoryCalendarSourceRepository implements CalendarSourceRepositor
   }
 
   async delete(id: CalendarSourceId) {
+    this.#byId.delete(id)
+  }
+}
+
+export class InMemoryConnectionRepository implements ConnectionRepository {
+  readonly #byId = new Map<ConnectionId, Connection>()
+
+  async create(connection: Connection) {
+    if (this.#byId.has(connection.id)) throw new Error('Duplicate connection')
+    this.#byId.set(connection.id, connection)
+  }
+
+  async get(id: ConnectionId) {
+    return this.#byId.get(id)
+  }
+
+  async save(connection: Connection) {
+    if (this.#byId.has(connection.id)) this.#byId.set(connection.id, connection)
+  }
+
+  async listForHousehold(householdId: HouseholdId) {
+    return [...this.#byId.values()].filter((c) => c.householdId === householdId)
+  }
+
+  async delete(id: ConnectionId) {
     this.#byId.delete(id)
   }
 }

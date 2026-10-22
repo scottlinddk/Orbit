@@ -18,6 +18,7 @@ describe('migrate', () => {
     expect(migrate(db)).toEqual(migrations.map((m) => m.version))
     expect(tables(db)).toEqual([
       'calendar_sources',
+      'connections',
       'credentials',
       'dashboard_widgets',
       'dashboards',

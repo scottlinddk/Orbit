@@ -26,6 +26,7 @@
     "@orbit/application": "workspace:*",
     "@orbit/contracts": "workspace:*",
     "@orbit/domain": "workspace:*",
+    "@orbit/integration-home-assistant": "workspace:*",
     "@orbit/integration-ics-calendar": "workspace:*",
     "@orbit/module-planets": "workspace:*",
     "fastify": "^5.12.7",

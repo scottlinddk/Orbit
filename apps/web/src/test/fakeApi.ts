@@ -78,6 +78,8 @@ function noCalendars(method: string, path: string): Reply | undefined {
     return { body: { sources: [] } }
   if (/^\/api\/v1\/households\/[^/]+\/calendar\/events$/.test(path))
     return { body: { events: [], sources: [] } }
+  // Owners' household page also asks for connections to other systems. None unless a test says.
+  if (/^\/api\/v1\/households\/[^/]+\/connections$/.test(path)) return { body: { connections: [] } }
   return undefined
 }
 

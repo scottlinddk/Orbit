@@ -24,6 +24,10 @@ export interface ListView {
   readonly status: 'idle' | 'pending' | 'error' | 'ready'
   readonly name: string
   readonly items: readonly ListItemView[]
+  /** A list mirrored from another system: it can be read here and changed only there. */
+  readonly readOnly: boolean
+  /** Mirrored lists: why the last refresh failed. The items shown are then the last good ones. */
+  readonly syncError: string | undefined
   /** The message of the last failed change, if any. */
   readonly error: string | undefined
   readonly setDone: (itemId: string, done: boolean) => void
@@ -53,6 +57,8 @@ const unavailable: ListsHost = {
     status: 'idle',
     name: '',
     items: [],
+    readOnly: false,
+    syncError: undefined,
     error: undefined,
     setDone: () => undefined,
     add: () => undefined,

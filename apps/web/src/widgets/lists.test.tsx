@@ -20,12 +20,13 @@ const groceries = (items = [item('i1', 'Milk', false, '2 l'), item('i2', 'Bread'
   householdId: 'h1',
   name: 'Groceries',
   kind: 'shopping' as const,
+  readOnly: false,
   items,
 })
 
 const summaries = [
-  { id: 'l1', name: 'Groceries', kind: 'shopping', openCount: 1, itemCount: 2 },
-  { id: 'l2', name: 'Hardware', kind: 'todo', openCount: 0, itemCount: 0 },
+  { id: 'l1', name: 'Groceries', kind: 'shopping', readOnly: false, openCount: 1, itemCount: 2 },
+  { id: 'l2', name: 'Hardware', kind: 'todo', readOnly: false, openCount: 0, itemCount: 0 },
 ]
 
 const withWidget = (config: Record<string, unknown> = {}) =>
@@ -52,6 +53,29 @@ describe('shopping list widget', () => {
     expect(within(list).getByText('Milk')).toBeInTheDocument()
     expect(within(list).getByText(/2 l/)).toBeInTheDocument()
     expect(screen.getByText(/1 to get/)).toBeInTheDocument()
+  })
+
+  it('shows a mirrored list read only, and says when it is not up to date', async () => {
+    stubApi({
+      ...baseApi(),
+      'GET /api/v1/households/h1/lists/l1': {
+        body: {
+          ...groceries(),
+          readOnly: true,
+          source: 'homeassistant',
+          syncError: 'Home Assistant answered with status 500.',
+        },
+      },
+    })
+    renderApp('/d/d1')
+    const list = await screen.findByRole('list', { name: 'Groceries' })
+    for (const box of within(list).getAllByRole('checkbox')) expect(box).toBeDisabled()
+    expect(screen.queryByLabelText('Add an item')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Clear/ })).not.toBeInTheDocument()
+    expect(screen.getByText(/kept in another system/)).toBeInTheDocument()
+    expect(
+      screen.getByText(/Not up to date: Home Assistant answered with status 500\./),
+    ).toBeInTheDocument()
   })
 
   it('shows the list chosen in the settings, and falls back when it is gone', async () => {

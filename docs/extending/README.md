@@ -31,13 +31,13 @@ A widget gets its saved `config` and `span` and nothing else. If it needs data f
 
 ## Data sources today
 
-[ADR 0003](../architecture/adr/0003-calendar-integrations.md) and the [architecture overview](../architecture/overview.md) describe an `IntegrationProvider` port for calendar sources. **That port is not implemented in code yet.** What exists is honest but narrow:
+The `IntegrationProvider` port in `packages/application` ([ADR 0019](../architecture/adr/0019-connections-and-home-assistant.md)) is how Orbit reads from another self-hosted system. It is small: `parseAddress`, `discover` (prove the credential, list what could be shown), `readCalendar` and `readTodoList`, all read only and all returning the normalized models below. The only implementation is `packages/integrations/home-assistant`. Mealie and Grocy are meant to add a kind and a package, not a new framework. The port serves systems with an address and a token that an owner connects. It is not a public plug-in point: providers are wired in the composition root (`apps/api/src/connections.ts`), and there is no way to add one without changing Orbit's code. ICS calendar sources predate the port and use their own reader. What exists is honest but narrow:
 
 - **Normalized models** in `packages/domain`: `CalendarEvent` (timed and all-day, one object per occurrence) and `TodoList` / `ListItem`. Sources map their own formats into these so the rest of the app never sees a vendor shape. These are the closest thing to a data-source contract, and they may still change while the first real sources land.
 - **An ICS reader** in `packages/integrations/ics-calendar`: `fetchIcsEvents` and `parseIcs`. It does no storage and has no widget wiring yet.
 - **Ports a server-side adapter can use** in `packages/application`: `EgressFetcher` for any request to a user-supplied URL (use it, never `fetch`, so private addresses are refused in one place), `SecretStore` for credentials encrypted at rest, and `JobScheduler` for work that runs later.
 
-If you want to add a source, open an issue first. The shape of the port will be decided with the first stored source, and writing against it before then means rewriting it.
+If you want to add a source, open an issue first. The port has one implementation, so its shape may still change when the second one (Mealie or Grocy) lands. A provider must use `EgressFetcher`, keep the token in the `SecretStore` through the connection service, and never put an address or token in an error message: the connection tests in `packages/testing` check for that.
 
 ## What is not offered
 

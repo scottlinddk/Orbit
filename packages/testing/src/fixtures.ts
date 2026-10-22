@@ -4,6 +4,7 @@ import {
   SequentialSessionTokens,
   InMemoryAccountRepository,
   InMemoryCalendarSourceRepository,
+  InMemoryConnectionRepository,
   InMemoryDashboardRepository,
   InMemoryExternalIdentityRepository,
   InMemoryFeedRepository,
@@ -17,6 +18,7 @@ import {
 import {
   SqliteAccountRepository,
   SqliteCalendarSourceRepository,
+  SqliteConnectionRepository,
   SqliteDashboardRepository,
   SqliteExternalIdentityRepository,
   SqliteFeedRepository,
@@ -30,15 +32,19 @@ import {
 } from '@orbit/adapter-persistence-sqlite'
 import {
   createCalendarService,
+  createConnectionService,
   createFeedReader,
   createUseCases,
   type Actor,
   type CalendarService,
+  type ConnectionService,
   type FeedReader,
+  type SecretStore,
   type UseCases,
 } from '@orbit/application'
 import { UserId, Username, createUser } from '@orbit/domain'
 import { FakeCalendarFeedReader } from './calendar-fakes.ts'
+import { FakeIntegrationProvider } from './integration-fakes.ts'
 import type { RepositorySet } from './repository-contracts.ts'
 
 export interface TestSystem {
@@ -48,6 +54,11 @@ export interface TestSystem {
   /** Household calendars, reading from `calendarReader` instead of the network. */
   calendar: CalendarService
   calendarReader: FakeCalendarFeedReader
+  /** Connections to other systems, reading from `integrations` instead of the network. */
+  connections: ConnectionService
+  integrations: FakeIntegrationProvider
+  /** Where connection addresses and tokens are kept, so tests can look for leaks. */
+  secrets: SecretStore
   /** Moves time forward for invitations and anything else that expires. */
   clock: ManualClock
   /** Registers a user and returns the actor that user would log in as. */
@@ -63,16 +74,34 @@ export function createSystem(
   const tokens = new SequentialSessionTokens()
   const ids = new CounterIdGenerator()
   const calendarReader = new FakeCalendarFeedReader()
-  const calendar = createCalendarService({
-    sources: repos.calendarSources,
+  const integrations = new FakeIntegrationProvider()
+  const secrets = new InMemorySecretStore()
+  const connections = createConnectionService({
+    connections: repos.connections,
     households: repos.households,
-    secrets: new InMemorySecretStore(),
-    reader: calendarReader,
+    secrets,
+    providers: [integrations],
     clock,
     ids,
   })
+  const calendar = createCalendarService({
+    sources: repos.calendarSources,
+    households: repos.households,
+    secrets,
+    reader: calendarReader,
+    clock,
+    ids,
+    external: connections.calendars,
+  })
   const { timeZone, ...useCaseOptions } = options
-  const useCases = createUseCases({ ...repos, tokens, clock, ids, ...useCaseOptions })
+  const useCases = createUseCases({
+    ...repos,
+    tokens,
+    clock,
+    ids,
+    externalLists: connections.lists,
+    ...useCaseOptions,
+  })
   return {
     useCases,
     feedReader: createFeedReader({
@@ -85,6 +114,9 @@ export function createSystem(
     }),
     calendar,
     calendarReader,
+    connections,
+    integrations,
+    secrets,
     clock,
     async newActor(name) {
       const id = UserId(`user-${name}`)
@@ -111,6 +143,7 @@ export function createInMemoryRepositories(): RepositorySet {
     feeds: new InMemoryFeedRepository(),
     lists: new InMemoryListRepository(),
     calendarSources: new InMemoryCalendarSourceRepository(),
+    connections: new InMemoryConnectionRepository(),
     dashboards: new InMemoryDashboardRepository(),
   }
 }
@@ -129,6 +162,7 @@ export function createSqliteRepositories(): RepositorySet {
     feeds: new SqliteFeedRepository(db),
     lists: new SqliteListRepository(db),
     calendarSources: new SqliteCalendarSourceRepository(db),
+    connections: new SqliteConnectionRepository(db),
     dashboards: new SqliteDashboardRepository(db),
   }
 }

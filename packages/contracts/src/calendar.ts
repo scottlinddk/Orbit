@@ -58,6 +58,8 @@ export type CalendarEventResponse = z.infer<typeof calendarEventSchema>
 export const calendarSourceStatusSchema = z
   .object({
     sourceId: z.string(),
+    /** Calendars mirrored from another system only. Own calendars are named in the sources list. */
+    name: z.string().optional(),
     /** False when the last attempt to read the calendar failed. */
     ok: z.boolean(),
     /** When the events shown were last read successfully, or null if never. */

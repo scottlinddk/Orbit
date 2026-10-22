@@ -1,5 +1,6 @@
 import type {
   CalendarSourceRepository,
+  ConnectionRepository,
   AccountRepository,
   Credential,
   DashboardRepository,
@@ -17,6 +18,10 @@ import type {
 import {
   CalendarSourceId,
   type CalendarSource,
+  ConnectionId,
+  type Connection,
+  type ConnectionKind,
+  type Mirror,
   DashboardId,
   FeedId,
   HouseholdId,
@@ -570,6 +575,70 @@ export class SqliteCalendarSourceRepository implements CalendarSourceRepository 
 
 const SELECT_CALENDAR_SOURCE = `SELECT id, household_id, name, color, host, created_by, created_at
   FROM calendar_sources`
+
+export class SqliteConnectionRepository implements ConnectionRepository {
+  readonly #db: Database
+
+  constructor(db: Database) {
+    this.#db = db
+  }
+
+  async create(connection: Connection): Promise<void> {
+    this.#db
+      .prepare(
+        `INSERT INTO connections (id, household_id, kind, name, host, mirrors, created_by, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        connection.id,
+        connection.householdId,
+        connection.kind,
+        connection.name,
+        connection.host,
+        JSON.stringify(connection.mirrors),
+        connection.createdBy,
+        connection.createdAt.toISOString(),
+      )
+  }
+
+  async get(id: ConnectionId): Promise<Connection | undefined> {
+    const row = this.#db.prepare(`${SELECT_CONNECTION} WHERE id = ?`).get(id) as Row | undefined
+    return row && hydrateConnection(row)
+  }
+
+  async save(connection: Connection): Promise<void> {
+    this.#db
+      .prepare('UPDATE connections SET name = ?, mirrors = ? WHERE id = ?')
+      .run(connection.name, JSON.stringify(connection.mirrors), connection.id)
+  }
+
+  async listForHousehold(householdId: HouseholdId): Promise<Connection[]> {
+    const rows = this.#db
+      .prepare(`${SELECT_CONNECTION} WHERE household_id = ? ORDER BY rowid`)
+      .all(householdId) as Row[]
+    return rows.map(hydrateConnection)
+  }
+
+  async delete(id: ConnectionId): Promise<void> {
+    this.#db.prepare('DELETE FROM connections WHERE id = ?').run(id)
+  }
+}
+
+const SELECT_CONNECTION = `SELECT id, household_id, kind, name, host, mirrors, created_by, created_at
+  FROM connections`
+
+function hydrateConnection(row: Row): Connection {
+  return {
+    id: ConnectionId(String(row.id)),
+    householdId: HouseholdId(String(row.household_id)),
+    kind: String(row.kind) as ConnectionKind,
+    name: String(row.name),
+    host: String(row.host),
+    mirrors: JSON.parse(String(row.mirrors)) as Mirror[],
+    createdBy: UserId(String(row.created_by)),
+    createdAt: new Date(String(row.created_at)),
+  }
+}
 
 function hydrateCalendarSource(row: Row): CalendarSource {
   return {

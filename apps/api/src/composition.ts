@@ -3,6 +3,7 @@ import { Argon2PasswordHasher, RandomSessionTokens } from '@orbit/adapter-identi
 import {
   SqliteAccountRepository,
   SqliteCalendarSourceRepository,
+  SqliteConnectionRepository,
   SqliteDashboardRepository,
   SqliteExternalIdentityRepository,
   SqliteFeedRepository,
@@ -16,6 +17,7 @@ import {
 import type { OidcProvider, SetupGate } from '@orbit/application'
 import type { PlanetRuntime } from '@orbit/module-planets/server'
 import { createCalendarWiring } from './calendar.ts'
+import { createConnectionWiring } from './connections.ts'
 import type { Config } from './config.ts'
 import { assembleServices, type Services } from './services.ts'
 
@@ -39,6 +41,7 @@ export function createSqliteServices(
       feeds: new SqliteFeedRepository(db),
       lists: new SqliteListRepository(db),
       calendarSources: new SqliteCalendarSourceRepository(db),
+      connections: new SqliteConnectionRepository(db),
       dashboards: new SqliteDashboardRepository(db),
     },
     hasher: new Argon2PasswordHasher(),
@@ -49,6 +52,7 @@ export function createSqliteServices(
     setupGate,
     planets,
     calendar: createCalendarWiring(db, config),
+    connections: createConnectionWiring(config),
     timeZone: config.timeZone,
     oidc,
     localLoginEnabled: config.localLogin ?? true,

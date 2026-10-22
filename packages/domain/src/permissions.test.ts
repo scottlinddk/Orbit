@@ -13,6 +13,8 @@ const all: HouseholdAction[] = [
   'list:view',
   'list:edit',
   'feed:manage',
+  'calendar:manage',
+  'connection:manage',
 ]
 
 const allowed = (role: HouseholdRole) => all.filter((a) => can(role, a))
@@ -52,13 +54,15 @@ describe('permissions', () => {
     ])
   })
 
-  it('only owners can manage members, change dashboards or publish feeds', () => {
+  it('only owners can manage members, dashboards, feeds, calendars or connections', () => {
     const ownerOnly: HouseholdAction[] = [
       'household:manage-members',
       'dashboard:create',
       'dashboard:edit',
       'dashboard:delete',
       'feed:manage',
+      'calendar:manage',
+      'connection:manage',
     ]
     for (const role of HOUSEHOLD_ROLES.filter((r) => r !== 'owner')) {
       for (const action of ownerOnly) expect(can(role, action)).toBe(false)

@@ -2,6 +2,7 @@ import type { ListDetail, ListSummary } from '@orbit/application'
 import type {
   CalendarEventResponse,
   CalendarSourceResponse,
+  ConnectionResponse,
   DashboardResponse,
   FeedResponse,
   HouseholdResponse,
@@ -9,14 +10,25 @@ import type {
   ListResponse,
   ListSummaryResponse,
 } from '@orbit/contracts'
-import type { CalendarSource, Dashboard, Feed, Household, Invitation } from '@orbit/domain'
+import {
+  isReadOnlyList,
+  type CalendarSource,
+  type Connection,
+  type Dashboard,
+  type Feed,
+  type Household,
+  type Invitation,
+} from '@orbit/domain'
 import type { CalendarEventWithSource } from '@orbit/application'
 
-export const listResponse = ({ list, items }: ListDetail): ListResponse => ({
+export const listResponse = ({ list, items, syncError }: ListDetail): ListResponse => ({
   id: list.id,
   householdId: list.householdId,
   name: list.name,
   kind: list.kind,
+  readOnly: isReadOnlyList(list),
+  ...(list.source === undefined ? {} : { source: list.source.kind }),
+  ...(syncError === undefined ? {} : { syncError }),
   items: items.map((i) => ({
     id: i.id,
     text: i.text,
@@ -33,8 +45,20 @@ export const listSummaryResponse = (s: ListSummary): ListSummaryResponse => ({
   id: s.list.id,
   name: s.list.name,
   kind: s.list.kind,
+  readOnly: isReadOnlyList(s.list),
+  ...(s.list.source === undefined ? {} : { source: s.list.source.kind }),
+  ...(s.syncError === undefined ? {} : { syncError: s.syncError }),
   openCount: s.openCount,
   itemCount: s.itemCount,
+})
+
+export const connectionResponse = (c: Connection): ConnectionResponse => ({
+  id: c.id,
+  kind: c.kind,
+  name: c.name,
+  host: c.host,
+  mirrors: c.mirrors.map((m) => ({ entityId: m.entityId, role: m.role, name: m.name })),
+  createdAt: c.createdAt.toISOString(),
 })
 
 export const householdResponse = (h: Household): HouseholdResponse => ({

@@ -2,14 +2,17 @@ import type { PlanetRuntime } from '@orbit/module-planets/server'
 import {
   createAuth,
   createCalendarService,
+  createConnectionService,
   createFeedReader,
   createUseCases,
   type Auth,
   type CalendarFeedReader,
   type CalendarService,
   type Clock,
+  type ConnectionService,
   type FeedReader,
   type IdGenerator,
+  type IntegrationProvider,
   type OidcProvider,
   type PasswordHasher,
   type Repositories,
@@ -25,6 +28,8 @@ export interface Services {
   auth: Auth
   feedReader: FeedReader
   calendar: CalendarService
+  /** Other systems (Home Assistant) whose calendars and lists are mirrored. */
+  connections: ConnectionService
   /** Present when Planets are wired. Without it the Planet routes answer empty or 404. */
   planets?: PlanetRuntime | undefined
   /** Present when ORBIT_OIDC_* is configured. */
@@ -42,6 +47,15 @@ export interface ServiceParts {
   planets?: PlanetRuntime | undefined
   /** Where household calendars keep their secret addresses and how they read feeds. */
   calendar: { secrets: SecretStore; reader: CalendarFeedReader; ttlMs?: number }
+  /**
+   * Which systems can be connected. Their addresses and tokens are kept in the same secret store
+   * as calendar addresses. Without a provider nothing can be connected.
+   */
+  connections?: {
+    providers: readonly IntegrationProvider[]
+    calendarTtlMs?: number
+    listTtlMs?: number
+  }
   /** IANA zone that decides what "today" means in the display feed. Defaults to UTC. */
   timeZone?: string | undefined
   oidc?: OidcProvider | undefined
@@ -52,12 +66,23 @@ export interface ServiceParts {
 /** Wires the application layer to concrete adapters. The only place that does so. */
 export function assembleServices(parts: ServiceParts): Services {
   const { repos, hasher, tokens, clock, ids, registrationPolicy, setupGate, planets, oidc } = parts
+  const connections = createConnectionService({
+    connections: repos.connections,
+    households: repos.households,
+    secrets: parts.calendar.secrets,
+    providers: parts.connections?.providers ?? [],
+    clock,
+    ids,
+    calendarTtlMs: parts.connections?.calendarTtlMs,
+    listTtlMs: parts.connections?.listTtlMs,
+  })
   const calendar = createCalendarService({
     sources: repos.calendarSources,
     households: repos.households,
     clock,
     ids,
     ...parts.calendar,
+    external: connections.calendars,
   })
   return {
     useCases: createUseCases({
@@ -68,6 +93,7 @@ export function assembleServices(parts: ServiceParts): Services {
       invitations: repos.invitations,
       feeds: repos.feeds,
       lists: repos.lists,
+      externalLists: connections.lists,
       tokens,
       clock,
       ids,
@@ -97,6 +123,7 @@ export function assembleServices(parts: ServiceParts): Services {
       setupGate,
     }),
     calendar,
+    connections,
     planets,
     oidc,
   }

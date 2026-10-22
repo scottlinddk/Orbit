@@ -3,6 +3,8 @@ import type {
   CalendarEvent,
   CalendarSource,
   CalendarSourceId,
+  Connection,
+  ConnectionId,
   Dashboard,
   DashboardId,
   ExternalIdentity,
@@ -110,6 +112,16 @@ export interface CalendarFeedReader {
   read(url: string, range: { from: Date; to: Date }): Promise<CalendarEvent[]>
 }
 
+export interface ConnectionRepository {
+  create(connection: Connection): Promise<void>
+  get(id: ConnectionId): Promise<Connection | undefined>
+  /** Replaces the chosen mirrors of an existing connection. */
+  save(connection: Connection): Promise<void>
+  /** Every connection of a household, oldest first. */
+  listForHousehold(householdId: HouseholdId): Promise<Connection[]>
+  delete(id: ConnectionId): Promise<void>
+}
+
 export type IdentityCreateOutcome = 'created' | 'identity-exists' | 'registration-closed'
 
 /** Accounts at an external identity provider (OpenID Connect), see ADR 0018. */
@@ -148,4 +160,5 @@ export interface Repositories {
   feeds: FeedRepository
   lists: ListRepository
   calendarSources: CalendarSourceRepository
+  connections: ConnectionRepository
 }

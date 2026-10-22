@@ -247,4 +247,22 @@ export const migrations: readonly Migration[] = [
       ) STRICT;
     `,
   },
+  {
+    version: 10,
+    name: 'connections',
+    // The address and the access token are credentials and live in the encrypted secret store.
+    sql: `
+      CREATE TABLE connections (
+        id TEXT PRIMARY KEY,
+        household_id TEXT NOT NULL,
+        kind TEXT NOT NULL,
+        name TEXT NOT NULL,
+        host TEXT NOT NULL,
+        mirrors TEXT NOT NULL,
+        created_by TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      ) STRICT;
+      CREATE INDEX connections_by_household ON connections(household_id);
+    `,
+  },
 ]

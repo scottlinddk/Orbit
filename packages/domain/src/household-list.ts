@@ -1,5 +1,5 @@
 import { invariant } from './errors.ts'
-import type { HouseholdId, ListId, ListItemId, UserId } from './ids.ts'
+import type { ConnectionId, HouseholdId, ListId, ListItemId, UserId } from './ids.ts'
 import type { ListItem as NeutralListItem, TodoList } from './list.ts'
 
 export const LIST_KINDS = ['shopping', 'todo'] as const
@@ -23,7 +23,20 @@ export interface HouseholdList {
   readonly kind: ListKind
   readonly createdBy: UserId
   readonly createdAt: Date
+  /**
+   * Set on a list that is mirrored from an external system (ADR 0019). Such a list is never
+   * stored in Orbit's list tables and is read only here: the other system stays the source of truth.
+   */
+  readonly source?: ListSource
 }
+
+export interface ListSource {
+  readonly kind: string
+  readonly connectionId: ConnectionId
+}
+
+/** Mirrored lists are read only. */
+export const isReadOnlyList = (list: HouseholdList) => list.source !== undefined
 
 export interface HouseholdListItem {
   readonly id: ListItemId

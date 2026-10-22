@@ -52,7 +52,7 @@ import type {
   ListRepository,
   UserRepository,
 } from './ports.ts'
-import { createListUseCases } from './lists.ts'
+import { createListUseCases, type ExternalLists } from './lists.ts'
 
 export interface Dependencies {
   users: UserRepository
@@ -62,6 +62,8 @@ export interface Dependencies {
   invitations: InvitationRepository
   feeds: FeedRepository
   lists: ListRepository
+  /** Lists mirrored from other systems. Read only. */
+  externalLists?: ExternalLists | undefined
   /** Largest feed to accept. Defaults to MAX_FEED_BYTES; tests lower it. */
   maxFeedBytes?: number
   tokens: Pick<SessionTokens, 'generate'>
@@ -107,7 +109,7 @@ export function createUseCases(deps: Dependencies) {
   }
 
   return {
-    ...createListUseCases({ lists, authorizer, clock, ids }),
+    ...createListUseCases({ lists, authorizer, clock, ids, external: deps.externalLists }),
 
     /** The signed-in user's own profile. */
     async getProfile(userId: UserId): Promise<User> {

@@ -52,6 +52,12 @@ export const listSchema = z
     householdId: z.string(),
     name: z.string(),
     kind: listKindSchema,
+    /** True for a list mirrored from another system: it can be read here, and changed only there. */
+    readOnly: z.boolean(),
+    /** The kind of system a mirrored list comes from, for example `homeassistant`. */
+    source: z.string().optional(),
+    /** Mirrored lists: why the last refresh failed. The items are then the last good ones. */
+    syncError: z.string().optional(),
     items: z.array(listItemSchema),
   })
   .meta({ id: 'List' })
@@ -62,6 +68,9 @@ export const listSummarySchema = z
     id: z.string(),
     name: z.string(),
     kind: listKindSchema,
+    readOnly: z.boolean(),
+    source: z.string().optional(),
+    syncError: z.string().optional(),
     openCount: z.number().int(),
     itemCount: z.number().int(),
   })

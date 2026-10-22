@@ -48,6 +48,8 @@ export function ListsHostProvider({
                   : 'ready',
           name: query.data?.name ?? '',
           items: query.data?.items ?? [],
+          readOnly: query.data?.readOnly ?? false,
+          syncError: query.data?.syncError,
           error: (setDone.error ?? add.error ?? clear.error)?.message,
           setDone: (itemId, done) => setDone.mutate({ itemId, done }),
           add: (text) => add.mutate(text),

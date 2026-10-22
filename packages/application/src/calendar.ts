@@ -39,12 +39,30 @@ export interface CalendarDependencies {
   ids: IdGenerator
   /** How long a fetched feed is reused. Defaults to five minutes. */
   ttlMs?: number
+  /** Calendars mirrored from other systems (ADR 0019). Merged into the same answers. */
+  external?: ExternalCalendars | undefined
 }
 
 export type CalendarEventWithSource = CalendarEvent & { readonly sourceId: string }
 
+/**
+ * Calendars mirrored from other systems, such as Home Assistant. The calendar service merges
+ * them with its own sources and does the range filtering, so implementations return everything
+ * they hold for the fetch window.
+ */
+export interface ExternalCalendars {
+  events(
+    householdId: HouseholdId,
+    window: { from: Date; to: Date },
+  ): Promise<{ events: CalendarEventWithSource[]; sources: CalendarSourceStatus[] }>
+  /** What is cached right now. Never waits for the network, a stale mirror refreshes in the background. */
+  cachedEvents(householdId: HouseholdId, window: { from: Date; to: Date }): Promise<CalendarEvent[]>
+}
+
 export interface CalendarSourceStatus {
   readonly sourceId: string
+  /** Mirrored calendars only, so a member can tell them apart without seeing the connection. */
+  readonly name?: string
   /** False when the last attempt to read the feed failed. Older events may still be served. */
   readonly ok: boolean
   /** When the events served were last read successfully. Null when never. */
@@ -236,15 +254,23 @@ export function createCalendarService(deps: CalendarDependencies) {
           return [source, isFresh(cached) ? cached! : await refresh(source)] as const
         }),
       )
-      const events = entries
-        .flatMap(([source, entry]) =>
-          entry.events
-            .filter((e) => overlaps(e, range.from, range.to))
-            .map((e): CalendarEventWithSource => ({ ...e, sourceId: source.id })),
-        )
+      const mirrored = (await deps.external?.events(householdId, bounds)) ?? {
+        events: [],
+        sources: [],
+      }
+      const events = [
+        ...entries.flatMap(([source, entry]) =>
+          entry.events.map((e): CalendarEventWithSource => ({ ...e, sourceId: source.id })),
+        ),
+        ...mirrored.events,
+      ]
+        .filter((e) => overlaps(e, range.from, range.to))
         .sort(compareCalendarEvents)
         .slice(0, MAX_EVENTS_PER_RESPONSE)
-      return { events, sources: entries.map(([source, entry]) => status(source, entry)) }
+      return {
+        events,
+        sources: [...entries.map(([source, entry]) => status(source, entry)), ...mirrored.sources],
+      }
     },
 
     /**
@@ -260,6 +286,7 @@ export function createCalendarService(deps: CalendarDependencies) {
         if (!isFresh(cached)) refresh(source).catch(() => undefined)
         if (cached) events.push(...cached.events)
       }
+      events.push(...((await deps.external?.cachedEvents(householdId, window())) ?? []))
       return events.sort(compareCalendarEvents)
     },
   }
