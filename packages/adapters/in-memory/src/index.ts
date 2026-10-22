@@ -3,7 +3,9 @@ import type {
   Clock,
   Credential,
   DashboardRepository,
+  ExternalIdentityRepository,
   HouseholdRepository,
+  IdentityCreateOutcome,
   IdGenerator,
   FeedRepository,
   InvitationRepository,
@@ -18,6 +20,7 @@ import type {
 import type {
   Dashboard,
   DashboardId,
+  ExternalIdentity,
   Household,
   HouseholdId,
   Feed,
@@ -40,6 +43,11 @@ export class InMemoryUserRepository implements UserRepository {
 
   async save(user: User) {
     this.#byId.set(user.id, user)
+  }
+
+  /** Synchronous, for adapters that must check and store in the same tick. */
+  count() {
+    return this.#byId.size
   }
 }
 
@@ -206,6 +214,51 @@ export class InMemoryAccountRepository implements AccountRepository {
       }
     }
     return false
+  }
+}
+
+export class InMemoryExternalIdentityRepository implements ExternalIdentityRepository {
+  readonly #users: InMemoryUserRepository
+  readonly #identities: ExternalIdentity[] = []
+
+  constructor(users: InMemoryUserRepository) {
+    this.#users = users
+  }
+
+  async find(issuer: string, subject: string) {
+    return this.#identities.find((i) => i.issuer === issuer && i.subject === subject)
+  }
+
+  async link(identity: ExternalIdentity): Promise<'linked' | 'conflict'> {
+    return this.#insert(identity) ? 'linked' : 'conflict'
+  }
+
+  // Check and change share a tick, with no await between them.
+  async createUser(
+    user: User,
+    identity: ExternalIdentity,
+    policy: RegistrationPolicy,
+  ): Promise<IdentityCreateOutcome> {
+    if (policy === 'first-user-only' && this.#users.count() > 0) return 'registration-closed'
+    if (
+      this.#identities.some((i) => i.issuer === identity.issuer && i.subject === identity.subject)
+    )
+      return 'identity-exists'
+    this.#insert(identity)
+    // The user is stored by a call that does not yield, so the next caller already sees it.
+    void this.#users.save(user)
+    return 'created'
+  }
+
+  #insert(identity: ExternalIdentity): boolean {
+    const conflict = this.#identities.some(
+      (i) =>
+        i.issuer === identity.issuer &&
+        (i.subject === identity.subject || i.userId === identity.userId),
+    )
+    if (conflict) return false
+    this.#identities.push(identity)
+    return true
   }
 }
 

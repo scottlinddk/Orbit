@@ -2,8 +2,10 @@ import type {
   AccountRepository,
   Credential,
   DashboardRepository,
+  ExternalIdentityRepository,
   FeedRepository,
   HouseholdRepository,
+  IdentityCreateOutcome,
   InvitationRepository,
   RegistrationOutcome,
   RegistrationPolicy,
@@ -21,6 +23,7 @@ import {
   WidgetPlacementId,
   type Columns,
   type Dashboard,
+  type ExternalIdentity,
   type Feed,
   type FeedField,
   type Household,
@@ -235,6 +238,73 @@ export class SqliteAccountRepository implements AccountRepository {
     )
   }
 }
+
+export class SqliteExternalIdentityRepository implements ExternalIdentityRepository {
+  readonly #db: Database
+
+  constructor(db: Database) {
+    this.#db = db
+  }
+
+  async find(issuer: string, subject: string): Promise<ExternalIdentity | undefined> {
+    const row = this.#db
+      .prepare(
+        'SELECT issuer, subject, user_id, created_at FROM external_identities WHERE issuer = ? AND subject = ?',
+      )
+      .get(issuer, subject) as Row | undefined
+    return row && toIdentity(row)
+  }
+
+  async link(identity: ExternalIdentity): Promise<'linked' | 'conflict'> {
+    return inTransaction(this.#db, () => (this.#insert(identity) ? 'linked' : 'conflict'))
+  }
+
+  async createUser(
+    user: User,
+    identity: ExternalIdentity,
+    policy: RegistrationPolicy,
+  ): Promise<IdentityCreateOutcome> {
+    // BEGIN IMMEDIATE, as for password registration: two first logins cannot both see an empty instance.
+    return inTransaction(this.#db, (): IdentityCreateOutcome => {
+      if (policy === 'first-user-only') {
+        const existing = this.#db.prepare('SELECT COUNT(*) AS n FROM users').get() as Row
+        if (Number(existing.n) > 0) return 'registration-closed'
+      }
+      const taken = this.#db
+        .prepare('SELECT 1 AS found FROM external_identities WHERE issuer = ? AND subject = ?')
+        .get(identity.issuer, identity.subject)
+      if (taken) return 'identity-exists'
+      this.#db
+        .prepare('INSERT INTO users (id, display_name) VALUES (?, ?)')
+        .run(user.id, user.displayName)
+      this.#insert(identity)
+      return 'created'
+    })
+  }
+
+  /** False when the subject is taken or the user already has an identity at that issuer. */
+  #insert(identity: ExternalIdentity): boolean {
+    const conflict = this.#db
+      .prepare(
+        'SELECT 1 AS found FROM external_identities WHERE (issuer = ? AND subject = ?) OR (issuer = ? AND user_id = ?)',
+      )
+      .get(identity.issuer, identity.subject, identity.issuer, identity.userId)
+    if (conflict) return false
+    this.#db
+      .prepare(
+        'INSERT INTO external_identities (issuer, subject, user_id, created_at) VALUES (?, ?, ?, ?)',
+      )
+      .run(identity.issuer, identity.subject, identity.userId, identity.createdAt.toISOString())
+    return true
+  }
+}
+
+const toIdentity = (row: Row): ExternalIdentity => ({
+  issuer: String(row.issuer),
+  subject: String(row.subject),
+  userId: UserId(String(row.user_id)),
+  createdAt: new Date(String(row.created_at)),
+})
 
 export class SqliteSessionStore implements SessionStore {
   readonly #db: Database

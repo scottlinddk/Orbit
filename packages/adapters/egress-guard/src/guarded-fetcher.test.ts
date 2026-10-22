@@ -47,6 +47,22 @@ beforeAll(async () => {
     } else if (path === '/big') {
       res.write('x'.repeat(2000))
       res.end('x'.repeat(2000))
+    } else if (path === '/post-echo') {
+      const chunks: Buffer[] = []
+      req.on('data', (chunk: Buffer) => chunks.push(chunk))
+      req.on('end', () =>
+        res.end(
+          JSON.stringify({
+            method: req.method,
+            type: req.headers['content-type'],
+            body: Buffer.concat(chunks).toString('utf8'),
+          }),
+        ),
+      )
+    } else if (path === '/post-redirect') {
+      res.statusCode = 307
+      res.setHeader('location', '/post-echo')
+      res.end()
     } else if (path === '/hang') {
       // never answers
     } else {
@@ -255,6 +271,47 @@ describe('createGuardedFetcher', () => {
     expect(first.body).toBe('no-cookie')
     const missing = await fetcher.fetchText(request(`http://nas.local:${port}/missing`))
     expect(missing).toMatchObject({ status: 404, body: 'nope' })
+  })
+
+  describe('POST', () => {
+    const fetcher = () =>
+      createGuardedFetcher({
+        resolve: scriptedDns({ 'nas.local': [loopback] }).resolve,
+        allowPrivateHosts: new Set(['nas.local']),
+      })
+
+    it('sends the body and content type, and returns the answer', async () => {
+      const answer = await fetcher().fetchText(
+        request(`http://nas.local:${port}/post-echo`, {
+          method: 'POST',
+          body: 'a=1&b=%C3%A6',
+          headers: { 'content-type': 'application/x-www-form-urlencoded' },
+        }),
+      )
+      expect(JSON.parse(answer.body)).toEqual({
+        method: 'POST',
+        type: 'application/x-www-form-urlencoded',
+        body: 'a=1&b=%C3%A6',
+      })
+    })
+
+    it('does not follow a redirect, so the body is never resent', async () => {
+      const error = await denied(
+        fetcher().fetchText(
+          request(`http://nas.local:${port}/post-redirect`, { method: 'POST', body: 'secret=1' }),
+        ),
+      )
+      expect(error.reason).toBe('redirect')
+    })
+
+    it('still blocks private destinations', async () => {
+      const error = await denied(
+        createGuardedFetcher().fetchText(
+          request(`http://127.0.0.1:${port}/post-echo`, { method: 'POST', body: 'x' }),
+        ),
+      )
+      expect(error.reason).toBe('blocked-address')
+    })
   })
 
   describe('allowed hosts', () => {

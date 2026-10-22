@@ -2,6 +2,7 @@
 export const keys = {
   me: ['me'] as const,
   setup: ['setup'] as const,
+  providers: ['auth-providers'] as const,
   households: ['households'] as const,
   household: (id: string) => ['households', id] as const,
   invitations: (householdId: string) => ['households', householdId, 'invitations'] as const,

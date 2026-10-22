@@ -11,6 +11,7 @@ import {
   addWidget,
   createDashboard,
   createFeed,
+  createExternalIdentity,
   createHousehold,
   createInvitation,
   createUser,
@@ -416,6 +417,85 @@ export function describeFeedContracts(name: string, create: () => Promise<Reposi
       expect(await repos.feeds.revoke(FeedId('f1'), t0)).toBe(false)
       expect(await repos.feeds.revoke(FeedId('missing'), t0)).toBe(false)
       expect((await repos.feeds.get(FeedId('f1')))?.revokedAt).toEqual(t0)
+    })
+  })
+}
+
+export function describeIdentityContracts(name: string, create: () => Promise<RepositorySet>) {
+  describe(`external identity contracts: ${name}`, () => {
+    let repos: RepositorySet
+    beforeEach(async () => {
+      repos = await create()
+    })
+
+    const issuer = 'https://id.example.com'
+    const now = new Date('2026-01-01T00:00:00Z')
+    const identityOf = (userId: string, subject: string, at = issuer) =>
+      createExternalIdentity({ issuer: at, subject, userId: UserId(userId), now })
+
+    it('creates a user together with its identity, and finds it by issuer and subject', async () => {
+      const user = createUser({ id: UserId('u1'), displayName: 'Una' })
+      expect(await repos.identities.createUser(user, identityOf('u1', 's1'), 'open')).toBe(
+        'created',
+      )
+      expect(await repos.users.get(UserId('u1'))).toEqual(user)
+      expect(await repos.identities.find(issuer, 's1')).toEqual(identityOf('u1', 's1'))
+      expect(await repos.identities.find(issuer, 'other')).toBeUndefined()
+      expect(await repos.identities.find('https://other.example.com', 's1')).toBeUndefined()
+    })
+
+    it('refuses a second user for the same subject and stores nothing for it', async () => {
+      await repos.identities.createUser(
+        createUser({ id: UserId('u1'), displayName: 'Una' }),
+        identityOf('u1', 's1'),
+        'open',
+      )
+      const outcome = await repos.identities.createUser(
+        createUser({ id: UserId('u2'), displayName: 'Two' }),
+        identityOf('u2', 's1'),
+        'open',
+      )
+      expect(outcome).toBe('identity-exists')
+      expect(await repos.users.get(UserId('u2'))).toBeUndefined()
+    })
+
+    it('with first-user-only, closes as soon as any user exists', async () => {
+      await repos.users.save(createUser({ id: UserId('boss'), displayName: 'Boss' }))
+      const outcome = await repos.identities.createUser(
+        createUser({ id: UserId('u1'), displayName: 'Una' }),
+        identityOf('u1', 's1'),
+        'first-user-only',
+      )
+      expect(outcome).toBe('registration-closed')
+      expect(await repos.identities.find(issuer, 's1')).toBeUndefined()
+    })
+
+    it('with first-user-only, lets exactly one of two simultaneous first logins in', async () => {
+      const results = await Promise.all(
+        ['a', 'b'].map((n) =>
+          repos.identities.createUser(
+            createUser({ id: UserId(n), displayName: n }),
+            identityOf(n, `s-${n}`),
+            'first-user-only',
+          ),
+        ),
+      )
+      expect(results.filter((r) => r === 'created')).toHaveLength(1)
+      expect(results.filter((r) => r === 'registration-closed')).toHaveLength(1)
+    })
+
+    it('links an identity to an existing user, once per subject and once per user and issuer', async () => {
+      await repos.users.save(createUser({ id: UserId('u1'), displayName: 'Una' }))
+      await repos.users.save(createUser({ id: UserId('u2'), displayName: 'Two' }))
+      expect(await repos.identities.link(identityOf('u1', 's1'))).toBe('linked')
+      // The subject already belongs to u1.
+      expect(await repos.identities.link(identityOf('u2', 's1'))).toBe('conflict')
+      // u1 already has an identity at this issuer.
+      expect(await repos.identities.link(identityOf('u1', 's2'))).toBe('conflict')
+      // A different issuer is a different identity.
+      expect(await repos.identities.link(identityOf('u1', 's1', 'https://other.example.com'))).toBe(
+        'linked',
+      )
     })
   })
 }

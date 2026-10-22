@@ -2,6 +2,7 @@ import { createSqliteRepositories } from './fixtures.ts'
 import {
   describeAccountContracts,
   describeFeedContracts,
+  describeIdentityContracts,
   describeInvitationContracts,
   describeRepositoryContracts,
   describeSessionContracts,
@@ -13,3 +14,4 @@ describeAccountContracts('sqlite', create)
 describeSessionContracts('sqlite', create)
 describeInvitationContracts('sqlite', create)
 describeFeedContracts('sqlite', create)
+describeIdentityContracts('sqlite', create)

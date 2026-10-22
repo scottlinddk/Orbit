@@ -20,6 +20,7 @@ describe('migrate', () => {
       'credentials',
       'dashboard_widgets',
       'dashboards',
+      'external_identities',
       'feeds',
       'household_members',
       'households',
@@ -44,7 +45,7 @@ describe('migrate', () => {
     ).run()
     expect(tables(db)).not.toContain('invitations')
 
-    expect(migrate(db)).toEqual([3, 4, 5])
+    expect(migrate(db)).toEqual([3, 4, 5, 6])
 
     expect(tables(db)).toContain('invitations')
     expect(db.prepare('SELECT COUNT(*) AS n FROM users').get()).toEqual({ n: 1 })
@@ -60,7 +61,7 @@ describe('migrate', () => {
     ).run()
     expect(tables(db)).not.toContain('feeds')
 
-    expect(migrate(db)).toEqual([4, 5])
+    expect(migrate(db)).toEqual([4, 5, 6])
 
     expect(tables(db)).toContain('feeds')
     expect(db.prepare('SELECT COUNT(*) AS n FROM invitations').get()).toEqual({ n: 1 })

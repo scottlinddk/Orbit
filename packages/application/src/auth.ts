@@ -1,6 +1,7 @@
 import {
   InvariantViolation,
   UserId,
+  createExternalIdentity,
   Username,
   addMember,
   createUser,
@@ -20,7 +21,13 @@ import type {
   SessionTokens,
   SetupGate,
 } from './auth-ports.ts'
-import type { HouseholdRepository, IdGenerator, InvitationRepository } from './ports.ts'
+import type { OidcIdentity } from './oidc.ts'
+import type {
+  ExternalIdentityRepository,
+  HouseholdRepository,
+  IdGenerator,
+  InvitationRepository,
+} from './ports.ts'
 
 /** Deliberately vague: never say whether the username or the password was wrong. */
 export class InvalidCredentialsError extends Error {
@@ -51,6 +58,22 @@ export class SetupCodeInvalidError extends Error {
   }
 }
 
+/** Password sign-in and sign-up are switched off (ORBIT_LOCAL_LOGIN=disabled). */
+export class LocalLoginDisabledError extends Error {
+  constructor() {
+    super('Signing in with a password is turned off on this instance')
+    this.name = 'LocalLoginDisabledError'
+  }
+}
+
+/** The identity at the provider belongs to another account, or this account has one already. */
+export class OidcIdentityTakenError extends Error {
+  constructor() {
+    super('That identity provider account is already linked to a different Orbit account')
+    this.name = 'OidcIdentityTakenError'
+  }
+}
+
 export const MIN_PASSWORD_LENGTH = 12
 /** Upper bound so a huge password cannot be used to burn hashing time. */
 export const MAX_PASSWORD_LENGTH = 128
@@ -73,6 +96,10 @@ export interface AuthDependencies {
   ids: IdGenerator
   invitations: InvitationRepository
   households: HouseholdRepository
+  /** Needed for OIDC sign-in. */
+  identities?: ExternalIdentityRepository | undefined
+  /** False when ORBIT_LOCAL_LOGIN=disabled. Defaults to true. */
+  localLoginEnabled?: boolean | undefined
   registrationPolicy: RegistrationPolicy
   /** Present only on an instance that has no owner yet. */
   setupGate?: SetupGate | undefined
@@ -86,11 +113,40 @@ export interface LoginResult {
   userId: UserId
 }
 
+/**
+ * What an OIDC callback asks for. `inviteToken`, `setupCode` and `linkUserId` come from the signed
+ * state the sign-in started with, never from the callback URL.
+ */
+export interface OidcSignIn {
+  identity: OidcIdentity
+  inviteToken?: string | undefined
+  setupCode?: string | undefined
+  /** Set when a signed-in user asked to link this identity. */
+  linkUserId?: UserId | undefined
+}
+
+export type OidcSignInResult =
+  { kind: 'signed-in'; login: LoginResult } | { kind: 'linked'; userId: UserId }
+
+const DEFAULT_OIDC_NAME = 'Orbit user'
+
 export type Auth = ReturnType<typeof createAuth>
 
 export function createAuth(deps: AuthDependencies) {
   const { accounts, sessions, hasher, tokens, clock, ids, invitations, households } = deps
   const ttl = deps.sessionTtlMs ?? DEFAULT_SESSION_TTL_MS
+  const localLoginEnabled = deps.localLoginEnabled ?? true
+  const requireLocalLogin = () => {
+    if (!localLoginEnabled) throw new LocalLoginDisabledError()
+  }
+
+  async function startSession(userId: UserId): Promise<LoginResult> {
+    const { token, tokenHash } = tokens.generate()
+    const createdAt = clock.now()
+    const expiresAt = new Date(createdAt.getTime() + ttl)
+    await sessions.create({ tokenHash, userId, createdAt, expiresAt })
+    return { token, expiresAt, userId }
+  }
 
   // Verifying against a real hash for unknown usernames keeps the response time the same,
   // so timing does not reveal which usernames exist.
@@ -114,6 +170,7 @@ export function createAuth(deps: AuthDependencies) {
       displayName?: string | undefined
       setupCode?: string | undefined
     }): Promise<User> {
+      requireLocalLogin()
       // Checked before anything else, and before the slow password hash, so a wrong guess is cheap.
       const gate = deps.setupGate
       if (gate?.isOpen() && !gate.accepts(input.setupCode)) throw new SetupCodeInvalidError()
@@ -140,6 +197,7 @@ export function createAuth(deps: AuthDependencies) {
     },
 
     async login(input: { username: string; password: string }): Promise<LoginResult> {
+      requireLocalLogin()
       let username: Username
       try {
         username = Username(input.username)
@@ -153,12 +211,92 @@ export function createAuth(deps: AuthDependencies) {
       const candidate = input.password.slice(0, MAX_PASSWORD_LENGTH)
       const ok = await hasher.verify(credential?.passwordHash ?? (await decoyHash()), candidate)
       if (!credential || !ok) throw new InvalidCredentialsError()
+      return startSession(credential.userId)
+    },
 
-      const { token, tokenHash } = tokens.generate()
-      const createdAt = clock.now()
-      const expiresAt = new Date(createdAt.getTime() + ttl)
-      await sessions.create({ tokenHash, userId: credential.userId, createdAt, expiresAt })
-      return { token, expiresAt, userId: credential.userId }
+    /** Whether password sign-in is on. Safe to show to anyone. */
+    localLoginEnabled(): boolean {
+      return localLoginEnabled
+    },
+
+    /**
+     * Completes an OIDC sign-in with the identity the provider vouched for. A known identity signs
+     * in its user. An unknown one is linked when a signed-in user asked for that, and otherwise
+     * creates a new user only when an invitation, open registration or the setup code of a new
+     * instance allows it (ADR 0018). It never matches on email or username.
+     */
+    async signInWithIdentity(input: OidcSignIn): Promise<OidcSignInResult> {
+      if (!deps.identities) throw new Error('OIDC sign-in is not wired')
+      const identities = deps.identities
+      const { issuer, subject } = input.identity
+      const existing = await identities.find(issuer, subject)
+
+      if (input.linkUserId) {
+        if (existing) {
+          if (existing.userId !== input.linkUserId) throw new OidcIdentityTakenError()
+          return { kind: 'linked', userId: existing.userId }
+        }
+        const link = createExternalIdentity({
+          issuer,
+          subject,
+          userId: input.linkUserId,
+          now: clock.now(),
+        })
+        if ((await identities.link(link)) === 'conflict') throw new OidcIdentityTakenError()
+        return { kind: 'linked', userId: input.linkUserId }
+      }
+
+      if (existing) return { kind: 'signed-in', login: await startSession(existing.userId) }
+
+      // A new person. Work out what lets them in before creating anything.
+      const gate = deps.setupGate
+      let policy: RegistrationPolicy = 'open'
+      let invitation: Awaited<ReturnType<typeof redeemable>> | undefined
+      if (input.inviteToken) {
+        invitation = await redeemable(input.inviteToken)
+      } else if (deps.registrationPolicy === 'open') {
+        policy = 'open'
+      } else if (gate?.isOpen()) {
+        if (!gate.accepts(input.setupCode)) throw new SetupCodeInvalidError()
+        policy = 'first-user-only'
+      } else {
+        throw new RegistrationClosedError()
+      }
+
+      const userId = UserId(ids.next())
+      const name = input.identity.displayName?.trim().slice(0, 80) || DEFAULT_OIDC_NAME
+      const user = createUser({ id: userId, displayName: name })
+      const identity = createExternalIdentity({ issuer, subject, userId, now: clock.now() })
+
+      if (invitation) {
+        if (!(await invitations.claim(invitation.id, userId, clock.now())))
+          throw new NotFoundError()
+        try {
+          const outcome = await identities.createUser(user, identity, 'open')
+          if (outcome !== 'created') throw new OidcIdentityTakenError()
+          const household = await households.get(invitation.householdId)
+          if (!household) throw new NotFoundError()
+          await households.save(addMember(household, userId, invitation.role))
+        } catch (error) {
+          await invitations.release(invitation.id, userId)
+          throw error
+        }
+        return { kind: 'signed-in', login: await startSession(userId) }
+      }
+
+      const outcome = await identities.createUser(user, identity, policy)
+      if (outcome === 'registration-closed') {
+        gate?.close()
+        throw new RegistrationClosedError()
+      }
+      if (outcome === 'identity-exists') {
+        // Two callbacks for the same new person raced. The other one won, so sign in as that user.
+        const winner = await identities.find(issuer, subject)
+        if (!winner) throw new OidcIdentityTakenError()
+        return { kind: 'signed-in', login: await startSession(winner.userId) }
+      }
+      if (policy === 'first-user-only') gate?.close()
+      return { kind: 'signed-in', login: await startSession(userId) }
     },
 
     /** Resolves a session token to the actor, or undefined for unknown and expired tokens. */
@@ -213,6 +351,7 @@ export function createAuth(deps: AuthDependencies) {
       password: string
       displayName?: string | undefined
     }): Promise<User> {
+      requireLocalLogin()
       const invitation = await redeemable(input.token)
       const username = Username(input.username)
       assertPasswordPolicy(input.password, username)

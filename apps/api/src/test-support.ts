@@ -4,7 +4,7 @@ import {
   ManualClock,
   SequentialSessionTokens,
 } from '@orbit/adapter-in-memory'
-import type { Auth, SetupGate, UseCases } from '@orbit/application'
+import type { Auth, OidcProvider, SetupGate, UseCases } from '@orbit/application'
 import { SqliteJobScheduler } from '@orbit/adapter-jobs-sqlite'
 import { migrate, openDatabase } from '@orbit/adapter-persistence-sqlite'
 import { SqlitePlanetStateStore } from '@orbit/adapter-planets-sqlite'
@@ -34,6 +34,7 @@ export interface TestEnvOptions {
   app?: Partial<AppOptions>
   setupGate?: SetupGate
   planets?: PlanetRuntime
+  oidc?: OidcProvider
 }
 
 /** The real HTTP app wired with fast, deterministic parts. Registration is open by default. */
@@ -49,6 +50,8 @@ export async function createTestEnv(options: TestEnvOptions = {}): Promise<TestE
     registrationPolicy: config.registration,
     setupGate: options.setupGate,
     planets: options.planets,
+    oidc: options.oidc,
+    localLoginEnabled: config.localLogin,
   })
   const app = await buildApp({
     services,

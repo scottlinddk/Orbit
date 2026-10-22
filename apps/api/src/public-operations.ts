@@ -3,6 +3,10 @@ export const PUBLIC_OPERATIONS: ReadonlySet<string> = new Set([
   'post /api/v1/auth/register',
   'post /api/v1/auth/login',
   'get /api/v1/auth/setup',
+  'get /api/v1/auth/providers',
+  // Starting needs a session only to link an account. The callback is the provider's redirect.
+  'post /api/v1/auth/oidc/start',
+  'get /api/v1/auth/oidc/callback',
   'post /api/v1/invitations/preview',
   'post /api/v1/invitations/accept',
   'post /api/v1/planet-hooks/{token}',

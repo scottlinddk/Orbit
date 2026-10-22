@@ -1,7 +1,8 @@
-import { NavLink, Link, Outlet, useNavigate, useParams } from 'react-router'
-import { useLogout, useMe } from '../api/auth.ts'
+import { NavLink, Link, Outlet, useNavigate, useParams, useSearchParams } from 'react-router'
+import { useAuthProviders, useLogout, useMe, useStartOidc } from '../api/auth.ts'
 import { useDashboard } from '../api/dashboards.ts'
 import { useHouseholds } from '../api/households.ts'
+import { Alert } from '../components/Alert.tsx'
 import { Button } from '../components/Button.tsx'
 import { DashboardIcon, HomeIcon, HouseholdIcon, PaletteIcon } from '../components/icons.tsx'
 import styles from './AppShell.module.css'
@@ -41,6 +42,9 @@ export function AppShell() {
   const logout = useLogout()
   const navigate = useNavigate()
   const params = useParams()
+  const providers = useAuthProviders()
+  const startOidc = useStartOidc()
+  const [search] = useSearchParams()
   // On a dashboard page the household comes from the (already cached) dashboard.
   const dashboard = useDashboard(params.dashboardId ?? '')
   const householdId = params.householdId ?? dashboard.data?.householdId
@@ -108,6 +112,11 @@ export function AppShell() {
             <span className={styles.avatar} role="img" aria-label={me.data?.displayName ?? 'You'}>
               {initials(me.data?.displayName)}
             </span>
+            {providers.oidc ? (
+              <Button busy={startOidc.isPending} onClick={() => startOidc.mutate({ link: true })}>
+                Link {providers.oidc.label}
+              </Button>
+            ) : null}
             <Button
               busy={logout.isPending}
               onClick={() => logout.mutate(undefined, { onSettled: () => void navigate('/login') })}
@@ -118,6 +127,13 @@ export function AppShell() {
         </div>
       </header>
       <main id="main" className={styles.main}>
+        {search.get('oidc') === 'linked' ? (
+          <Alert tone="info">
+            Your {providers.oidc?.label ?? 'identity provider'} account is linked. You can use it to
+            sign in.
+          </Alert>
+        ) : null}
+        {startOidc.error ? <Alert>{startOidc.error.message}</Alert> : null}
         <Outlet />
       </main>
     </>

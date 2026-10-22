@@ -12,6 +12,7 @@ import { buildApp } from './app.ts'
 import { createSqliteServices } from './composition.ts'
 import { ConfigError, loadConfig } from './config.ts'
 import { loggerOptions } from './logging.ts'
+import { createOidcWiring } from './oidc.ts'
 import { createPlanetWiring } from './planets.ts'
 
 const HOUR = 60 * 60 * 1000
@@ -49,10 +50,22 @@ async function main() {
       : undefined
 
   const planets = createPlanetWiring(db, config)
-  const services = createSqliteServices(db, config, setup?.gate, planets.runtime)
+  const services = createSqliteServices(
+    db,
+    config,
+    setup?.gate,
+    planets.runtime,
+    createOidcWiring(config),
+  )
   const app = await buildApp({ services, config, logger: loggerOptions(config.logLevel) })
   if (applied.length > 0) app.log.info({ applied }, 'applied database migrations')
   app.log.info({ webApp: config.webDir ?? 'not served' }, 'configuration loaded')
+  if (config.oidc) {
+    app.log.info(
+      { issuer: config.oidc.issuer, redirectUri: config.oidc.redirectUri },
+      'OpenID Connect sign-in is on. Register the redirect URI at the provider.',
+    )
+  }
   for (const refused of planets.refused)
     app.log.error({ planet: refused.id }, `Planet not loaded: ${refused.reason}`)
   if (planets.lockProblem) app.log.error(`No Planets loaded: ${planets.lockProblem}`)

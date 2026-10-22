@@ -4,6 +4,7 @@ import {
   SequentialSessionTokens,
   InMemoryAccountRepository,
   InMemoryDashboardRepository,
+  InMemoryExternalIdentityRepository,
   InMemoryFeedRepository,
   InMemoryHouseholdRepository,
   InMemoryInvitationRepository,
@@ -13,6 +14,7 @@ import {
 import {
   SqliteAccountRepository,
   SqliteDashboardRepository,
+  SqliteExternalIdentityRepository,
   SqliteFeedRepository,
   SqliteHouseholdRepository,
   SqliteInvitationRepository,
@@ -80,6 +82,7 @@ export function createInMemoryRepositories(): RepositorySet {
     sessions: new InMemorySessionStore(),
     households: new InMemoryHouseholdRepository(),
     invitations: new InMemoryInvitationRepository(),
+    identities: new InMemoryExternalIdentityRepository(users),
     feeds: new InMemoryFeedRepository(),
     dashboards: new InMemoryDashboardRepository(),
   }
@@ -95,6 +98,7 @@ export function createSqliteRepositories(): RepositorySet {
     sessions: new SqliteSessionStore(db),
     households: new SqliteHouseholdRepository(db),
     invitations: new SqliteInvitationRepository(db),
+    identities: new SqliteExternalIdentityRepository(db),
     feeds: new SqliteFeedRepository(db),
     dashboards: new SqliteDashboardRepository(db),
   }

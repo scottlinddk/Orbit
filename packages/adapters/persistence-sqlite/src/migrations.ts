@@ -149,4 +149,18 @@ export const migrations: readonly Migration[] = [
       ) STRICT;
     `,
   },
+  {
+    version: 6,
+    name: 'external-identities',
+    sql: `
+      CREATE TABLE external_identities (
+        issuer TEXT NOT NULL,
+        subject TEXT NOT NULL,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        created_at TEXT NOT NULL,
+        PRIMARY KEY (issuer, subject),
+        UNIQUE (issuer, user_id)
+      ) STRICT;
+    `,
+  },
 ]

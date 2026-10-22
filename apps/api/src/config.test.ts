@@ -19,6 +19,8 @@ describe('loadConfig', () => {
       secretKey: undefined,
       planetsDir: 'data/planets',
       egressAllowPrivateHosts: new Set(),
+      oidc: undefined,
+      localLogin: true,
       logLevel: 'info',
     })
   })
@@ -78,5 +80,70 @@ describe('loadConfig', () => {
   ])('rejects %s=%s with a readable message', (key, value) => {
     expect(() => loadConfig({ [key]: value })).toThrow(ConfigError)
     expect(() => loadConfig({ [key]: value })).toThrow(new RegExp(key))
+  })
+
+  describe('OpenID Connect', () => {
+    const oidc = {
+      ORBIT_PUBLIC_URL: 'https://orbit.example.com/ignored/path',
+      ORBIT_OIDC_ISSUER: 'https://id.example.com/realms/home',
+      ORBIT_OIDC_CLIENT_ID: 'orbit',
+      ORBIT_OIDC_CLIENT_SECRET: 'shh',
+    }
+
+    it('is off by default and on when issuer, client id and secret are set', () => {
+      expect(loadConfig({}).oidc).toBeUndefined()
+      expect(loadConfig(oidc).oidc).toEqual({
+        issuer: 'https://id.example.com/realms/home',
+        clientId: 'orbit',
+        clientSecret: 'shh',
+        scopes: ['openid', 'profile'],
+        label: 'Single sign-on',
+        redirectUri: 'https://orbit.example.com/api/v1/auth/oidc/callback',
+        allowHttp: false,
+      })
+    })
+
+    it('always asks for openid and drops duplicates', () => {
+      const c = loadConfig({ ...oidc, ORBIT_OIDC_SCOPES: 'email  profile email' })
+      expect(c.oidc?.scopes).toEqual(['openid', 'email', 'profile'])
+    })
+
+    it('needs all three settings, or none', () => {
+      for (const missing of [
+        'ORBIT_OIDC_ISSUER',
+        'ORBIT_OIDC_CLIENT_ID',
+        'ORBIT_OIDC_CLIENT_SECRET',
+      ]) {
+        const partial: Record<string, string> = { ...oidc }
+        delete partial[missing]
+        expect(() => loadConfig(partial)).toThrow(/must all be set/)
+      }
+    })
+
+    it('treats empty values from Compose as unset', () => {
+      const empty = {
+        ORBIT_OIDC_ISSUER: '',
+        ORBIT_OIDC_CLIENT_ID: '',
+        ORBIT_OIDC_CLIENT_SECRET: '',
+      }
+      expect(loadConfig(empty).oidc).toBeUndefined()
+    })
+
+    it('allows an http issuer only for a host the administrator listed', () => {
+      const lan = { ...oidc, ORBIT_OIDC_ISSUER: 'http://auth.lan:9000/application/o/orbit/' }
+      expect(() => loadConfig(lan)).toThrow(/ORBIT_EGRESS_ALLOW_PRIVATE_HOSTS/)
+      const allowed = loadConfig({ ...lan, ORBIT_EGRESS_ALLOW_PRIVATE_HOSTS: 'auth.lan' })
+      expect(allowed.oidc?.allowHttp).toBe(true)
+    })
+
+    it('turns password sign-in off only when OIDC is configured', () => {
+      expect(() => loadConfig({ ORBIT_LOCAL_LOGIN: 'disabled' })).toThrow(ConfigError)
+      expect(loadConfig({ ...oidc, ORBIT_LOCAL_LOGIN: 'disabled' }).localLogin).toBe(false)
+      expect(loadConfig({}).localLogin).toBe(true)
+    })
+
+    it('rejects an unknown ORBIT_LOCAL_LOGIN value', () => {
+      expect(() => loadConfig({ ORBIT_LOCAL_LOGIN: 'maybe' })).toThrow(ConfigError)
+    })
   })
 })

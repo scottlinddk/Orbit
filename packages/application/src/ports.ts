@@ -1,7 +1,8 @@
-import type { AccountRepository, SessionStore } from './auth-ports.ts'
+import type { AccountRepository, RegistrationPolicy, SessionStore } from './auth-ports.ts'
 import type {
   Dashboard,
   DashboardId,
+  ExternalIdentity,
   Feed,
   FeedId,
   Household,
@@ -61,6 +62,27 @@ export interface FeedRepository {
   revoke(id: FeedId, now: Date): Promise<boolean>
 }
 
+export type IdentityCreateOutcome = 'created' | 'identity-exists' | 'registration-closed'
+
+/** Accounts at an external identity provider (OpenID Connect), see ADR 0018. */
+export interface ExternalIdentityRepository {
+  find(issuer: string, subject: string): Promise<ExternalIdentity | undefined>
+  /**
+   * Ties an identity to an existing user. 'conflict' when the subject already belongs to someone,
+   * or the user already has an identity at that issuer.
+   */
+  link(identity: ExternalIdentity): Promise<'linked' | 'conflict'>
+  /**
+   * Atomically stores a new user together with its identity. With 'first-user-only' the answer is
+   * 'registration-closed' as soon as any user exists.
+   */
+  createUser(
+    user: User,
+    identity: ExternalIdentity,
+    policy: RegistrationPolicy,
+  ): Promise<IdentityCreateOutcome>
+}
+
 /** Produces unguessable, unique ids. The domain never generates ids itself. */
 export interface IdGenerator {
   next(): string
@@ -73,6 +95,7 @@ export interface Repositories {
   sessions: SessionStore
   households: HouseholdRepository
   invitations: InvitationRepository
+  identities: ExternalIdentityRepository
   dashboards: DashboardRepository
   feeds: FeedRepository
 }

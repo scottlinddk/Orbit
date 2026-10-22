@@ -2,6 +2,7 @@ import { createInMemoryRepositories } from './fixtures.ts'
 import {
   describeAccountContracts,
   describeFeedContracts,
+  describeIdentityContracts,
   describeInvitationContracts,
   describeRepositoryContracts,
   describeSessionContracts,
@@ -13,3 +14,4 @@ describeAccountContracts('in-memory', create)
 describeSessionContracts('in-memory', create)
 describeInvitationContracts('in-memory', create)
 describeFeedContracts('in-memory', create)
+describeIdentityContracts('in-memory', create)

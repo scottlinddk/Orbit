@@ -1,9 +1,12 @@
 // @vitest-environment jsdom
 import { screen, waitFor } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { ME, household } from '../../test/fixtures.ts'
 import { problem, stubApi } from '../../test/fakeApi.ts'
 import { renderApp } from '../../test/render.tsx'
+
+vi.mock('../../api/navigate.ts', () => ({ goTo: vi.fn() }))
+import { goTo } from '../../api/navigate.ts'
 import { safeReturnPath } from './LoginPage.tsx'
 
 describe('safeReturnPath', () => {
@@ -193,5 +196,79 @@ describe('login page', () => {
     const art = document.querySelector('section[aria-label="About Orbit"] svg')
     expect(art).toHaveAttribute('aria-hidden', 'true')
     expect(screen.queryByRole('img')).not.toBeInTheDocument()
+  })
+})
+
+describe('single sign-on', () => {
+  const signedOut = { 'GET /api/v1/auth/me': problem(401, 'Sign in required', 'unauthenticated') }
+  const sso = {
+    'GET /api/v1/auth/providers': { body: { local: true, oidc: { label: 'Home login' } } },
+  }
+
+  it('offers the button next to the password form and sends the browser to the provider', async () => {
+    const api = stubApi({
+      ...signedOut,
+      ...sso,
+      'POST /api/v1/auth/oidc/start': {
+        body: { authorizationUrl: 'https://id.example.com/authorize?x=1' },
+      },
+    })
+    const { user } = renderApp('/login')
+    expect(await screen.findByLabelText('Username')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Sign in with Home login' }))
+    await waitFor(() => expect(goTo).toHaveBeenCalledWith('https://id.example.com/authorize?x=1'))
+    expect(api.sent('POST', '/api/v1/auth/oidc/start')[0]?.body).toEqual({})
+  })
+
+  it('refuses to follow an address that is not a web address', async () => {
+    stubApi({
+      ...signedOut,
+      ...sso,
+      'POST /api/v1/auth/oidc/start': { body: { authorizationUrl: 'javascript:alert(1)' } },
+    })
+    vi.mocked(goTo).mockClear()
+    const { user } = renderApp('/login')
+    await user.click(await screen.findByRole('button', { name: 'Sign in with Home login' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('will not open')
+    expect(goTo).not.toHaveBeenCalled()
+  })
+
+  it('hides the password form when password sign-in is off, and passes the setup code', async () => {
+    const api = stubApi({
+      ...signedOut,
+      'GET /api/v1/auth/providers': { body: { local: false, oidc: { label: 'Home login' } } },
+      'GET /api/v1/auth/setup': { body: { setupCodeRequired: true } },
+      'POST /api/v1/auth/oidc/start': {
+        body: { authorizationUrl: 'https://id.example.com/authorize' },
+      },
+    })
+    const { user } = renderApp('/login')
+    expect(await screen.findByLabelText(/Setup code/)).toBeInTheDocument()
+    expect(screen.queryByLabelText('Password')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Username')).not.toBeInTheDocument()
+    await user.type(screen.getByLabelText(/Setup code/), 'ABCD-EFGH')
+    await user.click(screen.getByRole('button', { name: 'Sign in with Home login' }))
+    await waitFor(() =>
+      expect(api.sent('POST', '/api/v1/auth/oidc/start')[0]?.body).toEqual({
+        setupCode: 'ABCD-EFGH',
+      }),
+    )
+  })
+
+  it.each([
+    ['closed', /does not create accounts/],
+    ['denied', /did not let you in/],
+    ['expired', /took too long/],
+  ])('explains a failed sign-in (%s) from the address', async (code, text) => {
+    stubApi({ ...signedOut, ...sso })
+    renderApp(`/login?oidc=${code}`)
+    expect(await screen.findByRole('alert')).toHaveTextContent(text)
+  })
+
+  it('shows no button when no provider is configured', async () => {
+    stubApi(signedOut)
+    renderApp('/login')
+    await screen.findByLabelText('Username')
+    expect(screen.queryByRole('button', { name: /Sign in with/ })).not.toBeInTheDocument()
   })
 })

@@ -22,6 +22,10 @@ export interface EgressRequest {
    * the LAN just because another integration may. Defaults to true (the administrator's list).
    */
   readonly allowPrivate?: boolean
+  /** Defaults to GET. A POST is never redirected: a redirect would resend the body elsewhere. */
+  readonly method?: 'GET' | 'POST'
+  /** The request body, for POST. The caller sets its `content-type` header. */
+  readonly body?: string
 }
 
 export interface EgressResponse {
@@ -34,8 +38,8 @@ export interface EgressResponse {
 
 export interface EgressFetcher {
   /**
-   * GET only. Cookies are never sent or stored, and caller headers are not forwarded to a
-   * different origin after a redirect.
+   * GET, or POST with a text body (the OpenID Connect token request). Cookies are never sent or
+   * stored, and caller headers are not forwarded to a different origin after a redirect.
    */
   fetchText(request: EgressRequest): Promise<EgressResponse>
 }

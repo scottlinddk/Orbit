@@ -7,6 +7,7 @@ import {
   type Clock,
   type FeedReader,
   type IdGenerator,
+  type OidcProvider,
   type PasswordHasher,
   type Repositories,
   type RegistrationPolicy,
@@ -21,6 +22,8 @@ export interface Services {
   feedReader: FeedReader
   /** Present when Planets are wired. Without it the Planet routes answer empty or 404. */
   planets?: PlanetRuntime | undefined
+  /** Present when ORBIT_OIDC_* is configured. */
+  oidc?: OidcProvider | undefined
 }
 
 export interface ServiceParts {
@@ -32,11 +35,14 @@ export interface ServiceParts {
   registrationPolicy: RegistrationPolicy
   setupGate?: SetupGate | undefined
   planets?: PlanetRuntime | undefined
+  oidc?: OidcProvider | undefined
+  /** False when ORBIT_LOCAL_LOGIN=disabled. */
+  localLoginEnabled?: boolean | undefined
 }
 
 /** Wires the application layer to concrete adapters. The only place that does so. */
 export function assembleServices(parts: ServiceParts): Services {
-  const { repos, hasher, tokens, clock, ids, registrationPolicy, setupGate, planets } = parts
+  const { repos, hasher, tokens, clock, ids, registrationPolicy, setupGate, planets, oidc } = parts
   return {
     useCases: createUseCases({
       users: repos.users,
@@ -64,9 +70,12 @@ export function assembleServices(parts: ServiceParts): Services {
       ids,
       invitations: repos.invitations,
       households: repos.households,
+      identities: repos.identities,
+      localLoginEnabled: parts.localLoginEnabled,
       registrationPolicy,
       setupGate,
     }),
     planets,
+    oidc,
   }
 }
