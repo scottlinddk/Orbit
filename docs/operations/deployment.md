@@ -19,6 +19,11 @@ cd Orbit
 docker compose up -d --build
 ```
 
+Until the first tagged image is published, build from source as above. After that, Compose can pull
+the published multi-architecture image with `docker compose pull && docker compose up -d`. To run a
+specific release, set `ORBIT_IMAGE_TAG` in `.env` to its version without the `v` prefix (for example,
+`0.1.0`). `docker compose up -d --build` always builds the current checkout.
+
 Open <http://localhost:3000>. Choose **Create the first account**. It asks for a **setup code**, which Orbit printed in its log when it started:
 
 ```sh
@@ -48,6 +53,7 @@ Copy `.env.example` to `.env` next to `compose.yaml` and change what you need. E
 | `ORBIT_HOST_PORT`    | The port on this machine. Default 3000. The default `ORBIT_PUBLIC_URL` (`http://localhost:<port>`) follows it.                                      |
 | `ORBIT_TRUST_PROXY`  | `true` only behind a reverse proxy you control, so rate limits see real client addresses.                                                           |
 | `ORBIT_REGISTRATION` | `first-user-only` (default) or `open`.                                                                                                              |
+| `ORBIT_IMAGE_TAG`    | Published image tag to pull. Defaults to `latest`.                                                                                                  |
 
 ## HTTPS with Caddy
 
@@ -104,6 +110,9 @@ git pull
 docker compose up -d --build
 ```
 
+After the first tagged image is available, installations using the published image can instead run
+`docker compose pull && docker compose up -d`.
+
 Database migrations run when Orbit starts and are forward-only. Before applying one to a database that has data, Orbit writes a snapshot to `/data/backups/pre-migration-*.sqlite` and refuses to migrate if that fails ([details](backup-and-restore.md#automatic-snapshot-before-an-upgrade)). The manual backup above is still worth taking, because it can be copied off the machine. A database written by a newer Orbit is refused, so you cannot silently downgrade. To go back, restore the backup you took first.
 
 ## Troubleshooting
@@ -131,4 +140,6 @@ docker compose ps                 # shows (healthy) from the built-in health che
 - One instance, one SQLite file. There is no clustering, and none is planned for household use.
 - No email. A forgotten password is reset on the server with `orbit reset-password`.
 - Rate limits are in memory and per client address. They reset when Orbit restarts.
-- The image builds from source with `docker compose build`. Published images are not set up yet.
+- The release workflow publishes amd64 and arm64 images to GHCR after native smoke tests on both
+  architectures. A Raspberry Pi deployment still needs a physical-device check before that issue
+  can be closed.
