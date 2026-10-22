@@ -2,6 +2,7 @@ import { ForbiddenError, NotFoundError, type Actor } from '@orbit/application'
 import type { HouseholdId } from '@orbit/domain'
 import {
   CalendarSourceId,
+  ConnectionId,
   DashboardId,
   FeedId,
   InvariantViolation,
@@ -27,6 +28,8 @@ import type { TestSystem } from './fixtures.ts'
  */
 const CALENDAR_URL = 'https://calendar.example.com/private/abc123.ics'
 const WEBHOOK_URL = 'https://hooks.example.com/services/T000/B000/secret-token'
+const MEALIE_URL = 'http://mealie.local:9000'
+const GROCY_URL = 'http://grocy.local:9283'
 /** Inside the window around the test clock's 2026-01-01. */
 const CALENDAR_RANGE = {
   from: new Date('2026-01-01T00:00:00Z'),
@@ -47,6 +50,7 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
     let itemA: ListItemId
     let calendarSourceA: CalendarSourceId
     let endpointA: NotificationEndpointId
+    let mealieA: ConnectionId
 
     beforeEach(async () => {
       sys = create()
@@ -90,6 +94,43 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
       calendarSourceA = (
         await sys.calendar.addSource(alice, householdA, { name: 'Family', url: CALENDAR_URL })
       ).id
+      const mealie = sys.mealie.add(MEALIE_URL, 'mealie-secret')
+      mealie.entities.push({ entityId: 'mealplan.mealplan', role: 'meals', name: 'Meal plan' })
+      mealie.mealPlans.set('mealplan.mealplan', [
+        {
+          id: 'm1',
+          date: '2026-01-01',
+          type: 'dinner',
+          title: 'Chili',
+          recipe: { ref: 'chili', name: 'Chili' },
+        },
+      ])
+      mealie.recipes.set('chili', {
+        ref: 'chili',
+        name: 'Chili',
+        ingredients: ['beans'],
+        instructions: ['Simmer.'],
+      })
+      const mealieConnection = await sys.connections.addConnection(alice, householdA, {
+        kind: 'mealie',
+        name: 'Mealie',
+        url: MEALIE_URL,
+        token: 'mealie-secret',
+      })
+      mealieA = mealieConnection.id
+      await sys.connections.setMirrors(alice, householdA, mealieA, ['mealplan.mealplan'])
+      const grocy = sys.grocy.add(GROCY_URL, 'grocy-secret')
+      grocy.entities.push({ entityId: 'stock.stock', role: 'stock', name: 'Stock overview' })
+      grocy.stock.set('stock.stock', [
+        { id: '1', name: 'Milk', status: 'due-soon', amount: 1, bestBefore: '2026-01-03' },
+      ])
+      const grocyConnection = await sys.connections.addConnection(alice, householdA, {
+        kind: 'grocy',
+        name: 'Grocy',
+        url: GROCY_URL,
+        token: 'grocy-secret',
+      })
+      await sys.connections.setMirrors(alice, householdA, grocyConnection.id, ['stock.stock'])
       endpointA = (
         await sys.notifications.addEndpoint(alice, householdA, {
           name: 'Chat',
@@ -124,6 +165,9 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
         listCalendarSources: () => sys.calendar.listSources(as(), householdA),
         removeCalendarSource: () => sys.calendar.removeSource(as(), householdA, calendarSourceA),
         calendarEvents: () => sys.calendar.events(as(), householdA, CALENDAR_RANGE),
+        mealPlan: () => sys.connections.mealPlan(as(), householdA, {}),
+        mealRecipe: () => sys.connections.recipe(as(), householdA, mealieA, 'chili'),
+        stock: () => sys.connections.stock(as(), householdA),
         addNotificationEndpoint: () =>
           sys.notifications.addEndpoint(as(), householdA, {
             name: 'Intruder',
@@ -169,6 +213,8 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
           uc().updateListItem(as(), householdA, listA, ListItemId('missing'), { done: true }),
         removeCalendarSourceMissing: () =>
           sys.calendar.removeSource(as(), householdA, CalendarSourceId('missing')),
+        mealRecipeMissing: () =>
+          sys.connections.recipe(as(), householdA, ConnectionId('missing'), 'chili'),
         removeNotificationEndpointMissing: () =>
           sys.notifications.removeEndpoint(as(), householdA, NotificationEndpointId('missing')),
         sendTestNotificationMissing: () =>
@@ -249,6 +295,12 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
         await expect(operations(() => bob).calendarEvents()).resolves.toMatchObject({
           events: [{ title: 'Private appointment' }],
         })
+        await expect(operations(() => bob).mealPlan()).resolves.toMatchObject({
+          entries: [{ title: 'Chili' }],
+        })
+        await expect(operations(() => bob).stock()).resolves.toMatchObject({
+          items: [{ name: 'Milk' }],
+        })
       })
 
       it.each(writes)('%s is forbidden and changes nothing', async (op) => {
@@ -268,6 +320,16 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
         const attempt = (operations(who) as Record<string, () => Promise<unknown>>)[op]!
         await expect(attempt()).rejects.toBeInstanceOf(ForbiddenError)
         expect(await snapshot()).toEqual(before)
+      })
+
+      it('can read the meal plan, a planned recipe and the stock', async () => {
+        await expect(operations(who).mealPlan()).resolves.toMatchObject({
+          entries: [{ title: 'Chili' }],
+        })
+        await expect(operations(who).mealRecipe()).resolves.toMatchObject({ name: 'Chili' })
+        await expect(operations(who).stock()).resolves.toMatchObject({
+          items: [{ name: 'Milk' }],
+        })
       })
 
       it('can read dashboards but never learns who else is in the household', async () => {

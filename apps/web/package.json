@@ -45,6 +45,7 @@
     "@orbit/module-budget": "workspace:*",
     "@orbit/module-calendar": "workspace:*",
     "@orbit/module-lists": "workspace:*",
+    "@orbit/module-meals": "workspace:*",
     "@orbit/widget-sdk": "workspace:*",
     "@tanstack/react-query": "^5.104.5",
     "react": "^19.3.1",

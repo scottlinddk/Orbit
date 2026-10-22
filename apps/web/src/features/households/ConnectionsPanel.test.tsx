@@ -103,6 +103,8 @@ describe('connections panel', () => {
           ok: false,
           calendars: 0,
           todoLists: 0,
+          mealPlans: 0,
+          stockViews: 0,
           error: 'Home Assistant refused the access token.',
         },
       },
@@ -110,6 +112,56 @@ describe('connections panel', () => {
     const { user } = renderApp('/h/h1')
     await user.click(await screen.findByRole('button', { name: 'Test connection Home Assistant' }))
     expect(await screen.findByRole('status')).toHaveTextContent('refused the access token')
+  })
+
+  it('connects Mealie with its own labels and offers the meal plan', async () => {
+    const mealie = { ...connection, id: 'c2', kind: 'mealie', name: 'Mealie', host: 'mealie.local' }
+    let connections = [] as (typeof connection)[]
+    const stub = stubApi({
+      ...api(),
+      'GET /api/v1/households/h1/connections': () => ({ body: { connections } }),
+      'POST /api/v1/households/h1/connections': () => {
+        connections = [mealie]
+        return { status: 201, body: mealie }
+      },
+      'GET /api/v1/households/h1/connections/c2/entities': {
+        body: {
+          entities: [
+            { entityId: 'mealplan.mealplan', role: 'meals', name: 'Meal plan', mirrored: false },
+          ],
+        },
+      },
+    })
+    const { user } = renderApp('/h/h1')
+    await user.selectOptions(await screen.findByLabelText('System'), 'mealie')
+    // The name that came with the old choice follows the new one.
+    expect(screen.getByLabelText('Connection name')).toHaveValue('Mealie')
+    await user.type(screen.getByLabelText('Mealie address'), 'http://mealie.local:9000')
+    await user.type(screen.getByLabelText('API token'), 'mealie-token')
+    await user.click(screen.getByRole('button', { name: 'Add connection' }))
+    expect(stub.sent('POST', '/api/v1/households/h1/connections')[0]?.body).toEqual({
+      kind: 'mealie',
+      name: 'Mealie',
+      url: 'http://mealie.local:9000',
+      token: 'mealie-token',
+    })
+    expect(
+      await screen.findByRole('group', { name: 'Meal plan to show (read only)' }),
+    ).toBeVisible()
+  })
+
+  it('keeps a name the owner typed when the system changes', async () => {
+    stubApi({
+      ...api(),
+      'GET /api/v1/households/h1/connections': { body: { connections: [] } },
+    })
+    const { user } = renderApp('/h/h1')
+    const name = await screen.findByLabelText('Connection name')
+    await user.clear(name)
+    await user.type(name, 'Kitchen')
+    await user.selectOptions(screen.getByLabelText('System'), 'grocy')
+    expect(name).toHaveValue('Kitchen')
+    expect(screen.getByLabelText('API key')).toBeVisible()
   })
 
   it('shows why a connection was refused', async () => {

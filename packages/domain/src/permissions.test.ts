@@ -10,6 +10,8 @@ const all: HouseholdAction[] = [
   'dashboard:edit',
   'dashboard:delete',
   'calendar:view',
+  'meals:view',
+  'stock:view',
   'list:view',
   'list:edit',
   'feed:manage',
@@ -30,6 +32,8 @@ describe('permissions', () => {
       'household:view-members',
       'dashboard:view',
       'calendar:view',
+      'meals:view',
+      'stock:view',
       'list:view',
       'list:edit',
     ])
@@ -40,6 +44,8 @@ describe('permissions', () => {
       'household:view',
       'dashboard:view',
       'calendar:view',
+      'meals:view',
+      'stock:view',
       'list:view',
       'list:edit',
     ])
@@ -50,6 +56,8 @@ describe('permissions', () => {
       'household:view',
       'dashboard:view',
       'calendar:view',
+      'meals:view',
+      'stock:view',
       'list:view',
     ])
   })

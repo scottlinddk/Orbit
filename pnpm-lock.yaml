@@ -77,12 +77,18 @@ importers:
       '@orbit/domain':
         specifier: workspace:*
         version: link:../../packages/domain
+      '@orbit/integration-grocy':
+        specifier: workspace:*
+        version: link:../../packages/integrations/grocy
       '@orbit/integration-home-assistant':
         specifier: workspace:*
         version: link:../../packages/integrations/home-assistant
       '@orbit/integration-ics-calendar':
         specifier: workspace:*
         version: link:../../packages/integrations/ics-calendar
+      '@orbit/integration-mealie':
+        specifier: workspace:*
+        version: link:../../packages/integrations/mealie
       '@orbit/module-planets':
         specifier: workspace:*
         version: link:../../packages/modules/planets
@@ -204,6 +210,9 @@ importers:
       '@orbit/module-lists':
         specifier: workspace:*
         version: link:../../packages/modules/lists
+      '@orbit/module-meals':
+        specifier: workspace:*
+        version: link:../../packages/modules/meals
       '@orbit/widget-sdk':
         specifier: workspace:*
         version: link:../../packages/widget-sdk
@@ -358,6 +367,15 @@ importers:
 
   packages/domain: {}
 
+  packages/integrations/grocy:
+    dependencies:
+      '@orbit/application':
+        specifier: workspace:*
+        version: link:../../application
+      '@orbit/domain':
+        specifier: workspace:*
+        version: link:../../domain
+
   packages/integrations/home-assistant:
     dependencies:
       '@orbit/application':
@@ -381,6 +399,15 @@ importers:
       node-ical:
         specifier: 0.27.3
         version: 0.27.3
+
+  packages/integrations/mealie:
+    dependencies:
+      '@orbit/application':
+        specifier: workspace:*
+        version: link:../../application
+      '@orbit/domain':
+        specifier: workspace:*
+        version: link:../../domain
 
   packages/modules/budget:
     dependencies:
@@ -427,6 +454,28 @@ importers:
         version: 19.3.1
 
   packages/modules/lists:
+    dependencies:
+      '@orbit/application':
+        specifier: workspace:*
+        version: link:../../application
+      '@orbit/contracts':
+        specifier: workspace:*
+        version: link:../../contracts
+      '@orbit/domain':
+        specifier: workspace:*
+        version: link:../../domain
+      '@orbit/widget-sdk':
+        specifier: workspace:*
+        version: link:../../widget-sdk
+    devDependencies:
+      '@types/react':
+        specifier: ^19.3.0
+        version: 19.3.0
+      react:
+        specifier: ^19.3.1
+        version: 19.3.1
+
+  packages/modules/meals:
     dependencies:
       '@orbit/application':
         specifier: workspace:*

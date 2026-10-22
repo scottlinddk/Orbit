@@ -50,15 +50,22 @@ function useRefreshHousehold(householdId: string) {
     void queryClient.invalidateQueries({ queryKey: keys.connections(householdId) })
     void queryClient.invalidateQueries({ queryKey: keys.calendarEvents(householdId) })
     void queryClient.invalidateQueries({ queryKey: keys.lists(householdId) })
+    void queryClient.invalidateQueries({ queryKey: keys.mealsAll(householdId) })
+    void queryClient.invalidateQueries({ queryKey: keys.stock(householdId) })
   }
 }
 
 export function useAddConnection(householdId: string) {
   const refresh = useRefreshHousehold(householdId)
   return useMutation({
-    mutationFn: (input: { name: string; url: string; token: string }) =>
+    mutationFn: (input: {
+      kind: 'homeassistant' | 'mealie' | 'grocy'
+      name: string
+      url: string
+      token: string
+    }) =>
       request('POST', base(householdId), {
-        body: { kind: 'homeassistant', ...input },
+        body: input,
         schema: connectionSchema,
       }),
     onSuccess: refresh,

@@ -1,6 +1,8 @@
 import { createGuardedFetcher } from '@orbit/adapter-egress-guard'
 import type { IntegrationProvider } from '@orbit/application'
+import { createGrocyProvider } from '@orbit/integration-grocy'
 import { createHomeAssistantProvider } from '@orbit/integration-home-assistant'
+import { createMealieProvider } from '@orbit/integration-mealie'
 import type { Config } from './config.ts'
 
 /**
@@ -14,5 +16,11 @@ export function createConnectionWiring(config: Partial<Pick<Config, 'egressAllow
   const fetcher = createGuardedFetcher({
     allowPrivateHosts: config.egressAllowPrivateHosts ?? new Set(),
   })
-  return { providers: [createHomeAssistantProvider(fetcher)] }
+  return {
+    providers: [
+      createHomeAssistantProvider(fetcher),
+      createMealieProvider(fetcher),
+      createGrocyProvider(fetcher),
+    ],
+  }
 }

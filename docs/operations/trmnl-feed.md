@@ -12,15 +12,17 @@ Orbit can publish a read-only feed that a [TRMNL](https://trmnl.com) e-ink displ
 
 You choose the fields. Nothing else is published, and widget settings are never included.
 
-| Field               | Published as                                                                                         |
-| ------------------- | ---------------------------------------------------------------------------------------------------- |
-| `household.name`    | `household.name`                                                                                     |
-| `dashboard.name`    | `dashboard.name` (needs a dashboard)                                                                 |
-| `dashboard.widgets` | `dashboard.widgets[]` with `type` and `span` per item                                                |
-| `list.name`         | `list.name` (needs a list)                                                                           |
-| `list.items`        | `list.items[]` with `text` and `quantity`, open items only, at most 50, in list order (needs a list) |
-| `calendar.today`    | `calendar.today[]`: events that touch today                                                          |
-| `calendar.upcoming` | `calendar.upcoming[]`: events starting in the next 7 days                                            |
+| Field               | Published as                                                                                                       |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `household.name`    | `household.name`                                                                                                   |
+| `dashboard.name`    | `dashboard.name` (needs a dashboard)                                                                               |
+| `dashboard.widgets` | `dashboard.widgets[]` with `type` and `span` per item                                                              |
+| `list.name`         | `list.name` (needs a list)                                                                                         |
+| `list.items`        | `list.items[]` with `text` and `quantity`, open items only, at most 50, in list order (needs a list)               |
+| `calendar.today`    | `calendar.today[]`: events that touch today                                                                        |
+| `calendar.upcoming` | `calendar.upcoming[]`: events starting in the next 7 days                                                          |
+| `meals.today`       | `meals.today[]` with `type` and `title`: today's planned meals from Mealie, at most 20 ([Mealie](mealie.md))       |
+| `stock.expiring`    | `stock.expiring[]` with `name`, `status` and `bestBefore`: the 20 most urgent items from Grocy ([Grocy](grocy.md)) |
 
 A list feed publishes the open items of one list, chosen with `listId` (see [lists](lists.md)). Item notes and who changed what are never published. If the list is deleted later, the feed answers `"list": null`. A feed is capped at 64 KB. TRMNL requires the combined data of a plugin to stay under 100 KB.
 

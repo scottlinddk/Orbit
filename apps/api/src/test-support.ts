@@ -56,6 +56,9 @@ export interface TestEnv {
   ics: FakeIcsServer
   /** A Home Assistant for tests. Register a system with `integrations.add(url, token)`. */
   integrations: FakeIntegrationProvider
+  /** A Mealie and a Grocy for tests, registered like `integrations`. */
+  mealie: FakeIntegrationProvider
+  grocy: FakeIntegrationProvider
   /** The receiver of outgoing webhooks, and the queue that feeds it. */
   webhooks: FakeWebhookFetcher
   jobs: InMemoryJobScheduler
@@ -86,6 +89,8 @@ export async function createTestEnv(options: TestEnvOptions = {}): Promise<TestE
   const clock = new ManualClock()
   const ics = new FakeIcsServer()
   const integrations = new FakeIntegrationProvider()
+  const mealie = new FakeIntegrationProvider('mealie')
+  const grocy = new FakeIntegrationProvider('grocy')
   const webhooks = new FakeWebhookFetcher()
   const jobs = new InMemoryJobScheduler()
   const services = assembleServices({
@@ -104,7 +109,7 @@ export async function createTestEnv(options: TestEnvOptions = {}): Promise<TestE
           : new InMemorySecretStore(),
       reader: createIcsFeedReader(ics),
     },
-    connections: { providers: options.connectionProviders ?? [integrations] },
+    connections: { providers: options.connectionProviders ?? [integrations, mealie, grocy] },
     notifications: { fetcher: webhooks, jobs, platform: createNodeNotificationPlatform() },
     timeZone: config.timeZone,
     oidc: options.oidc,
@@ -122,6 +127,8 @@ export async function createTestEnv(options: TestEnvOptions = {}): Promise<TestE
   return {
     ics,
     integrations,
+    mealie,
+    grocy,
     webhooks,
     jobs,
     app,

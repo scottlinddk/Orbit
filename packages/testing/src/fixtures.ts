@@ -69,6 +69,9 @@ export interface TestSystem {
   /** Connections to other systems, reading from `integrations` instead of the network. */
   connections: ConnectionService
   integrations: FakeIntegrationProvider
+  /** A Mealie and a Grocy for tests, registered like `integrations`. */
+  mealie: FakeIntegrationProvider
+  grocy: FakeIntegrationProvider
   /** Where connection addresses and tokens are kept, so tests can look for leaks. */
   secrets: SecretStore
   /** Outgoing webhooks, delivered to `webhooks` instead of the network. */
@@ -93,12 +96,14 @@ export function createSystem(
   const ids = new CounterIdGenerator()
   const calendarReader = new FakeCalendarFeedReader()
   const integrations = new FakeIntegrationProvider()
+  const mealie = new FakeIntegrationProvider('mealie')
+  const grocy = new FakeIntegrationProvider('grocy')
   const secrets = new InMemorySecretStore()
   const connections = createConnectionService({
     connections: repos.connections,
     households: repos.households,
     secrets,
-    providers: [integrations],
+    providers: [integrations, mealie, grocy],
     clock,
     ids,
   })
@@ -144,6 +149,7 @@ export function createSystem(
       tokens,
       clock,
       calendar,
+      kitchen: connections.kitchen,
       timeZone,
       ...(options.maxFeedBytes === undefined ? {} : { maxFeedBytes: options.maxFeedBytes }),
     }),
@@ -151,6 +157,8 @@ export function createSystem(
     calendarReader,
     connections,
     integrations,
+    mealie,
+    grocy,
     secrets,
     notifications,
     webhooks,

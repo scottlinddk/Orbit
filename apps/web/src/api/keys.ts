@@ -16,6 +16,12 @@ export const keys = {
     ['households', householdId, 'calendar', 'sources'] as const,
   calendarEvents: (householdId: string) =>
     ['households', householdId, 'calendar', 'events'] as const,
+  meals: (householdId: string, from: string, to: string) =>
+    ['households', householdId, 'meals', from, to] as const,
+  mealsAll: (householdId: string) => ['households', householdId, 'meals'] as const,
+  recipe: (householdId: string, connectionId: string, recipeRef: string) =>
+    ['households', householdId, 'meals', 'recipe', connectionId, recipeRef] as const,
+  stock: (householdId: string) => ['households', householdId, 'stock'] as const,
   connections: (householdId: string) => ['households', householdId, 'connections'] as const,
   connectionEntities: (householdId: string, connectionId: string) =>
     ['households', householdId, 'connections', connectionId, 'entities'] as const,

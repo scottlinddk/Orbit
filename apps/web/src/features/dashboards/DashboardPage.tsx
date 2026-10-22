@@ -17,6 +17,7 @@ import { PageHeader } from '../../components/PageHeader.tsx'
 import { QueryError } from '../../components/QueryError.tsx'
 import { ListsHostProvider } from '../../widgets/ListsHostProvider.tsx'
 import { CalendarDataProvider } from '../../widgets/CalendarDataProvider.tsx'
+import { MealsHostProvider } from '../../widgets/MealsHostProvider.tsx'
 import { useRegistry } from '../../widgets/useRegistry.ts'
 import { DashboardGrid } from './DashboardGrid.tsx'
 import styles from './DashboardPage.module.css'
@@ -93,92 +94,97 @@ export function DashboardPage() {
 
   return (
     <ListsHostProvider householdId={data.householdId}>
-      <p className={styles.back}>
-        <Link to={`/h/${data.householdId}`}>← Household</Link>
-        {' · '}
-        <Link to={`/kiosk/${data.id}`}>Wall display</Link>
-      </p>
-      <PageHeader
-        eyebrow={`${greeting}. Take control of your household with real-time insights`}
-        title={data.name}
-        actions={
-          isOwner ? (
-            <Button
-              variant="primary"
-              className={styles.cta}
-              aria-pressed={editing}
-              onClick={() => {
-                setEditing((value) => !value)
-                setSelectedId(null)
-              }}
-            >
-              {editing ? <CheckIcon /> : <PencilIcon />}
-              {editing ? 'Done' : 'Edit layout'}
-            </Button>
-          ) : null
-        }
-      />
+      <MealsHostProvider
+        householdId={data.householdId}
+        enabled={data.widgets.some((w) => w.type.startsWith('meals.'))}
+      >
+        <p className={styles.back}>
+          <Link to={`/h/${data.householdId}`}>← Household</Link>
+          {' · '}
+          <Link to={`/kiosk/${data.id}`}>Wall display</Link>
+        </p>
+        <PageHeader
+          eyebrow={`${greeting}. Take control of your household with real-time insights`}
+          title={data.name}
+          actions={
+            isOwner ? (
+              <Button
+                variant="primary"
+                className={styles.cta}
+                aria-pressed={editing}
+                onClick={() => {
+                  setEditing((value) => !value)
+                  setSelectedId(null)
+                }}
+              >
+                {editing ? <CheckIcon /> : <PencilIcon />}
+                {editing ? 'Done' : 'Edit layout'}
+              </Button>
+            ) : null
+          }
+        />
 
-      <p className="visually-hidden" role="status" aria-live="polite">
-        {announcement}
-      </p>
+        <p className="visually-hidden" role="status" aria-live="polite">
+          {announcement}
+        </p>
 
-      {error ? <Alert>{error.message}</Alert> : null}
+        {error ? <Alert>{error.message}</Alert> : null}
 
-      <div className={isEditing ? styles.editLayout : undefined}>
-        <div className={styles.main}>
-          {data.widgets.length === 0 ? (
-            <p>
-              {isOwner
-                ? 'This dashboard is empty. Choose Edit layout, then add a widget.'
-                : 'Nothing here yet. An owner can add widgets.'}
-            </p>
-          ) : (
-            <CalendarDataProvider
-              householdId={data.householdId}
-              enabled={data.widgets.some((w) => w.type.startsWith('calendar.'))}
-            >
-              <DashboardGrid
-                dashboard={data}
-                registry={registry}
-                editing={isEditing}
-                busy={busy}
-                selectedId={selectedId}
-                onSelect={setSelectedId}
-                onMove={onMove}
-                onResize={onResize}
-                onRemove={onRemove}
-              />
-            </CalendarDataProvider>
-          )}
+        <div className={isEditing ? styles.editLayout : undefined}>
+          <div className={styles.main}>
+            {data.widgets.length === 0 ? (
+              <p>
+                {isOwner
+                  ? 'This dashboard is empty. Choose Edit layout, then add a widget.'
+                  : 'Nothing here yet. An owner can add widgets.'}
+              </p>
+            ) : (
+              <CalendarDataProvider
+                householdId={data.householdId}
+                enabled={data.widgets.some((w) => w.type.startsWith('calendar.'))}
+              >
+                <DashboardGrid
+                  dashboard={data}
+                  registry={registry}
+                  editing={isEditing}
+                  busy={busy}
+                  selectedId={selectedId}
+                  onSelect={setSelectedId}
+                  onMove={onMove}
+                  onResize={onResize}
+                  onRemove={onRemove}
+                />
+              </CalendarDataProvider>
+            )}
+          </div>
+
+          {isEditing ? (
+            <aside className={styles.sidebar} aria-label="Editor">
+              <Suspense fallback={<Loading label="Loading the editor" />}>
+                <EditorSidebar
+                  dashboard={data}
+                  registry={registry}
+                  selected={selected}
+                  selectedIndex={selectedIndex}
+                  busy={busy}
+                  onResize={onResize}
+                  onMove={onMove}
+                  onConfig={(widgetId, config) =>
+                    configure.mutate(
+                      { widgetId, config },
+                      { onSuccess: () => setAnnouncement(`Updated ${titleOf(widgetId)} settings`) },
+                    )
+                  }
+                  onRemove={onRemove}
+                  onClose={() => setSelectedId(null)}
+                  onAnnounce={setAnnouncement}
+                  onDeleted={() => void navigate(`/h/${data.householdId}`)}
+                />
+              </Suspense>
+            </aside>
+          ) : null}
         </div>
-
-        {isEditing ? (
-          <aside className={styles.sidebar} aria-label="Editor">
-            <Suspense fallback={<Loading label="Loading the editor" />}>
-              <EditorSidebar
-                dashboard={data}
-                registry={registry}
-                selected={selected}
-                selectedIndex={selectedIndex}
-                busy={busy}
-                onResize={onResize}
-                onMove={onMove}
-                onConfig={(widgetId, config) =>
-                  configure.mutate(
-                    { widgetId, config },
-                    { onSuccess: () => setAnnouncement(`Updated ${titleOf(widgetId)} settings`) },
-                  )
-                }
-                onRemove={onRemove}
-                onClose={() => setSelectedId(null)}
-                onAnnounce={setAnnouncement}
-                onDeleted={() => void navigate(`/h/${data.householdId}`)}
-              />
-            </Suspense>
-          </aside>
-        ) : null}
-      </div>
+      </MealsHostProvider>
     </ListsHostProvider>
   )
 }

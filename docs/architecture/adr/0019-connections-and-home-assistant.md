@@ -24,4 +24,5 @@ Households that run Home Assistant already keep calendars and to-do lists there 
 - `HouseholdList` gains an optional `source`. The list API gains `readOnly`, `source` and `syncError`. The calendar source status gains an optional `name`.
 - `SecretsNotConfiguredError` now covers access tokens as well as calendar addresses.
 - Security model row 11 covers the token and the mirrored data ([security model](../security-model.md)).
-- Not covered: Mealie, Grocy, Tandoor, writes, OAuth for Home Assistant, push updates (the WebSocket API), and entities other than calendars and to-do lists.
+- Mealie and Grocy are covered by [ADR 0021](0021-meals-and-grocy.md).
+- Not covered: Tandoor, writes, OAuth for Home Assistant, push updates (the WebSocket API), and entities other than calendars and to-do lists.

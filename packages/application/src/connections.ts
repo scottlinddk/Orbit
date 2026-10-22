@@ -2,12 +2,17 @@ import {
   ConnectionId,
   InvariantViolation,
   MAX_CONNECTIONS_PER_HOUSEHOLD,
+  MAX_MEAL_ENTRIES,
+  MAX_MEAL_RANGE_DAYS,
   MAX_ITEMS_PER_LIST,
   MAX_ITEM_NOTE,
   MAX_ITEM_TEXT,
+  addDays,
   createConnection,
   externalId,
   invariant,
+  isPlainDate,
+  localDate,
   parseExternalId,
   withMirrors,
   type CalendarEvent,
@@ -18,8 +23,11 @@ import {
   type HouseholdListItem,
   type ListId,
   type ListItemId,
+  type MealPlanEntry,
+  type MealRecipe,
   type Mirror,
   type MirrorRole,
+  type StockItem,
   type TodoList,
 } from '@orbit/domain'
 import type { Actor } from './actor.ts'
@@ -40,6 +48,11 @@ import type { ConnectionRepository, HouseholdRepository, IdGenerator } from './p
 const CALENDAR_TTL_MS = 5 * 60 * 1000
 /** Lists are ticked off at the shop, so they are re-read sooner than calendars. */
 const LIST_TTL_MS = 60 * 1000
+/** A meal plan changes a few times a week, stock when someone shops or cooks. */
+const MEALS_TTL_MS = 5 * 60 * 1000
+const STOCK_TTL_MS = 5 * 60 * 1000
+const RECIPE_TTL_MS = 10 * 60 * 1000
+const RECIPE_REF = /^[\p{L}\p{N}_-]{1,200}$/u
 
 export interface ConnectionDependencies {
   connections: ConnectionRepository
@@ -50,6 +63,8 @@ export interface ConnectionDependencies {
   ids: IdGenerator
   calendarTtlMs?: number | undefined
   listTtlMs?: number | undefined
+  mealsTtlMs?: number | undefined
+  stockTtlMs?: number | undefined
 }
 
 export interface DiscoveredEntityState extends DiscoveredEntity {
@@ -57,6 +72,35 @@ export interface DiscoveredEntityState extends DiscoveredEntity {
 }
 
 export type ConnectionService = ReturnType<typeof createConnectionService>
+
+/** A planned meal and the connection it came from, which the recipe route needs. */
+export interface MealPlanEntryWithSource extends MealPlanEntry {
+  readonly connectionId: ConnectionId
+}
+
+export interface MealSourceStatus {
+  readonly sourceId: string
+  readonly name: string
+  readonly ok: boolean
+  readonly fetchedAt: string | null
+  readonly error?: string
+}
+
+export type StockSourceStatus = MealSourceStatus
+
+/** Where the meal plan and the stock come from, as the display feed needs them. */
+export interface ExternalKitchen {
+  cachedMeals(householdId: HouseholdId, today: string): Promise<MealPlanEntry[]>
+  cachedStock(householdId: HouseholdId): Promise<StockItem[]>
+}
+
+interface MealsEntry {
+  readonly value: readonly MealPlanEntry[]
+  readonly window: { from: string; to: string }
+  readonly fetchedAt: Date | undefined
+  readonly checkedAt: Date
+  readonly error: string | undefined
+}
 
 const secretScope = (id: ConnectionId) => `connection:${id}`
 const URL_SECRET = 'url'
@@ -86,6 +130,11 @@ export function createConnectionService(deps: ConnectionDependencies) {
   const providers = new Map(deps.providers.map((p) => [p.kind, p]))
   const calendars = new Map<string, CacheEntry<readonly CalendarEvent[]>>()
   const todos = new Map<string, CacheEntry<TodoList | undefined>>()
+  const mealTtl = deps.mealsTtlMs ?? MEALS_TTL_MS
+  const stockTtl = deps.stockTtlMs ?? STOCK_TTL_MS
+  const meals = new Map<string, MealsEntry>()
+  const stocks = new Map<string, CacheEntry<readonly StockItem[]>>()
+  const recipes = new Map<string, { value: MealRecipe; fetchedAt: Date }>()
   const inflight = new Map<string, Promise<unknown>>()
 
   const provider = (kind: ConnectionKind): IntegrationProvider => {
@@ -203,11 +252,98 @@ export function createConnectionService(deps: ConnectionDependencies) {
     })
   }
 
+  function refreshMeals(
+    connection: Connection,
+    mirror: Mirror,
+    window: { from: string; to: string },
+  ): Promise<MealsEntry> {
+    const key = externalId(connection.id, mirror.entityId)
+    return once(`meals:${key}:${window.from}:${window.to}`, async () => {
+      const previous = meals.get(key)
+      const checkedAt = clock.now()
+      let entry: MealsEntry
+      try {
+        const impl = provider(connection.kind)
+        if (impl.readMealPlan === undefined)
+          throw new IntegrationError('This system has no meal plan.')
+        const entries = await impl.readMealPlan(await target(connection), mirror.entityId, window)
+        entry = {
+          value: entries.slice(0, MAX_MEAL_ENTRIES),
+          window,
+          fetchedAt: checkedAt,
+          checkedAt,
+          error: undefined,
+        }
+      } catch (error) {
+        entry = {
+          value: previous?.value ?? [],
+          window: previous?.window ?? window,
+          fetchedAt: previous?.fetchedAt,
+          checkedAt,
+          error: message(error),
+        }
+      }
+      if (await stillMirrored(connection, mirror)) meals.set(key, entry)
+      return entry
+    })
+  }
+
+  function refreshStock(
+    connection: Connection,
+    mirror: Mirror,
+  ): Promise<CacheEntry<readonly StockItem[]>> {
+    const key = externalId(connection.id, mirror.entityId)
+    return once(`stock:${key}`, async () => {
+      const previous = stocks.get(key)
+      const checkedAt = clock.now()
+      let entry: CacheEntry<readonly StockItem[]>
+      try {
+        const impl = provider(connection.kind)
+        if (impl.readStock === undefined) throw new IntegrationError('This system has no stock.')
+        const items = await impl.readStock(await target(connection), mirror.entityId)
+        entry = { value: items, fetchedAt: checkedAt, checkedAt, error: undefined }
+      } catch (error) {
+        entry = {
+          value: previous?.value ?? [],
+          fetchedAt: previous?.fetchedAt,
+          checkedAt,
+          error: message(error),
+        }
+      }
+      if (await stillMirrored(connection, mirror)) stocks.set(key, entry)
+      return entry
+    })
+  }
+
+  const covers = (entry: MealsEntry, window: { from: string; to: string }) =>
+    entry.window.from <= window.from && entry.window.to >= window.to
+
+  /** Today's date for a household with no time zone setting: the server's UTC date. */
+  const todayUtc = () => localDate(clock.now(), 'UTC')
+
+  /** The checked range of dates, defaulting to a week from today. */
+  function mealWindow(requested: { from?: string | undefined; to?: string | undefined }) {
+    const from = requested.from ?? todayUtc()
+    invariant(isPlainDate(from), 'The start must be a date like 2026-10-22')
+    const to = requested.to ?? addDays(from, 6)
+    invariant(isPlainDate(to), 'The end must be a date like 2026-10-28')
+    invariant(to >= from, 'The end must not be before the start')
+    invariant(
+      addDays(from, MAX_MEAL_RANGE_DAYS - 1) >= to,
+      `Ask for at most ${MAX_MEAL_RANGE_DAYS} days at a time`,
+    )
+    return { from, to }
+  }
+
   const forget = (connection: Connection) => {
     for (const m of connection.mirrors) {
       calendars.delete(externalId(connection.id, m.entityId))
       todos.delete(externalId(connection.id, m.entityId))
+      meals.delete(externalId(connection.id, m.entityId))
+      stocks.delete(externalId(connection.id, m.entityId))
     }
+    for (const key of [...recipes.keys()])
+      if (key.startsWith(`${connection.id}:`)) recipes.delete(key)
   }
 
   function listOf(connection: Connection, mirror: Mirror): HouseholdList {
@@ -326,9 +462,146 @@ export function createConnectionService(deps: ConnectionDependencies) {
     },
   }
 
+  const kitchenReader: ExternalKitchen = {
+    /** Never waits for the network: a stale plan is refreshed in the background. */
+    async cachedMeals(householdId, today) {
+      const window = { from: today, to: today }
+      const entries: MealPlanEntry[] = []
+      for (const { connection, mirror } of await mirrorsOf(householdId, 'meals')) {
+        const cached = meals.get(externalId(connection.id, mirror.entityId))
+        const fresh = cached !== undefined && isFresh(cached, mealTtl) && covers(cached, window)
+        if (!fresh) refreshMeals(connection, mirror, window).catch(() => undefined)
+        if (cached) entries.push(...cached.value)
+      }
+      return entries
+    },
+
+    async cachedStock(householdId) {
+      const items: StockItem[] = []
+      for (const { connection, mirror } of await mirrorsOf(householdId, 'stock')) {
+        const cached = stocks.get(externalId(connection.id, mirror.entityId))
+        if (!isFresh(cached, stockTtl)) refreshStock(connection, mirror).catch(() => undefined)
+        if (cached) items.push(...cached.value)
+      }
+      return items
+    },
+  }
+
   return {
     calendars: calendarsReader,
+    kitchen: kitchenReader,
     lists: listsReader,
+
+    /** Planned meals of every connected meal plan in a range of dates, oldest first. */
+    async mealPlan(
+      actor: Actor,
+      householdId: HouseholdId,
+      requested: { from?: string | undefined; to?: string | undefined },
+    ): Promise<{ entries: MealPlanEntryWithSource[]; sources: MealSourceStatus[] }> {
+      await authorizer.require(actor, householdId, 'meals:view')
+      const window = mealWindow(requested)
+      const mirrored = await mirrorsOf(householdId, 'meals')
+      const read = await Promise.all(
+        mirrored.map(async ({ connection, mirror }) => {
+          const cached = meals.get(externalId(connection.id, mirror.entityId))
+          const entry =
+            cached !== undefined && isFresh(cached, mealTtl) && covers(cached, window)
+              ? cached
+              : await refreshMeals(connection, mirror, window)
+          return { connection, mirror, entry }
+        }),
+      )
+      const entries: MealPlanEntryWithSource[] = []
+      const sources: MealSourceStatus[] = []
+      for (const { connection, mirror, entry } of read) {
+        for (const e of entry.value)
+          if (e.date >= window.from && e.date <= window.to)
+            entries.push({ ...e, connectionId: connection.id })
+        sources.push({
+          sourceId: externalId(connection.id, mirror.entityId),
+          name: mirror.name,
+          ok: entry.error === undefined,
+          fetchedAt: entry.fetchedAt?.toISOString() ?? null,
+          ...(entry.error === undefined ? {} : { error: entry.error }),
+        })
+      }
+      entries.sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id))
+      return { entries, sources }
+    },
+
+    /**
+     * One recipe. Only recipes that a plan entry of this connection points to can be read, so
+     * a household member sees what the plan shows and not the whole recipe library behind it.
+     */
+    async recipe(
+      actor: Actor,
+      householdId: HouseholdId,
+      id: ConnectionId,
+      ref: string,
+    ): Promise<MealRecipe> {
+      await authorizer.require(actor, householdId, 'meals:view')
+      const connection = await owned(householdId, id)
+      if (!RECIPE_REF.test(ref)) throw new NotFoundError()
+      const mealMirrors = connection.mirrors.filter((m) => m.role === 'meals')
+      const planned = () =>
+        mealMirrors.some((mirror) =>
+          meals
+            .get(externalId(connection.id, mirror.entityId))
+            ?.value.some((e) => e.recipe?.ref === ref),
+        )
+      if (!planned()) {
+        // After a restart nothing is cached yet: read the default week once, then look again.
+        const window = mealWindow({})
+        for (const mirror of mealMirrors) await refreshMeals(connection, mirror, window)
+        if (!planned()) throw new NotFoundError()
+      }
+      const key = `${connection.id}:${ref}`
+      const cached = recipes.get(key)
+      if (cached && clock.now().getTime() - cached.fetchedAt.getTime() < RECIPE_TTL_MS)
+        return cached.value
+      return once(`recipe:${key}`, async () => {
+        const impl = provider(connection.kind)
+        if (impl.readRecipe === undefined) throw new NotFoundError()
+        try {
+          const value = await impl.readRecipe(await target(connection), ref)
+          recipes.set(key, { value, fetchedAt: clock.now() })
+          return value
+        } catch (error) {
+          // A recipe is shown whole or not at all, but an old copy beats an error.
+          if (cached) return cached.value
+          throw new InvariantViolation(`The recipe could not be read. ${message(error)}`)
+        }
+      })
+    },
+
+    /** Stock that is expired, due soon or running out, from every connected stock overview. */
+    async stock(
+      actor: Actor,
+      householdId: HouseholdId,
+    ): Promise<{ items: StockItem[]; sources: StockSourceStatus[] }> {
+      await authorizer.require(actor, householdId, 'stock:view')
+      const mirrored = await mirrorsOf(householdId, 'stock')
+      const read = await Promise.all(
+        mirrored.map(async ({ connection, mirror }) => {
+          const cached = stocks.get(externalId(connection.id, mirror.entityId))
+          const entry = isFresh(cached, stockTtl) ? cached! : await refreshStock(connection, mirror)
+          return { connection, mirror, entry }
+        }),
+      )
+      const items: StockItem[] = []
+      const sources: StockSourceStatus[] = []
+      for (const { connection, mirror, entry } of read) {
+        for (const item of entry.value) items.push(item)
+        sources.push({
+          sourceId: externalId(connection.id, mirror.entityId),
+          name: mirror.name,
+          ok: entry.error === undefined,
+          fetchedAt: entry.fetchedAt?.toISOString() ?? null,
+          ...(entry.error === undefined ? {} : { error: entry.error }),
+        })
+      }
+      return { items, sources }
+    },
 
     /** Checks the address and token against the other system before anything is saved. */
     async addConnection(
@@ -398,7 +671,14 @@ export function createConnectionService(deps: ConnectionDependencies) {
       actor: Actor,
       householdId: HouseholdId,
       id: ConnectionId,
-    ): Promise<{ ok: boolean; calendars: number; todoLists: number; error?: string }> {
+    ): Promise<{
+      ok: boolean
+      calendars: number
+      todoLists: number
+      mealPlans: number
+      stockViews: number
+      error?: string
+    }> {
       await authorizer.require(actor, householdId, 'connection:manage')
       const connection = await owned(householdId, id)
       try {
@@ -407,9 +687,18 @@ export function createConnectionService(deps: ConnectionDependencies) {
           ok: true,
           calendars: found.filter((e) => e.role === 'calendar').length,
           todoLists: found.filter((e) => e.role === 'todo').length,
+          mealPlans: found.filter((e) => e.role === 'meals').length,
+          stockViews: found.filter((e) => e.role === 'stock').length,
         }
       } catch (error) {
-        return { ok: false, calendars: 0, todoLists: 0, error: message(error) }
+        return {
+          ok: false,
+          calendars: 0,
+          todoLists: 0,
+          mealPlans: 0,
+          stockViews: 0,
+          error: message(error),
+        }
       }
     },
 

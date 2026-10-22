@@ -1,0 +1,18 @@
+{
+  "name": "@orbit/integration-grocy",
+  "version": "0.0.0",
+  "private": true,
+  "description": "IntegrationProvider that reads shopping lists and stock from Grocy",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@orbit/application": "workspace:*",
+    "@orbit/domain": "workspace:*"
+  }
+}

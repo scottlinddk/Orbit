@@ -9,6 +9,8 @@ export const feedFieldSchema = z.enum([
   'list.items',
   'calendar.today',
   'calendar.upcoming',
+  'meals.today',
+  'stock.expiring',
 ])
 
 export const createFeedRequestSchema = z.strictObject({
@@ -51,6 +53,26 @@ const feedCalendarEventSchema = z.object({
 
 export const feedContentSchema = z
   .object({
+    /** Titles only, never notes or recipes. At most 20. */
+    meals: z
+      .object({
+        today: z.array(z.object({ type: z.string(), title: z.string() })).optional(),
+      })
+      .optional(),
+    /** Most urgent first. No amounts and no ids. At most 20. */
+    stock: z
+      .object({
+        expiring: z
+          .array(
+            z.object({
+              name: z.string(),
+              status: z.enum(['expired', 'overdue', 'due-soon', 'missing']),
+              bestBefore: z.string().optional(),
+            }),
+          )
+          .optional(),
+      })
+      .optional(),
     calendar: z
       .object({
         today: z.array(feedCalendarEventSchema).optional(),

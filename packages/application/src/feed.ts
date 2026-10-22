@@ -1,12 +1,14 @@
 import {
   feedByteLength,
   isActiveFeed,
+  localDate,
   MAX_FEED_BYTES,
   renderFeed,
   type JsonObject,
 } from '@orbit/domain'
 import type { Clock, SessionTokens } from './auth-ports.ts'
 import type { CalendarService } from './calendar.ts'
+import type { ExternalKitchen } from './connections.ts'
 import { FeedTooLargeError, NotFoundError } from './errors.ts'
 import type {
   DashboardRepository,
@@ -25,6 +27,8 @@ export interface FeedReaderDependencies {
   maxFeedBytes?: number
   /** Where `calendar.*` fields get their events. Without it those fields are empty. */
   calendar?: Pick<CalendarService, 'cachedEventsForFeed'> | undefined
+  /** Where `meals.*` and `stock.*` fields get their data. Without it those fields are empty. */
+  kitchen?: ExternalKitchen | undefined
   clock?: Clock | undefined
   /** The zone that decides what "today" means. Defaults to UTC. */
   timeZone?: string | undefined
@@ -67,7 +71,29 @@ export function createFeedReader(deps: FeedReaderDependencies) {
               timeZone: deps.timeZone ?? 'UTC',
             }
           : undefined
-      const content = renderFeed(feed, { household, dashboard: own, list: ownList, calendar })
+      const now = (deps.clock ?? { now: () => new Date() }).now()
+      const meals =
+        feed.fields.includes('meals.today') && deps.kitchen
+          ? {
+              today: localDate(now, deps.timeZone ?? 'UTC'),
+              entries: await deps.kitchen.cachedMeals(
+                feed.householdId,
+                localDate(now, deps.timeZone ?? 'UTC'),
+              ),
+            }
+          : undefined
+      const stock =
+        feed.fields.includes('stock.expiring') && deps.kitchen
+          ? { items: await deps.kitchen.cachedStock(feed.householdId) }
+          : undefined
+      const content = renderFeed(feed, {
+        household,
+        dashboard: own,
+        list: ownList,
+        calendar,
+        meals,
+        stock,
+      })
       if (feedByteLength(content) > maxFeedBytes) throw new FeedTooLargeError()
       return content
     },

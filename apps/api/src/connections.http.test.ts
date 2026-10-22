@@ -64,7 +64,13 @@ describe.each(['memory', 'sqlite'] as const)('connections over HTTP (%s)', (stor
     const id = created.body.id
 
     const test = await alice.post(`${base()}/${id}/test`)
-    expect(test.body).toEqual({ ok: true, calendars: 1, todoLists: 1 })
+    expect(test.body).toEqual({
+      ok: true,
+      calendars: 1,
+      todoLists: 1,
+      mealPlans: 0,
+      stockViews: 0,
+    })
 
     const entities = await alice.get(`${base()}/${id}/entities`)
     expect(entities.body.entities).toEqual([
@@ -165,7 +171,7 @@ describe.each(['memory', 'sqlite'] as const)('connections over HTTP (%s)', (stor
 
   it('rejects an unknown kind and a body with extra fields', async () => {
     expect(
-      (await alice.post(base(), { kind: 'mealie', name: 'x', url: HA_URL, token: TOKEN })).status,
+      (await alice.post(base(), { kind: 'plex', name: 'x', url: HA_URL, token: TOKEN })).status,
     ).toBe(400)
     expect(
       (

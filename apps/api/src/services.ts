@@ -131,6 +131,7 @@ export function assembleServices(parts: ServiceParts): Services {
       lists: repos.lists,
       tokens,
       calendar,
+      kitchen: connections.kitchen,
       clock,
       timeZone: parts.timeZone,
     }),

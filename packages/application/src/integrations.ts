@@ -1,4 +1,12 @@
-import type { CalendarEvent, ConnectionKind, MirrorRole, TodoList } from '@orbit/domain'
+import type {
+  CalendarEvent,
+  ConnectionKind,
+  MealPlanEntry,
+  MealRecipe,
+  MirrorRole,
+  StockItem,
+  TodoList,
+} from '@orbit/domain'
 
 /** What a person typed to reach the other system, and the credential for it. Both are secrets. */
 export interface ConnectionTarget {
@@ -16,8 +24,10 @@ export interface DiscoveredEntity {
 
 /**
  * A system Orbit can read data from for a household. One implementation per kind, wired in the
- * composition root with the shared egress guard (ADR 0019). The same port will serve Mealie and
- * Grocy.
+ * composition root with the shared egress guard (ADR 0019). Home Assistant, Mealie and Grocy all
+ * use it. A kind implements the reads that match the roles it discovers: `readCalendar` for
+ * `calendar`, `readTodoList` for `todo`, `readMealPlan` and `readRecipe` for `meals`, and
+ * `readStock` for `stock` (ADR 0021).
  *
  * Failures are `IntegrationError` or `EgressDeniedError` with text that is safe to show: it never
  * contains the address or the token. Implementations only read. Writing back is a separate,
@@ -38,4 +48,14 @@ export interface IntegrationProvider {
     range: { from: Date; to: Date },
   ): Promise<CalendarEvent[]>
   readTodoList(target: ConnectionTarget, entityId: string): Promise<TodoList>
+  /** Planned meals with dates from `from` to `to`, both `YYYY-MM-DD` and inclusive. */
+  readMealPlan?(
+    target: ConnectionTarget,
+    entityId: string,
+    range: { from: string; to: string },
+  ): Promise<MealPlanEntry[]>
+  /** One recipe, by the `ref` a plan entry carried. */
+  readRecipe?(target: ConnectionTarget, ref: string): Promise<MealRecipe>
+  /** Products that are expired, due soon or running out. */
+  readStock?(target: ConnectionTarget, entityId: string): Promise<StockItem[]>
 }

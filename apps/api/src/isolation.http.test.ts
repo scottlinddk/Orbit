@@ -23,6 +23,7 @@ interface Ids {
   item: string
   calendarSource: string
   connection: string
+  mealie: string
   notificationEndpoint: string
   alice: string
 }
@@ -42,6 +43,10 @@ const GONE = 'does-not-exist'
 const CALENDAR_URL = 'https://calendar.example.com/private/abc123.ics'
 const HA_URL = 'http://ha.local:8123'
 const HA_TOKEN = 'ha-token-secret'
+const MEALIE_URL = 'http://mealie.local:9000'
+const MEALIE_TOKEN = 'mealie-token-secret'
+const GROCY_URL = 'http://grocy.local:9283'
+const GROCY_KEY = 'grocy-key-secret'
 const WEBHOOK_URL = 'https://hooks.example.com/services/T000/B000/secret-token'
 const ENDPOINTS = 'notifications/endpoints'
 
@@ -262,6 +267,24 @@ const cases: Case[] = [
     memberAllowed: true,
   },
   {
+    key: 'get /api/v1/households/{householdId}/meals',
+    call: (c, i) => c.get(`${V1}/households/${i.household}/meals`),
+    callMissing: (c) => c.get(`${V1}/households/${GONE}/meals`),
+    memberAllowed: true,
+  },
+  {
+    key: 'get /api/v1/households/{householdId}/meals/recipes/{connectionId}/{ref}',
+    call: (c, i) => c.get(`${V1}/households/${i.household}/meals/recipes/${i.mealie}/chili`),
+    callMissing: (c) => c.get(`${V1}/households/${GONE}/meals/recipes/${GONE}/chili`),
+    memberAllowed: true,
+  },
+  {
+    key: 'get /api/v1/households/{householdId}/stock',
+    call: (c, i) => c.get(`${V1}/households/${i.household}/stock`),
+    callMissing: (c) => c.get(`${V1}/households/${GONE}/stock`),
+    memberAllowed: true,
+  },
+  {
     key: 'post /api/v1/households/{householdId}/notifications/endpoints',
     call: (c, i) =>
       c.post(`${V1}/households/${i.household}/${ENDPOINTS}`, {
@@ -464,6 +487,50 @@ describe.each(['memory', 'sqlite'] as const)('household isolation over HTTP (%s)
     await alice.put(`${V1}/households/${household}/connections/${connection.id}/mirrors`, {
       entityIds: ['calendar.family', 'todo.shopping'],
     })
+    const mealieSystem = env.mealie.add(MEALIE_URL, MEALIE_TOKEN)
+    mealieSystem.entities.push({ entityId: 'mealplan.mealplan', role: 'meals', name: 'Meal plan' })
+    mealieSystem.mealPlans.set('mealplan.mealplan', [
+      {
+        id: 'm1',
+        date: '2026-01-01',
+        type: 'dinner',
+        title: 'Chili',
+        recipe: { ref: 'chili', name: 'Chili' },
+      },
+    ])
+    mealieSystem.recipes.set('chili', {
+      ref: 'chili',
+      name: 'Chili',
+      ingredients: ['beans'],
+      instructions: ['Simmer.'],
+    })
+    const mealie = (
+      await alice.post(`${V1}/households/${household}/connections`, {
+        kind: 'mealie',
+        name: 'Mealie',
+        url: MEALIE_URL,
+        token: MEALIE_TOKEN,
+      })
+    ).body
+    await alice.put(`${V1}/households/${household}/connections/${mealie.id}/mirrors`, {
+      entityIds: ['mealplan.mealplan'],
+    })
+    const grocySystem = env.grocy.add(GROCY_URL, GROCY_KEY)
+    grocySystem.entities.push({ entityId: 'stock.stock', role: 'stock', name: 'Stock overview' })
+    grocySystem.stock.set('stock.stock', [
+      { id: '1', name: 'Milk', status: 'due-soon', amount: 1, bestBefore: '2026-01-03' },
+    ])
+    const grocy = (
+      await alice.post(`${V1}/households/${household}/connections`, {
+        kind: 'grocy',
+        name: 'Grocy',
+        url: GROCY_URL,
+        token: GROCY_KEY,
+      })
+    ).body
+    await alice.put(`${V1}/households/${household}/connections/${grocy.id}/mirrors`, {
+      entityIds: ['stock.stock'],
+    })
     const notificationEndpoint = (
       await alice.post(`${V1}/households/${household}/${ENDPOINTS}`, {
         name: 'Chat',
@@ -494,6 +561,7 @@ describe.each(['memory', 'sqlite'] as const)('household isolation over HTTP (%s)
       feed: feed.id,
       calendarSource: calendarSource.id,
       connection: connection.id,
+      mealie: mealie.id,
       notificationEndpoint: notificationEndpoint.id,
       dashboard: dashboard.id,
       widget: withWidget.widgets[0].id,

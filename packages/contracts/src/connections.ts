@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
-export const connectionKindSchema = z.enum(['homeassistant'])
-export const mirrorRoleSchema = z.enum(['calendar', 'todo'])
+export const connectionKindSchema = z.enum(['homeassistant', 'mealie', 'grocy'])
+export const mirrorRoleSchema = z.enum(['calendar', 'todo', 'meals', 'stock'])
 
 export const mirrorSchema = z
   .object({
@@ -18,7 +18,7 @@ export const connectionSchema = z
     name: z.string(),
     /** Only `host[:port]`. The address and the access token are secrets and are never returned. */
     host: z.string(),
-    /** The calendars and to-do lists shown in this household. */
+    /** The calendars, lists, meal plans and stock overviews shown in this household. */
     mirrors: z.array(mirrorSchema),
     createdAt: z.string(),
   })
@@ -30,7 +30,7 @@ export const createConnectionRequestSchema = z.strictObject({
   name: z.string().min(1).max(80),
   /** Where the other system is reached, for example `http://homeassistant.local:8123`. */
   url: z.string().min(1).max(2000),
-  /** A long-lived access token. Orbit keeps it encrypted and never shows it again. */
+  /** A long-lived access token, API token (Mealie) or API key (Grocy). Orbit keeps it encrypted and never shows it again. */
   token: z.string().min(1).max(4000),
 })
 
@@ -39,6 +39,8 @@ export const connectionTestSchema = z
     ok: z.boolean(),
     calendars: z.number().int(),
     todoLists: z.number().int(),
+    mealPlans: z.number().int(),
+    stockViews: z.number().int(),
     /** Safe to show. Never contains the address or the token. */
     error: z.string().optional(),
   })

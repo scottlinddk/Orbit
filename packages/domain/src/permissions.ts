@@ -9,6 +9,8 @@ export type HouseholdAction =
   | 'dashboard:edit'
   | 'dashboard:delete'
   | 'calendar:view'
+  | 'meals:view'
+  | 'stock:view'
   | 'list:view'
   | 'list:edit'
   | 'feed:manage'
@@ -36,6 +38,8 @@ const grants: Record<HouseholdRole, ReadonlySet<HouseholdAction>> = {
     'dashboard:edit',
     'dashboard:delete',
     'calendar:view',
+    'meals:view',
+    'stock:view',
     'list:view',
     'list:edit',
     'feed:manage',
@@ -48,6 +52,8 @@ const grants: Record<HouseholdRole, ReadonlySet<HouseholdAction>> = {
     'household:view-members',
     'dashboard:view',
     'calendar:view',
+    'meals:view',
+    'stock:view',
     'list:view',
     'list:edit',
   ]),
@@ -55,6 +61,8 @@ const grants: Record<HouseholdRole, ReadonlySet<HouseholdAction>> = {
     'household:view',
     'dashboard:view',
     'calendar:view',
+    'meals:view',
+    'stock:view',
     'list:view',
     'list:edit',
   ]),
@@ -62,6 +70,8 @@ const grants: Record<HouseholdRole, ReadonlySet<HouseholdAction>> = {
     'household:view',
     'dashboard:view',
     'calendar:view',
+    'meals:view',
+    'stock:view',
     'list:view',
   ]),
 }

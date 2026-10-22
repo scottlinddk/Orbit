@@ -4,6 +4,7 @@ import type { Dashboard, JsonObject } from './dashboard.ts'
 import { invariant } from './errors.ts'
 import type { DashboardId, FeedId, HouseholdId, ListId, UserId } from './ids.ts'
 import type { Household } from './household.ts'
+import { mealsToday, stockExpiring, type MealPlanEntry, type StockItem } from './meal.ts'
 import { openListItems, type HouseholdList, type HouseholdListItem } from './household-list.ts'
 
 /** A TRMNL plugin must stay under 100 KB in total. One feed may use at most this much of it. */
@@ -25,6 +26,8 @@ export const FEED_FIELDS = [
   'list.items',
   'calendar.today',
   'calendar.upcoming',
+  'meals.today',
+  'stock.expiring',
 ] as const
 export type FeedField = (typeof FEED_FIELDS)[number]
 
@@ -106,6 +109,10 @@ export function renderFeed(
     list?: { list: HouseholdList; items: readonly HouseholdListItem[] } | undefined
     /** Events the household's calendars have, if any. Without them the lists are empty. */
     calendar?: { events: readonly CalendarEvent[]; now: Date; timeZone: string } | undefined
+    /** Planned meals from a connected Mealie, and which date is today. */
+    meals?: { entries: readonly MealPlanEntry[]; today: string } | undefined
+    /** Stock that needs attention, from a connected Grocy. */
+    stock?: { items: readonly StockItem[] } | undefined
   },
 ): JsonObject {
   const has = (f: FeedField) => feed.fields.includes(f)
@@ -120,6 +127,16 @@ export function renderFeed(
       ...(has('calendar.upcoming') ? { upcoming: list(glance.upcoming) } : {}),
     }
   }
+  if (has('meals.today'))
+    out.meals = {
+      today: source.meals
+        ? mealsToday(source.meals.entries, source.meals.today).map((m) => ({ ...m }))
+        : [],
+    }
+  if (has('stock.expiring'))
+    out.stock = {
+      expiring: source.stock ? stockExpiring(source.stock.items).map((i) => ({ ...i })) : [],
+    }
   if (has('household.name')) out.household = { name: source.household.name }
   if (feed.dashboardId !== undefined) {
     const { dashboard } = source

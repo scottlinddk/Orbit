@@ -26,7 +26,7 @@ Only ports with a real boundary, security need, or plausible replacement:
 - `JobScheduler` (sync jobs; `adapters/jobs-sqlite`)
 - `EgressFetcher` (every outbound request to a user-supplied URL; `adapters/egress-guard`)
 - `PlanetStateStore` (what a Planet last fetched; `adapters/planets-sqlite`)
-- `IntegrationProvider` (read-only access to another system such as Home Assistant, ADR 0019; ICS calendars use their own reader, ADR 0003)
+- `IntegrationProvider` (read-only access to another system: Home Assistant, Mealie or Grocy, ADR 0019 and ADR 0021; ICS calendars use their own reader, ADR 0003)
 - `AuthorizationService` (platform-owned policies)
 
 Deferred until a feature needs them: `ObjectStorage`, multiple identity providers.

@@ -1,15 +1,19 @@
 import { invariant } from './errors.ts'
 import type { ConnectionId, HouseholdId, UserId } from './ids.ts'
 
-/** The systems Orbit can mirror data from. Mealie and Grocy follow the same shape. */
-export const CONNECTION_KINDS = ['homeassistant'] as const
+/** The systems Orbit can mirror data from (ADR 0019, ADR 0021). */
+export const CONNECTION_KINDS = ['homeassistant', 'mealie', 'grocy'] as const
 export type ConnectionKind = (typeof CONNECTION_KINDS)[number]
 
 export const MAX_CONNECTIONS_PER_HOUSEHOLD = 5
 export const MAX_MIRRORS_PER_CONNECTION = 20
 export const MAX_CONNECTION_NAME = 80
 
-export const MIRROR_ROLES = ['calendar', 'todo'] as const
+/**
+ * What a mirror is: a calendar, a to-do or shopping list, the meal plan of Mealie (`meals`), or
+ * the stock overview of Grocy (`stock`).
+ */
+export const MIRROR_ROLES = ['calendar', 'todo', 'meals', 'stock'] as const
 export type MirrorRole = (typeof MIRROR_ROLES)[number]
 
 /**
@@ -40,7 +44,8 @@ export interface Connection {
   readonly createdAt: Date
 }
 
-const ENTITY_ID = /^[a-z0-9_]+\.[a-z0-9_]+$/
+// Mealie ids are UUIDs, so the part after the dot may contain hyphens.
+const ENTITY_ID = /^[a-z0-9_]+\.[a-z0-9_-]+$/
 
 function validMirror(mirror: Mirror): Mirror {
   invariant((MIRROR_ROLES as readonly string[]).includes(mirror.role), 'Unknown kind of mirror')
