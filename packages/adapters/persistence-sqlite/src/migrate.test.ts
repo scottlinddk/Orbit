@@ -24,7 +24,11 @@ describe('migrate', () => {
       'household_members',
       'households',
       'invitations',
+      'planet_state',
+      'planet_webhooks',
+      'scheduled_jobs',
       'schema_migrations',
+      'secrets',
       'sessions',
       'users',
     ])

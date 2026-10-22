@@ -31,5 +31,6 @@
   - [HTTPS for a home network or a tailnet](operations/hosting/https-lan-and-tailscale.md)
   - [Public VPS with Caddy](operations/hosting/vps.md)
 - [Naming](product/naming.md)
+- [Planets: install, permissions and authoring](operations/planets.md)
 
 Open decisions are tracked in [open questions](architecture/open-questions.md).

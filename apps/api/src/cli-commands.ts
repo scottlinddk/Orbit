@@ -15,6 +15,7 @@ import { backupDatabase, openDatabase, verifyDatabase } from '@orbit/adapter-per
 import { InvariantViolation } from '@orbit/domain'
 import { NotFoundError, UsernameTakenError } from '@orbit/application'
 import { createSqliteServices } from './composition.ts'
+import { runPlanetCommand } from './cli-planets.ts'
 import { ConfigError, loadConfig } from './config.ts'
 
 export interface CliIo {
@@ -22,6 +23,10 @@ export interface CliIo {
   err(line: string): void
   /** Reads a new password without echoing it. Called only by commands that need one. */
   readPassword(): Promise<string>
+  /** Reads a secret value without echoing it. Called only by `planet secret set`. */
+  readSecret?(): Promise<string>
+  /** Asks a yes or no question. Called only by `planet install`. */
+  confirm?(question: string): Promise<boolean>
 }
 
 export const USAGE = `Orbit operator commands. Run on the server that holds the database.
@@ -34,6 +39,7 @@ export const USAGE = `Orbit operator commands. Run on the server that holds the 
   config validate           Check configuration without opening the database.
   config print --redacted   Print effective settings with secrets hidden.
   doctor                    Check storage, URL reachability and clock skew.
+  planet <command>          Install and manage Planets. Run "planet" for its commands.
 
 The database is the one ORBIT_DATABASE_PATH points to.`
 
@@ -66,12 +72,25 @@ export async function runCli(
       else
         io.out(
           JSON.stringify(
-            { ...config, setupCode: config.setupCode ? '[REDACTED]' : undefined },
+            {
+              ...config,
+              setupCode: config.setupCode ? '[REDACTED]' : undefined,
+              secretKey: config.secretKey ? '[REDACTED]' : undefined,
+              egressAllowPrivateHosts: [...config.egressAllowPrivateHosts],
+            },
             null,
             2,
           ),
         )
       return EXIT_OK
+    } catch (error) {
+      io.err(error instanceof Error ? error.message : String(error))
+      return EXIT_FAILED
+    }
+  }
+  if (command === 'planet') {
+    try {
+      return await runPlanetCommand(argv.slice(1), loadConfig(env), io)
     } catch (error) {
       io.err(error instanceof Error ? error.message : String(error))
       return EXIT_FAILED

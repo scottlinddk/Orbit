@@ -5,6 +5,11 @@ import {
   SequentialSessionTokens,
 } from '@orbit/adapter-in-memory'
 import type { Auth, SetupGate, UseCases } from '@orbit/application'
+import { SqliteJobScheduler } from '@orbit/adapter-jobs-sqlite'
+import { migrate, openDatabase } from '@orbit/adapter-persistence-sqlite'
+import { SqlitePlanetStateStore } from '@orbit/adapter-planets-sqlite'
+import { EncryptedDbSecretStore } from '@orbit/adapter-secrets-encrypted-db'
+import { buildPackage, PlanetRuntime } from '@orbit/module-planets/server'
 import { createInMemoryRepositories, createSqliteRepositories } from '@orbit/testing'
 import type { LightMyRequestResponse } from 'fastify'
 import { buildApp, type AppOptions, type App } from './app.ts'
@@ -28,6 +33,7 @@ export interface TestEnvOptions {
   env?: Record<string, string>
   app?: Partial<AppOptions>
   setupGate?: SetupGate
+  planets?: PlanetRuntime
 }
 
 /** The real HTTP app wired with fast, deterministic parts. Registration is open by default. */
@@ -42,6 +48,7 @@ export async function createTestEnv(options: TestEnvOptions = {}): Promise<TestE
     ids: new CounterIdGenerator(),
     registrationPolicy: config.registration,
     setupGate: options.setupGate,
+    planets: options.planets,
   })
   const app = await buildApp({
     services,
@@ -60,6 +67,44 @@ export async function createTestEnv(options: TestEnvOptions = {}): Promise<TestE
     client: () => new TestClient(app, config),
     close: () => app.close(),
   }
+}
+
+/**
+ * A Planet runtime on a throwaway SQLite database with one installed Planet that needs no
+ * network: `dev.test.static`, which greets from a static data source.
+ */
+export function createTestPlanets(): PlanetRuntime {
+  const db = openDatabase(':memory:')
+  migrate(db)
+  const manifest = {
+    schema_version: 1,
+    id: 'dev.test.static',
+    version: '1.0.0',
+    name: 'Static',
+    authors: ['Tests'],
+    license: 'Apache-2.0',
+    orbit: '*',
+    data_sources: [{ id: 'greeting', type: 'static', data: 'Hi <there>' }],
+    render: { title: 'Static', description: 'A test Planet.', template: 'templates/main.liquid' },
+  }
+  return new PlanetRuntime({
+    planets: [
+      buildPackage([
+        { path: 'planet.json', content: Buffer.from(JSON.stringify(manifest)) },
+        { path: 'templates/main.liquid', content: Buffer.from('<p>{{ data.greeting }}</p>') },
+      ]),
+    ],
+    state: new SqlitePlanetStateStore(db),
+    scheduler: new SqliteJobScheduler(db),
+    secrets: new EncryptedDbSecretStore(db, 'k'.repeat(40)),
+    clock: { now: () => new Date() },
+    fetcher: {
+      fetchText: async () => {
+        throw new Error('The test Planet must not use the network')
+      },
+    },
+    readIcal: async () => [],
+  })
 }
 
 export interface Reply {

@@ -12,8 +12,10 @@ import { buildApp } from './app.ts'
 import { createSqliteServices } from './composition.ts'
 import { ConfigError, loadConfig } from './config.ts'
 import { loggerOptions } from './logging.ts'
+import { createPlanetWiring } from './planets.ts'
 
 const HOUR = 60 * 60 * 1000
+const PLANET_TICK_MS = 30 * 1000
 
 async function main() {
   const config = loadConfig(process.env)
@@ -46,10 +48,14 @@ async function main() {
         : OneTimeSetupGate.generate()
       : undefined
 
-  const services = createSqliteServices(db, config, setup?.gate)
+  const planets = createPlanetWiring(db, config)
+  const services = createSqliteServices(db, config, setup?.gate, planets.runtime)
   const app = await buildApp({ services, config, logger: loggerOptions(config.logLevel) })
   if (applied.length > 0) app.log.info({ applied }, 'applied database migrations')
   app.log.info({ webApp: config.webDir ?? 'not served' }, 'configuration loaded')
+  for (const refused of planets.refused)
+    app.log.error({ planet: refused.id }, `Planet not loaded: ${refused.reason}`)
+  if (planets.lockProblem) app.log.error(`No Planets loaded: ${planets.lockProblem}`)
 
   const purge = setInterval(() => {
     services.auth
@@ -57,6 +63,12 @@ async function main() {
       .catch((error) => app.log.error({ err: error }, 'session purge failed'))
   }, HOUR)
   purge.unref()
+
+  // Due Planet refreshes. A separate timer from the purge above, whose interval stays as it is.
+  const planetTick = setInterval(() => {
+    planets.runtime.tick().catch((error) => app.log.error({ err: error }, 'planet refresh failed'))
+  }, PLANET_TICK_MS)
+  planetTick.unref()
 
   // Backups go next to the database, so they do not protect against losing the volume. The
   // operations guide says to copy them off the machine. The hourly check is shorter than the
@@ -82,6 +94,7 @@ async function main() {
   const shutdown = async (signal: string) => {
     app.log.info({ signal }, 'shutting down')
     clearInterval(purge)
+    clearInterval(planetTick)
     if (backups) clearInterval(backups)
     await app.close()
     db.close()

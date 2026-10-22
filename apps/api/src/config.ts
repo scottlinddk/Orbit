@@ -1,3 +1,4 @@
+import { dirname, join } from 'node:path'
 import { z } from 'zod'
 
 const environment = z.object({
@@ -19,6 +20,15 @@ const environment = z.object({
   ORBIT_BACKUP_INTERVAL_HOURS: z.coerce.number().int().min(0).max(720).default(24),
   /** How many automatic backups to keep. */
   ORBIT_BACKUP_KEEP: z.coerce.number().int().min(1).max(365).default(14),
+  /** Master key for stored secrets (Planet API keys). At least 32 characters: `openssl rand -base64 32`. */
+  ORBIT_SECRET_KEY: z.string().min(32).optional(),
+  /** Where installed Planets and planets.lock live. Defaults to a folder next to the database. */
+  ORBIT_PLANETS_DIR: z.string().min(1).optional(),
+  /**
+   * Host names (comma separated) that outbound requests may reach even though they resolve to a
+   * private address, such as a NAS. Per host, never global. Planets also need the `lan` permission.
+   */
+  ORBIT_EGRESS_ALLOW_PRIVATE_HOSTS: z.string().optional(),
   ORBIT_LOG_LEVEL: z
     .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
     .default('info'),
@@ -39,6 +49,11 @@ export interface Config {
   /** Milliseconds between automatic backups. 0 means off. */
   backupIntervalMs: number
   backupKeep: number
+  /** Master key for the secret store. Undefined means secrets cannot be stored. */
+  secretKey: string | undefined
+  planetsDir: string
+  /** Lower-case host names an administrator allows to resolve to private addresses. */
+  egressAllowPrivateHosts: ReadonlySet<string>
   logLevel: z.infer<typeof environment>['ORBIT_LOG_LEVEL']
 }
 
@@ -54,6 +69,8 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
   const parsed = environment.safeParse({
     ...env,
     ORBIT_SETUP_CODE: env.ORBIT_SETUP_CODE || undefined,
+    ORBIT_SECRET_KEY: env.ORBIT_SECRET_KEY || undefined,
+    ORBIT_PLANETS_DIR: env.ORBIT_PLANETS_DIR || undefined,
   })
   if (!parsed.success) {
     const lines = parsed.error.issues.map((i) => `  ${i.path.join('.')}: ${i.message}`)
@@ -74,6 +91,14 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     migrationSnapshots: e.ORBIT_MIGRATION_SNAPSHOTS,
     backupIntervalMs: e.ORBIT_BACKUP_INTERVAL_HOURS * 60 * 60 * 1000,
     backupKeep: e.ORBIT_BACKUP_KEEP,
+    secretKey: e.ORBIT_SECRET_KEY,
+    planetsDir: e.ORBIT_PLANETS_DIR ?? join(dirname(e.ORBIT_DATABASE_PATH), 'planets'),
+    egressAllowPrivateHosts: new Set(
+      (e.ORBIT_EGRESS_ALLOW_PRIVATE_HOSTS ?? '')
+        .split(',')
+        .map((h) => h.trim().toLowerCase())
+        .filter((h) => h !== ''),
+    ),
     logLevel: e.ORBIT_LOG_LEVEL,
   }
 }

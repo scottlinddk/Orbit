@@ -1,0 +1,17 @@
+{
+  "name": "@orbit/adapter-planets-sqlite",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Planet state and webhook tokens stored in SQLite",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@orbit/application": "workspace:*"
+  }
+}

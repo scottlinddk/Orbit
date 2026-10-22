@@ -17,6 +17,39 @@ export interface ResolvedAddress {
   readonly family: 4 | 6
 }
 
+/** Headers a caller may not set: they would break the guard's own rules or the HTTP framing. */
+const FORBIDDEN_HEADERS = new Set([
+  'cookie',
+  'set-cookie',
+  'host',
+  'proxy-authorization',
+  'connection',
+  'content-length',
+  'transfer-encoding',
+  'upgrade',
+])
+const HEADER_NAME = /^[a-z0-9!#$%&'*+.^_`|~-]+$/i
+
+function checkHeaders(headers: Readonly<Record<string, string>> | undefined) {
+  for (const [name, value] of Object.entries(headers ?? {})) {
+    if (!HEADER_NAME.test(name) || FORBIDDEN_HEADERS.has(name.toLowerCase())) {
+      throw new EgressDeniedError('header', 'That request header is not allowed.')
+    }
+    if (/[\r\n\0]/.test(value)) {
+      throw new EgressDeniedError('header', 'That request header is not valid.')
+    }
+  }
+}
+
+/** Whether `host` is covered by an allowlist entry: exact, or `*.domain` for subdomains. */
+export function hostAllowed(host: string, allowed: readonly string[]): boolean {
+  const name = host.replace(/^\[|\]$/g, '').toLowerCase()
+  return allowed.some((entry) => {
+    const pattern = entry.toLowerCase()
+    return pattern.startsWith('*.') ? name.endsWith(pattern.slice(1)) : name === pattern
+  })
+}
+
 export interface GuardedFetcherOptions {
   /**
    * Hostnames (lower case, no port) an administrator allows to resolve to private addresses,
@@ -44,7 +77,7 @@ export function createGuardedFetcher(options: GuardedFetcherOptions = {}): Egres
   const allowPrivate = options.allowPrivateHosts ?? new Set<string>()
   const resolve = options.resolve ?? defaultResolve
 
-  async function pick(url: URL): Promise<ResolvedAddress> {
+  async function pick(url: URL, privateAllowed: boolean): Promise<ResolvedAddress> {
     // URL keeps the brackets of an IPv6 literal in `hostname`.
     const host = url.hostname.replace(/^\[|\]$/g, '').toLowerCase()
     let addresses: ResolvedAddress[]
@@ -61,7 +94,10 @@ export function createGuardedFetcher(options: GuardedFetcherOptions = {}): Egres
     if (!first) throw new EgressDeniedError('dns', 'The host name could not be resolved.')
     // Every answer must be public. One private record in a mixed answer is how rebinding attacks
     // hide, so it is not enough that the first one passes.
-    if (!allowPrivate.has(host) && addresses.some((a) => isBlockedAddress(a.address))) {
+    if (
+      !(privateAllowed && allowPrivate.has(host)) &&
+      addresses.some((a) => isBlockedAddress(a.address))
+    ) {
       throw new EgressDeniedError('blocked-address', 'That address is not allowed.')
     }
     return first
@@ -69,11 +105,19 @@ export function createGuardedFetcher(options: GuardedFetcherOptions = {}): Egres
 
   return {
     async fetchText(request: EgressRequest): Promise<EgressResponse> {
+      checkHeaders(request.headers)
       let current = parseUrl(request.url)
+      const origin = current.origin
       const deadline = Date.now() + request.timeoutMs
       for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
-        const target = await pick(current)
-        const result = await get(current, target, request, deadline - Date.now())
+        if (request.allowedHosts && !hostAllowed(current.hostname, request.allowedHosts)) {
+          throw new EgressDeniedError('host-not-allowed', 'That host is not on the allowed list.')
+        }
+        const target = await pick(current, request.allowPrivate !== false)
+        // Credentials the caller supplied belong to the host it named, not to wherever a
+        // redirect leads.
+        const headers = current.origin === origin ? request.headers : undefined
+        const result = await get(current, target, request, headers, deadline - Date.now())
         if (result.redirect === undefined) return result.response
         let next: URL
         try {
@@ -120,6 +164,7 @@ function get(
   url: URL,
   target: ResolvedAddress,
   request: EgressRequest,
+  headers: Readonly<Record<string, string>> | undefined,
   timeLeftMs: number,
 ): Promise<HopResult> {
   return new Promise((resolve, reject) => {
@@ -144,7 +189,7 @@ function get(
             target.family,
           )
         },
-        headers: { 'user-agent': 'Orbit', accept: '*/*', ...request.headers },
+        headers: { 'user-agent': 'Orbit', accept: '*/*', ...headers },
         agent: false,
         timeout: timeLeftMs,
       },

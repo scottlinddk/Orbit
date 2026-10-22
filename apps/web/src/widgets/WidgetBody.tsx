@@ -1,5 +1,6 @@
 import type { WidgetDefinition } from '@orbit/widget-sdk'
 import type { WidgetResponse } from '@orbit/contracts'
+import { PlacementIdContext } from './placementContext.ts'
 import { WidgetBoundary } from './WidgetBoundary.tsx'
 
 interface Props {
@@ -15,7 +16,9 @@ export function WidgetBody({ placement, definition }: Props) {
   const { Component } = definition
   return (
     <WidgetBoundary type={placement.type}>
-      <Component config={placement.config} span={placement.span} />
+      <PlacementIdContext.Provider value={placement.id}>
+        <Component config={placement.config} span={placement.span} />
+      </PlacementIdContext.Provider>
     </WidgetBoundary>
   )
 }

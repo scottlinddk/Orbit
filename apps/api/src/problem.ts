@@ -8,6 +8,7 @@ import {
   UsernameTakenError,
 } from '@orbit/application'
 import { InvariantViolation } from '@orbit/domain'
+import { WebhookRejectedError } from '@orbit/module-planets/server'
 import type { Problem } from '@orbit/contracts'
 import {
   hasZodFastifySchemaValidationErrors,
@@ -57,6 +58,15 @@ export function toProblem(error: unknown): Problem {
     return problem(403, 'origin-not-allowed', 'Forbidden', error.message)
   if (error instanceof UsernameTakenError)
     return problem(409, 'username-taken', 'Conflict', error.message)
+  if (error instanceof WebhookRejectedError) {
+    const slug = { 400: 'bad-request', 401: 'invalid-signature', 413: 'payload-too-large' }[
+      error.status
+    ]
+    const title = { 400: 'Bad Request', 401: 'Unauthorized', 413: 'Content Too Large' }[
+      error.status
+    ]
+    return problem(error.status, slug, title, error.message)
+  }
   if (error instanceof InvariantViolation)
     return problem(422, 'rule-violation', 'Unprocessable Content', error.message)
 

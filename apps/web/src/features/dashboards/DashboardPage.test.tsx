@@ -19,6 +19,7 @@ const baseApi = (d = three(), h = household()) => ({
   'GET /api/v1/households': { body: { households: [h] } },
   'GET /api/v1/households/h1': { body: h },
   'GET /api/v1/dashboards/d1': { body: d },
+  'GET /api/v1/planets/widgets': { body: { widgets: [] } },
 })
 
 const titles = () =>
@@ -446,5 +447,44 @@ describe('dashboard page', () => {
     })
     renderApp('/d/d1')
     expect(await screen.findByRole('heading', { name: 'Sign in to Orbit' })).toBeInTheDocument()
+  })
+
+  describe('Planet widgets', () => {
+    const planet = {
+      type: 'planet.dev.orbit.hello',
+      planetId: 'dev.orbit.hello',
+      title: 'Hello',
+      description: 'Greets.',
+      defaultSpan: 1,
+      options: [],
+    }
+
+    it('draws a Planet in a sandboxed frame with no scripts and says when the data is old', async () => {
+      stubApi({
+        ...baseApi(dashboard({ widgets: [widget('w1', 'planet.dev.orbit.hello')] })),
+        'GET /api/v1/planets/widgets': { body: { widgets: [planet] } },
+        'GET /api/v1/dashboards/d1/widgets/w1/planet': {
+          body: {
+            html: '<p>Hello, Sam</p><script>steal()</script>',
+            stale: true,
+            error: 'The request took too long.',
+          },
+        },
+      })
+      renderApp('/d/d1')
+      const frame = await screen.findByTitle('Hello')
+      // An empty sandbox attribute is the strictest one: no scripts, no forms, opaque origin.
+      expect(frame).toHaveAttribute('sandbox', '')
+      expect(frame.getAttribute('srcdoc')).toContain('<p>Hello, Sam</p>')
+      expect(
+        await screen.findByText(/Showing older data. The request took too long./),
+      ).toBeVisible()
+    })
+
+    it('keeps an unknown Planet on the dashboard and says it cannot be shown', async () => {
+      stubApi(baseApi(dashboard({ widgets: [widget('w1', 'planet.dev.gone.x')] })))
+      renderApp('/d/d1')
+      expect(await screen.findByText(/Unknown widget “planet.dev.gone.x”/)).toBeVisible()
+    })
   })
 })

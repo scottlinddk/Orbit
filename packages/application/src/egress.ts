@@ -10,6 +10,18 @@ export interface EgressRequest {
   readonly maxBytes: number
   readonly timeoutMs: number
   readonly headers?: Readonly<Record<string, string>>
+  /**
+   * When set, the request and every redirect hop must go to one of these hosts. `example.com`
+   * matches that host only, `*.example.com` matches its subdomains. Planets pass the hosts their
+   * manifest declares, so a redirect cannot lead somewhere the administrator never saw.
+   */
+  readonly allowedHosts?: readonly string[]
+  /**
+   * `false` refuses private destinations even for hosts the administrator opted in. Planets
+   * pass the `lan` permission of their manifest, so a Planet that never declared it cannot reach
+   * the LAN just because another integration may. Defaults to true (the administrator's list).
+   */
+  readonly allowPrivate?: boolean
 }
 
 export interface EgressResponse {
@@ -21,7 +33,10 @@ export interface EgressResponse {
 }
 
 export interface EgressFetcher {
-  /** GET only. Cookies are never sent or stored. */
+  /**
+   * GET only. Cookies are never sent or stored, and caller headers are not forwarded to a
+   * different origin after a redirect.
+   */
   fetchText(request: EgressRequest): Promise<EgressResponse>
 }
 
@@ -29,6 +44,8 @@ export type EgressDeniedReason =
   | 'invalid-url'
   | 'scheme'
   | 'credentials'
+  | 'host-not-allowed'
+  | 'header'
   | 'blocked-address'
   | 'dns'
   | 'redirect'

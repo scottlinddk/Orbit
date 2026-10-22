@@ -47,12 +47,24 @@ importers:
       '@fastify/swagger':
         specifier: ^9.9.2
         version: 9.9.2
+      '@orbit/adapter-egress-guard':
+        specifier: workspace:*
+        version: link:../../packages/adapters/egress-guard
       '@orbit/adapter-identity-local':
         specifier: workspace:*
         version: link:../../packages/adapters/identity-local
+      '@orbit/adapter-jobs-sqlite':
+        specifier: workspace:*
+        version: link:../../packages/adapters/jobs-sqlite
       '@orbit/adapter-persistence-sqlite':
         specifier: workspace:*
         version: link:../../packages/adapters/persistence-sqlite
+      '@orbit/adapter-planets-sqlite':
+        specifier: workspace:*
+        version: link:../../packages/adapters/planets-sqlite
+      '@orbit/adapter-secrets-encrypted-db':
+        specifier: workspace:*
+        version: link:../../packages/adapters/secrets-encrypted-db
       '@orbit/application':
         specifier: workspace:*
         version: link:../../packages/application
@@ -62,6 +74,12 @@ importers:
       '@orbit/domain':
         specifier: workspace:*
         version: link:../../packages/domain
+      '@orbit/integration-ics-calendar':
+        specifier: workspace:*
+        version: link:../../packages/integrations/ics-calendar
+      '@orbit/module-planets':
+        specifier: workspace:*
+        version: link:../../packages/modules/planets
       fastify:
         specifier: ^5.12.7
         version: 5.12.7
@@ -290,6 +308,12 @@ importers:
         specifier: workspace:*
         version: link:../../domain
 
+  packages/adapters/planets-sqlite:
+    dependencies:
+      '@orbit/application':
+        specifier: workspace:*
+        version: link:../../application
+
   packages/adapters/secrets-encrypted-db:
     dependencies:
       '@orbit/application':
@@ -399,6 +423,28 @@ importers:
       react:
         specifier: ^19.3.1
         version: 19.3.1
+
+  packages/modules/planets:
+    dependencies:
+      '@orbit/application':
+        specifier: workspace:*
+        version: link:../../application
+      '@orbit/widget-sdk':
+        specifier: workspace:*
+        version: link:../../widget-sdk
+      liquidjs:
+        specifier: 10.28.0
+        version: 10.28.0
+      semver:
+        specifier: 7.8.5
+        version: 7.8.5
+      zod:
+        specifier: ^4.0.0
+        version: 4.6.7
+    devDependencies:
+      '@types/semver':
+        specifier: ^7.7.0
+        version: 7.8.0
 
   packages/testing:
     dependencies:
@@ -1046,6 +1092,9 @@ packages:
   '@types/react@19.3.0':
     resolution: {integrity: sha512-N0rFCuH9YoxG9/m61l9MfpJKfmLOVU0em7ipIz6TRgSSkvReLB9vL85GB+yr8Bs5leqpvg96JSwF4ZS1s4viQg==}
 
+  '@types/semver@7.8.0':
+    resolution: {integrity: sha512-1mAINjtQCXXeLkJ9ehXkwOcBpqtLxiVtKhpUf83DdRNdQKV0iXZpaHYqRr7nj+wvxuJzoAmAwXI+sCNMv1CzLQ==}
+
   '@typescript-eslint/eslint-plugin@8.72.0':
     resolution: {integrity: sha512-aysKgysPX9XOv/dk95UkvUDe++Q3n3dJPG9CEWT3RUccxfkPJ+Qn6nhKPDhZXU6Ofo9kgwGWwKyQCnZIXTgngg==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
@@ -1248,6 +1297,10 @@ packages:
 
   color-name@1.1.4:
     resolution: {integrity: sha512-dOy+3AuW3a2wNbZHIuMZpTcgjGuLU/uBL/ubcZF9OXbDo8ff4O8yVp5Bf0efS8uEoYo5q4Fx7dY9OgQGXgAsQA==}
+
+  commander@10.0.1:
+    resolution: {integrity: sha512-y4Mg2tXshplEbSGzx7amzPwKKOCGuoSRP/CjEdwwk0FOGlUbq6lKuoyDZTNZkmxHdJtp54hdfY/JUrdL7Xfdug==}
+    engines: {node: '>=14'}
 
   commander@15.0.0:
     resolution: {integrity: sha512-z67u4ZhzCL/Tydu1lJARtEZYWbWaN7oYLHbsuzocr6y4N6WZAagG3RQ4FW61V1/0+jImpj293XfrcYnd1qxtPg==}
@@ -1720,6 +1773,11 @@ packages:
   lightningcss@1.33.0:
     resolution: {integrity: sha512-WkUDrojuJs0xkgGf2udWxa3yGBRxPtxUkB79i6aCZLRgc7PM8fZe9TosfPDcvEpQZbuFASnHYmRLBLUbmLOIIA==}
     engines: {node: '>= 12.0.0'}
+
+  liquidjs@10.28.0:
+    resolution: {integrity: sha512-b6tmBXYMQTuGPnM5vB0CuZMo5kvmKMtSB/gvUWP6RFn2pIB5s+bJkBfIyJnattkc5bgeAiflrZVptx3iaLLioQ==}
+    engines: {node: '>=16'}
+    hasBin: true
 
   locate-path@6.0.0:
     resolution: {integrity: sha512-iPZK6eYjbxRu3uB4/WZ3EsEIMJFMqAoopl3R+zuq0UjcAm/MO6KCweDgPfP3elTztoKP3KtnVHxTn2NHBSDVUw==}
@@ -2846,6 +2904,8 @@ snapshots:
     dependencies:
       csstype: 3.2.3
 
+  '@types/semver@7.8.0': {}
+
   '@typescript-eslint/eslint-plugin@8.72.0(@typescript-eslint/parser@8.72.0(eslint@10.13.0)(typescript@6.0.3))(eslint@10.13.0)(typescript@6.0.3)':
     dependencies:
       '@eslint-community/regexpp': 4.12.2
@@ -3056,6 +3116,8 @@ snapshots:
       color-name: 1.1.4
 
   color-name@1.1.4: {}
+
+  commander@10.0.1: {}
 
   commander@15.0.0: {}
 
@@ -3525,6 +3587,10 @@ snapshots:
       lightningcss-linux-x64-musl: 1.33.0
       lightningcss-win32-arm64-msvc: 1.33.0
       lightningcss-win32-x64-msvc: 1.33.0
+
+  liquidjs@10.28.0:
+    dependencies:
+      commander: 10.0.1
 
   locate-path@6.0.0:
     dependencies:

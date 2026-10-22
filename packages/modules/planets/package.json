@@ -1,0 +1,24 @@
+{
+  "name": "@orbit/module-planets",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Planets: declarative, permission-scoped plugins (Tier 0, ADR 0017)",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    "./server": "./src/server/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@orbit/application": "workspace:*",
+    "@orbit/widget-sdk": "workspace:*",
+    "liquidjs": "10.28.0",
+    "semver": "7.8.5",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/semver": "^7.7.0"
+  }
+}
