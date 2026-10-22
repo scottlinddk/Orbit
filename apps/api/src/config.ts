@@ -1,4 +1,5 @@
 import { dirname, join } from 'node:path'
+import { isTimeZone } from '@orbit/domain'
 import { z } from 'zod'
 
 const environment = z.object({
@@ -29,6 +30,11 @@ const environment = z.object({
    * private address, such as a NAS. Per host, never global. Planets also need the `lan` permission.
    */
   ORBIT_EGRESS_ALLOW_PRIVATE_HOSTS: z.string().optional(),
+  /** IANA zone that decides what "today" means in the display feed, e.g. Europe/Copenhagen. */
+  ORBIT_TIME_ZONE: z
+    .string()
+    .refine(isTimeZone, 'must be an IANA time zone such as Europe/Copenhagen')
+    .default('UTC'),
   ORBIT_LOG_LEVEL: z
     .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
     .default('info'),
@@ -54,6 +60,8 @@ export interface Config {
   planetsDir: string
   /** Lower-case host names an administrator allows to resolve to private addresses. */
   egressAllowPrivateHosts: ReadonlySet<string>
+  /** IANA time zone for "today" in the display feed. */
+  timeZone: string
   logLevel: z.infer<typeof environment>['ORBIT_LOG_LEVEL']
 }
 
@@ -99,6 +107,7 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
         .map((h) => h.trim().toLowerCase())
         .filter((h) => h !== ''),
     ),
+    timeZone: e.ORBIT_TIME_ZONE,
     logLevel: e.ORBIT_LOG_LEVEL,
   }
 }

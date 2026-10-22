@@ -19,8 +19,14 @@ describe('loadConfig', () => {
       secretKey: undefined,
       planetsDir: 'data/planets',
       egressAllowPrivateHosts: new Set(),
+      timeZone: 'UTC',
       logLevel: 'info',
     })
+  })
+
+  it('reads the time zone for the display feed and refuses an unknown one', () => {
+    expect(loadConfig({ ORBIT_TIME_ZONE: 'Europe/Copenhagen' }).timeZone).toBe('Europe/Copenhagen')
+    expect(() => loadConfig({ ORBIT_TIME_ZONE: 'Mars/Olympus' })).toThrow(/ORBIT_TIME_ZONE/)
   })
 
   it('treats an empty setup code as unset', () => {

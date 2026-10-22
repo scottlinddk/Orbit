@@ -4,7 +4,7 @@ Orbit is an open-source, self-hostable dashboard that brings together the inform
 
 ## Status
 
-Pre-MVP. Accounts, households and dashboards work end to end in the browser. Calendar and list data sources do not exist yet.
+Pre-MVP. Accounts, households and dashboards work end to end in the browser. Owners can connect read-only ICS calendars, and the agenda and today widgets show their events. List data sources do not exist yet.
 
 ```sh
 docker compose up -d --build   # then open http://localhost:3000

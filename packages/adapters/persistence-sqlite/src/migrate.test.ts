@@ -17,6 +17,7 @@ describe('migrate', () => {
     const db = openDatabase(':memory:')
     expect(migrate(db)).toEqual(migrations.map((m) => m.version))
     expect(tables(db)).toEqual([
+      'calendar_sources',
       'credentials',
       'dashboard_widgets',
       'dashboards',
@@ -46,7 +47,7 @@ describe('migrate', () => {
     ).run()
     expect(tables(db)).not.toContain('invitations')
 
-    expect(migrate(db)).toEqual([3, 4, 5, 6, 7])
+    expect(migrate(db)).toEqual(migrations.slice(2).map((m) => m.version))
 
     expect(tables(db)).toContain('invitations')
     expect(db.prepare('SELECT COUNT(*) AS n FROM users').get()).toEqual({ n: 1 })
@@ -62,7 +63,7 @@ describe('migrate', () => {
     ).run()
     expect(tables(db)).not.toContain('feeds')
 
-    expect(migrate(db)).toEqual([4, 5, 6, 7])
+    expect(migrate(db)).toEqual(migrations.slice(3).map((m) => m.version))
 
     expect(tables(db)).toContain('feeds')
     expect(db.prepare('SELECT COUNT(*) AS n FROM invitations').get()).toEqual({ n: 1 })
@@ -71,13 +72,13 @@ describe('migrate', () => {
 
   it('adds lists to a version 5 database and keeps its feeds', () => {
     const db = openDatabase(':memory:')
-    migrate(db, migrations.slice(0, 5))
+    migrate(db, migrations.slice(0, 6))
     db.prepare(
       "INSERT INTO feeds (id, household_id, name, fields, token_hash, created_by, created_at) VALUES ('f1', 'h1', 'Hall', '[\"household.name\"]', 'x', 'u1', 'now')",
     ).run()
     expect(tables(db)).not.toContain('lists')
 
-    expect(migrate(db)).toEqual([6])
+    expect(migrate(db)).toEqual(migrations.slice(6).map((m) => m.version))
 
     expect(tables(db)).toContain('lists')
     expect(tables(db)).toContain('list_items')

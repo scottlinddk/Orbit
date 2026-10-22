@@ -16,6 +16,7 @@ import { Loading } from '../../components/Loading.tsx'
 import { PageHeader } from '../../components/PageHeader.tsx'
 import { QueryError } from '../../components/QueryError.tsx'
 import { ListsHostProvider } from '../../widgets/ListsHostProvider.tsx'
+import { CalendarDataProvider } from '../../widgets/CalendarDataProvider.tsx'
 import { useRegistry } from '../../widgets/useRegistry.ts'
 import { DashboardGrid } from './DashboardGrid.tsx'
 import styles from './DashboardPage.module.css'
@@ -133,17 +134,22 @@ export function DashboardPage() {
                 : 'Nothing here yet. An owner can add widgets.'}
             </p>
           ) : (
-            <DashboardGrid
-              dashboard={data}
-              registry={registry}
-              editing={isEditing}
-              busy={busy}
-              selectedId={selectedId}
-              onSelect={setSelectedId}
-              onMove={onMove}
-              onResize={onResize}
-              onRemove={onRemove}
-            />
+            <CalendarDataProvider
+              householdId={data.householdId}
+              enabled={data.widgets.some((w) => w.type.startsWith('calendar.'))}
+            >
+              <DashboardGrid
+                dashboard={data}
+                registry={registry}
+                editing={isEditing}
+                busy={busy}
+                selectedId={selectedId}
+                onSelect={setSelectedId}
+                onMove={onMove}
+                onResize={onResize}
+                onRemove={onRemove}
+              />
+            </CalendarDataProvider>
           )}
         </div>
 

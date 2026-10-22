@@ -59,11 +59,81 @@ describe('dashboard page', () => {
   })
 
   it('marks preview widgets', async () => {
-    stubApi(baseApi())
+    stubApi(baseApi(dashboard({ widgets: [widget('w1', 'budget.balance')] })))
     renderApp('/d/d1')
     await screen.findByRole('heading', { name: 'Week', level: 1 })
-    // Only the agenda still shows placeholder data. The shopping list is real now.
+    // Budget still shows sample data. The agenda and the shopping list are real.
     expect(screen.getAllByText('Preview')).toHaveLength(1)
+  })
+
+  describe('calendar widgets', () => {
+    // Local dates, because the widgets decide what today is by the viewer's clock.
+    const localDate = (offset: number) =>
+      new Intl.DateTimeFormat('en-CA').format(new Date(Date.now() + offset * 86_400_000))
+    const day = localDate(0)
+    const events = {
+      events: [
+        {
+          kind: 'all-day',
+          id: 'e1',
+          sourceId: 's1',
+          title: 'School holiday',
+          startDate: day,
+          endDate: localDate(1),
+          isRecurring: false,
+          isOverride: false,
+        },
+      ],
+      sources: [{ sourceId: 's1', ok: true, fetchedAt: '2026-01-01T00:00:00.000Z' }],
+    }
+    const sources = [
+      { id: 's1', name: 'Family', color: '#3366ff', host: 'cal.example.com', createdAt: 'x' },
+    ]
+
+    it('show events from the household calendars, and ask for them once', async () => {
+      const stub = stubApi({
+        ...baseApi(),
+        'GET /api/v1/households/h1/calendar/events': { body: events },
+        'GET /api/v1/households/h1/calendar/sources': { body: { sources } },
+      })
+      renderApp('/d/d1')
+      const agenda = await screen.findByRole('article', { name: 'Agenda' })
+      expect(await within(agenda).findByText('School holiday')).toBeInTheDocument()
+      const today = screen.getByRole('article', { name: 'Today' })
+      expect(await within(today).findByText('School holiday')).toBeInTheDocument()
+      expect(stub.sent('GET', '/api/v1/households/h1/calendar/events')).toHaveLength(1)
+    })
+
+    it('say how to connect a calendar when there is none', async () => {
+      stubApi(baseApi())
+      renderApp('/d/d1')
+      const agenda = await screen.findByRole('article', { name: 'Agenda' })
+      expect(await within(agenda).findByText(/Connect a calendar/)).toBeInTheDocument()
+    })
+
+    it('say which calendar could not be refreshed and keep showing its events', async () => {
+      stubApi({
+        ...baseApi(),
+        'GET /api/v1/households/h1/calendar/events': {
+          body: {
+            ...events,
+            sources: [{ sourceId: 's1', ok: false, fetchedAt: null, error: 'Down.' }],
+          },
+        },
+        'GET /api/v1/households/h1/calendar/sources': { body: { sources } },
+      })
+      renderApp('/d/d1')
+      const agenda = await screen.findByRole('article', { name: 'Agenda' })
+      expect(await within(agenda).findByText('School holiday')).toBeInTheDocument()
+      expect(within(agenda).getByRole('status')).toHaveTextContent('Family could not be refreshed')
+    })
+
+    it('do not ask for events when the dashboard has no calendar widget', async () => {
+      const stub = stubApi(baseApi(dashboard({ widgets: [widget('w2', 'lists.shopping')] })))
+      renderApp('/d/d1')
+      await screen.findByRole('article', { name: 'Shopping list' })
+      expect(stub.sent('GET', '/api/v1/households/h1/calendar/events')).toHaveLength(0)
+    })
   })
 
   it('shows an empty state with a hint for owners and a plainer one for members', async () => {

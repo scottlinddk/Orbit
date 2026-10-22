@@ -21,6 +21,7 @@ interface Ids {
   feed: string
   list: string
   item: string
+  calendarSource: string
   alice: string
 }
 
@@ -36,6 +37,7 @@ interface Case {
 
 const V1 = '/api/v1'
 const GONE = 'does-not-exist'
+const CALENDAR_URL = 'https://calendar.example.com/private/abc123.ics'
 
 const cases: Case[] = [
   {
@@ -172,6 +174,36 @@ const cases: Case[] = [
     memberAllowed: true,
   },
   {
+    key: 'post /api/v1/households/{householdId}/calendar/sources',
+    call: (c, i) =>
+      c.post(`${V1}/households/${i.household}/calendar/sources`, {
+        name: 'Spy',
+        url: CALENDAR_URL,
+      }),
+    callMissing: (c) =>
+      c.post(`${V1}/households/${GONE}/calendar/sources`, { name: 'Spy', url: CALENDAR_URL }),
+    memberAllowed: false,
+  },
+  {
+    key: 'get /api/v1/households/{householdId}/calendar/sources',
+    call: (c, i) => c.get(`${V1}/households/${i.household}/calendar/sources`),
+    callMissing: (c) => c.get(`${V1}/households/${GONE}/calendar/sources`),
+    memberAllowed: true,
+  },
+  {
+    key: 'delete /api/v1/households/{householdId}/calendar/sources/{sourceId}',
+    call: (c, i) =>
+      c.delete(`${V1}/households/${i.household}/calendar/sources/${i.calendarSource}`),
+    callMissing: (c) => c.delete(`${V1}/households/${GONE}/calendar/sources/${GONE}`),
+    memberAllowed: false,
+  },
+  {
+    key: 'get /api/v1/households/{householdId}/calendar/events',
+    call: (c, i) => c.get(`${V1}/households/${i.household}/calendar/events`),
+    callMissing: (c) => c.get(`${V1}/households/${GONE}/calendar/events`),
+    memberAllowed: true,
+  },
+  {
     key: 'get /api/v1/households/{householdId}/dashboards',
     call: (c, i) => c.get(`${V1}/households/${i.household}/dashboards`),
     callMissing: (c) => c.get(`${V1}/households/${GONE}/dashboards`),
@@ -293,6 +325,16 @@ describe.each(['memory', 'sqlite'] as const)('household isolation over HTTP (%s)
       })
     ).body
     const invitation = (await alice.post(`${V1}/households/${household}/invitations`)).body
+    env.ics.feeds.set(
+      CALENDAR_URL,
+      'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//t//EN\r\nEND:VCALENDAR',
+    )
+    const calendarSource = (
+      await alice.post(`${V1}/households/${household}/calendar/sources`, {
+        name: 'Family',
+        url: CALENDAR_URL,
+      })
+    ).body
     const feed = (
       await alice.post(`${V1}/households/${household}/feeds`, {
         name: 'Kitchen',
@@ -314,6 +356,7 @@ describe.each(['memory', 'sqlite'] as const)('household isolation over HTTP (%s)
       household,
       invitation: invitation.id,
       feed: feed.id,
+      calendarSource: calendarSource.id,
       dashboard: dashboard.id,
       widget: withWidget.widgets[0].id,
       planetWidget: withPlanet.widgets.at(-1).id,
@@ -328,6 +371,7 @@ describe.each(['memory', 'sqlite'] as const)('household isolation over HTTP (%s)
     invitations: (await alice.get(`${V1}/households/${ids.household}/invitations`)).body,
     feeds: (await alice.get(`${V1}/households/${ids.household}/feeds`)).body,
     list: (await alice.get(`${V1}/households/${ids.household}/lists/${ids.list}`)).body,
+    calendarSources: (await alice.get(`${V1}/households/${ids.household}/calendar/sources`)).body,
   })
 
   it('covers every protected operation in the OpenAPI document', async () => {
@@ -377,8 +421,11 @@ describe.each(['memory', 'sqlite'] as const)('household isolation over HTTP (%s)
     it.each(cases)('$key: only what the role allows, enforced by the API', async (c) => {
       const before = await state()
       const res = await c.call(who(), ids)
-      if (c.memberAllowed) {
-        expect(res.status).toBe(200)
+      // A device only shows things: it may read lists but not change them.
+      const deviceWritingList =
+        role === 'device' && c.key.includes('/lists') && !c.key.startsWith('get ')
+      if (c.memberAllowed && !deviceWritingList) {
+        expect([200, 201, 204]).toContain(res.status)
       } else {
         expect(res.status).toBe(403)
         expect(await state()).toEqual(before)

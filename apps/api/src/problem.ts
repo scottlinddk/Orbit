@@ -4,6 +4,7 @@ import {
   InvalidCredentialsError,
   NotFoundError,
   RegistrationClosedError,
+  SecretsNotConfiguredError,
   SetupCodeInvalidError,
   UsernameTakenError,
 } from '@orbit/application'
@@ -56,6 +57,8 @@ export function toProblem(error: unknown): Problem {
     return problem(403, 'setup-code-invalid', 'Forbidden', error.message)
   if (error instanceof OriginNotAllowedError)
     return problem(403, 'origin-not-allowed', 'Forbidden', error.message)
+  if (error instanceof SecretsNotConfiguredError)
+    return problem(409, 'secrets-not-configured', 'Conflict', error.message)
   if (error instanceof UsernameTakenError)
     return problem(409, 'username-taken', 'Conflict', error.message)
   if (error instanceof WebhookRejectedError) {

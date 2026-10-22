@@ -1,5 +1,7 @@
 import type { ListDetail, ListSummary } from '@orbit/application'
 import type {
+  CalendarEventResponse,
+  CalendarSourceResponse,
   DashboardResponse,
   FeedResponse,
   HouseholdResponse,
@@ -7,7 +9,8 @@ import type {
   ListResponse,
   ListSummaryResponse,
 } from '@orbit/contracts'
-import type { Dashboard, Feed, Household, Invitation } from '@orbit/domain'
+import type { CalendarSource, Dashboard, Feed, Household, Invitation } from '@orbit/domain'
+import type { CalendarEventWithSource } from '@orbit/application'
 
 export const listResponse = ({ list, items }: ListDetail): ListResponse => ({
   id: list.id,
@@ -63,3 +66,31 @@ export const feedResponse = (f: Feed): FeedResponse => ({
   ...(f.listId === undefined ? {} : { listId: f.listId }),
   createdAt: f.createdAt.toISOString(),
 })
+
+export const calendarSourceResponse = (s: CalendarSource): CalendarSourceResponse => ({
+  id: s.id,
+  name: s.name,
+  ...(s.color === undefined ? {} : { color: s.color }),
+  host: s.host,
+  createdAt: s.createdAt.toISOString(),
+})
+
+export const calendarEventResponse = (e: CalendarEventWithSource): CalendarEventResponse => {
+  const base = {
+    id: e.id,
+    sourceId: e.sourceId,
+    title: e.title,
+    ...(e.location === undefined ? {} : { location: e.location }),
+    isRecurring: e.isRecurring,
+    isOverride: e.isOverride,
+  }
+  return e.kind === 'all-day'
+    ? { ...base, kind: 'all-day', startDate: e.startDate, endDate: e.endDate }
+    : {
+        ...base,
+        kind: 'timed',
+        start: e.start,
+        end: e.end,
+        ...(e.timeZone === undefined ? {} : { timeZone: e.timeZone }),
+      }
+}

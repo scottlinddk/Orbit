@@ -1,3 +1,5 @@
+import { calendarGlance, type CalendarGlanceEvent } from './calendar-day.ts'
+import type { CalendarEvent } from './calendar-event.ts'
 import type { Dashboard, JsonObject } from './dashboard.ts'
 import { invariant } from './errors.ts'
 import type { DashboardId, FeedId, HouseholdId, ListId, UserId } from './ids.ts'
@@ -21,6 +23,8 @@ export const FEED_FIELDS = [
   'dashboard.widgets',
   'list.name',
   'list.items',
+  'calendar.today',
+  'calendar.upcoming',
 ] as const
 export type FeedField = (typeof FEED_FIELDS)[number]
 
@@ -100,10 +104,22 @@ export function renderFeed(
     household: Household
     dashboard: Dashboard | undefined
     list?: { list: HouseholdList; items: readonly HouseholdListItem[] } | undefined
+    /** Events the household's calendars have, if any. Without them the lists are empty. */
+    calendar?: { events: readonly CalendarEvent[]; now: Date; timeZone: string } | undefined
   },
 ): JsonObject {
   const has = (f: FeedField) => feed.fields.includes(f)
   const out: Record<string, JsonObject | null> = {}
+  if (has('calendar.today') || has('calendar.upcoming')) {
+    const glance = source.calendar
+      ? calendarGlance(source.calendar.events, source.calendar.now, source.calendar.timeZone)
+      : { today: [], upcoming: [] }
+    const list = (events: CalendarGlanceEvent[]) => events.map((e) => ({ ...e }))
+    out.calendar = {
+      ...(has('calendar.today') ? { today: list(glance.today) } : {}),
+      ...(has('calendar.upcoming') ? { upcoming: list(glance.upcoming) } : {}),
+    }
+  }
   if (has('household.name')) out.household = { name: source.household.name }
   if (feed.dashboardId !== undefined) {
     const { dashboard } = source

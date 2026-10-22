@@ -7,6 +7,8 @@ export const feedFieldSchema = z.enum([
   'dashboard.widgets',
   'list.name',
   'list.items',
+  'calendar.today',
+  'calendar.upcoming',
 ])
 
 export const createFeedRequestSchema = z.strictObject({
@@ -38,8 +40,23 @@ export const createdFeedSchema = feedSchema
 export type CreatedFeedResponse = z.infer<typeof createdFeedSchema>
 
 /** What a display reads. Only the fields the owner chose are present. */
+const feedCalendarEventSchema = z.object({
+  title: z.string(),
+  allDay: z.boolean(),
+  /** An ISO instant for timed events, `YYYY-MM-DD` for all-day ones. */
+  start: z.string(),
+  /** Same format as `start`. For all-day events the date is exclusive. */
+  end: z.string(),
+})
+
 export const feedContentSchema = z
   .object({
+    calendar: z
+      .object({
+        today: z.array(feedCalendarEventSchema).optional(),
+        upcoming: z.array(feedCalendarEventSchema).optional(),
+      })
+      .optional(),
     household: z.object({ name: z.string() }).optional(),
     dashboard: z
       .object({

@@ -34,6 +34,7 @@ No pull request that touches feed routes or `planets/` merges without the mitiga
 - **Third-party rendering.** Feed content passes through TRMNL's cloud. The owner is told before creating a feed. Orbit cannot control what TRMNL does with it.
 - **Public exposure.** The feed requires an instance reachable over HTTPS. That widens the attack surface of the whole instance, not only the feed route. The deployment docs must say so.
 - **Token in a TRMNL plugin.** The token lives in the owner's plugin settings on TRMNL. Revocation is the only recovery.
+- **Calendar links and event titles.** An ICS address is a credential. Orbit stores it encrypted, never returns or logs it, and the feed publishes only titles and times of the calendar fields an owner chose ([calendar guide](../operations/calendar.md)). Those titles still pass through TRMNL's cloud. Tests: `packages/testing/src/calendar.test.ts`, `apps/api/src/calendar.http.test.ts` (the address never appears in any response or the OpenAPI document).
 - **Administrator approval.** A careless administrator can approve a broad permission. The install screen lists every permission to make that visible.
 
 ## Notes

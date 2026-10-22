@@ -1,15 +1,19 @@
 import type { PlanetRuntime } from '@orbit/module-planets/server'
 import {
   createAuth,
+  createCalendarService,
   createFeedReader,
   createUseCases,
   type Auth,
+  type CalendarFeedReader,
+  type CalendarService,
   type Clock,
   type FeedReader,
   type IdGenerator,
   type PasswordHasher,
   type Repositories,
   type RegistrationPolicy,
+  type SecretStore,
   type SessionTokens,
   type SetupGate,
   type UseCases,
@@ -19,6 +23,7 @@ export interface Services {
   useCases: UseCases
   auth: Auth
   feedReader: FeedReader
+  calendar: CalendarService
   /** Present when Planets are wired. Without it the Planet routes answer empty or 404. */
   planets?: PlanetRuntime | undefined
 }
@@ -32,11 +37,22 @@ export interface ServiceParts {
   registrationPolicy: RegistrationPolicy
   setupGate?: SetupGate | undefined
   planets?: PlanetRuntime | undefined
+  /** Where household calendars keep their secret addresses and how they read feeds. */
+  calendar: { secrets: SecretStore; reader: CalendarFeedReader; ttlMs?: number }
+  /** IANA zone that decides what "today" means in the display feed. Defaults to UTC. */
+  timeZone?: string | undefined
 }
 
 /** Wires the application layer to concrete adapters. The only place that does so. */
 export function assembleServices(parts: ServiceParts): Services {
   const { repos, hasher, tokens, clock, ids, registrationPolicy, setupGate, planets } = parts
+  const calendar = createCalendarService({
+    sources: repos.calendarSources,
+    households: repos.households,
+    clock,
+    ids,
+    ...parts.calendar,
+  })
   return {
     useCases: createUseCases({
       users: repos.users,
@@ -56,6 +72,9 @@ export function assembleServices(parts: ServiceParts): Services {
       dashboards: repos.dashboards,
       lists: repos.lists,
       tokens,
+      calendar,
+      clock,
+      timeZone: parts.timeZone,
     }),
     auth: createAuth({
       accounts: repos.accounts,
@@ -69,6 +88,7 @@ export function assembleServices(parts: ServiceParts): Services {
       registrationPolicy,
       setupGate,
     }),
+    calendar,
     planets,
   }
 }

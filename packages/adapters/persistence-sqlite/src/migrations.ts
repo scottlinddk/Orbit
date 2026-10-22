@@ -216,4 +216,21 @@ export const migrations: readonly Migration[] = [
       ALTER TABLE feeds ADD COLUMN list_id TEXT;
     `,
   },
+  {
+    version: 8,
+    name: 'calendar-sources',
+    // The feed address is a credential and lives in the encrypted secret store, not here.
+    sql: `
+      CREATE TABLE calendar_sources (
+        id TEXT PRIMARY KEY,
+        household_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        color TEXT,
+        host TEXT NOT NULL,
+        created_by TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      ) STRICT;
+      CREATE INDEX calendar_sources_by_household ON calendar_sources(household_id);
+    `,
+  },
 ]

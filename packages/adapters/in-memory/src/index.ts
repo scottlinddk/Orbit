@@ -1,5 +1,6 @@
 import type {
   AccountRepository,
+  CalendarSourceRepository,
   Clock,
   Credential,
   DashboardRepository,
@@ -9,6 +10,7 @@ import type {
   InvitationRepository,
   ListRepository,
   PasswordHasher,
+  SecretStore,
   RegistrationOutcome,
   RegistrationPolicy,
   Session,
@@ -17,6 +19,8 @@ import type {
   UserRepository,
 } from '@orbit/application'
 import type {
+  CalendarSource,
+  CalendarSourceId,
   Dashboard,
   DashboardId,
   Household,
@@ -352,5 +356,49 @@ export class ManualClock implements Clock {
 
   advance(ms: number) {
     this.#now = new Date(this.#now.getTime() + ms)
+  }
+}
+
+export class InMemoryCalendarSourceRepository implements CalendarSourceRepository {
+  readonly #byId = new Map<CalendarSourceId, CalendarSource>()
+
+  async create(source: CalendarSource) {
+    if (this.#byId.has(source.id)) throw new Error('Duplicate calendar source')
+    this.#byId.set(source.id, source)
+  }
+
+  async get(id: CalendarSourceId) {
+    return this.#byId.get(id)
+  }
+
+  async listForHousehold(householdId: HouseholdId) {
+    return [...this.#byId.values()].filter((s) => s.householdId === householdId)
+  }
+
+  async delete(id: CalendarSourceId) {
+    this.#byId.delete(id)
+  }
+}
+
+/** Secrets kept in memory, for tests. Production uses the encrypted database store. */
+export class InMemorySecretStore implements SecretStore {
+  readonly #values = new Map<string, Map<string, string>>()
+
+  async set(scope: string, name: string, value: string) {
+    const scoped = this.#values.get(scope) ?? new Map<string, string>()
+    scoped.set(name, value)
+    this.#values.set(scope, scoped)
+  }
+
+  async get(scope: string, name: string) {
+    return this.#values.get(scope)?.get(name)
+  }
+
+  async names(scope: string) {
+    return [...(this.#values.get(scope)?.keys() ?? [])]
+  }
+
+  async deleteScope(scope: string) {
+    this.#values.delete(scope)
   }
 }
