@@ -57,9 +57,11 @@ jobs:
   # The Docker image: build, start, browser suite, backup, destroy the data, restore, reset a password.
   docker:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Upgrade from the previous reachable release, or the documented baseline.
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -68,3 +70,17 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @orbit/e2e exec playwright install --with-deps chromium
       - run: RUN_E2E=1 deploy/smoke-test.sh
+      - run: ORBIT_UPGRADE_TO_IMAGE=ghcr.io/scottlinddk/orbit:latest deploy/upgrade-test.sh
+
+  docker-arm64:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - run: deploy/smoke-test.sh
+      - run: ORBIT_UPGRADE_TO_IMAGE=ghcr.io/scottlinddk/orbit:latest deploy/upgrade-test.sh

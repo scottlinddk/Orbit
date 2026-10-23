@@ -48,6 +48,12 @@ step "The web app and the API answer on one port"
 expect "shell" "$(curl -s -o /dev/null -w '%{http_code}' -H 'accept: text/html' "$BASE/d/anything")" 200
 expect "health" "$(curl -s "$BASE/api/v1/health")" '{"status":"ok"}'
 
+step "Operator configuration and storage diagnostics work in the locked-down image"
+docker compose exec -T orbit orbit config validate
+# The host's loopback port is outside the container. Probe its internal listener here;
+# external/public reachability is a separate operator acceptance check.
+docker compose exec -T -e ORBIT_PUBLIC_URL=http://127.0.0.1:3000 orbit orbit doctor
+
 step "A new instance refuses the first account without its setup code"
 expect "setup code required" "$(curl -s "$BASE/api/v1/auth/setup")" '{"setupCodeRequired":true}'
 SETUP_CODE="$(docker compose logs --no-color orbit | grep -o 'setup code: [A-Z0-9-]*' | tail -1 | cut -d' ' -f3)"

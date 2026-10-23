@@ -16,6 +16,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -23,6 +25,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: deploy/smoke-test.sh
+      - run: ORBIT_UPGRADE_TO_IMAGE=ghcr.io/scottlinddk/orbit:latest deploy/upgrade-test.sh
 
   publish:
     needs: smoke
