@@ -3,6 +3,8 @@
 The Docker jobs in CI exercise both native amd64 and arm64. Each runs `deploy/smoke-test.sh`
 and `deploy/upgrade-test.sh`. The release workflow requires both architectures to pass before
 publishing the multi-architecture image.
+Both scripts use separate Compose project names and temporary volumes so a recovery drill
+does not remove an existing household installation's volume.
 
 ## Upgrade and rollback drill
 

@@ -58,6 +58,11 @@ start() {
   dc up -d --no-build --pull never
   for _ in $(seq 1 80); do
     if curl --fail --silent "$BASE/health" >/dev/null; then return; fi
+    local container
+    container="$(dc ps -aq orbit)"
+    if [ -n "$container" ] && [ "$(docker inspect -f '{{.State.Status}}' "$container")" = exited ]; then
+      fail 'instance exited before becoming ready'
+    fi
     sleep 1
   done
   fail 'instance did not start'
