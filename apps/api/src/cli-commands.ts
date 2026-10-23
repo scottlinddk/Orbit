@@ -77,6 +77,7 @@ export async function runCli(
               setupCode: config.setupCode ? '[REDACTED]' : undefined,
               secretKey: config.secretKey ? '[REDACTED]' : undefined,
               egressAllowPrivateHosts: [...config.egressAllowPrivateHosts],
+              oidc: config.oidc && { ...config.oidc, clientSecret: '[REDACTED]' },
             },
             null,
             2,

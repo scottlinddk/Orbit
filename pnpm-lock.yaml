@@ -56,6 +56,9 @@ importers:
       '@orbit/adapter-jobs-sqlite':
         specifier: workspace:*
         version: link:../../packages/adapters/jobs-sqlite
+      '@orbit/adapter-oidc':
+        specifier: workspace:*
+        version: link:../../packages/adapters/oidc
       '@orbit/adapter-persistence-sqlite':
         specifier: workspace:*
         version: link:../../packages/adapters/persistence-sqlite
@@ -74,9 +77,18 @@ importers:
       '@orbit/domain':
         specifier: workspace:*
         version: link:../../packages/domain
+      '@orbit/integration-grocy':
+        specifier: workspace:*
+        version: link:../../packages/integrations/grocy
+      '@orbit/integration-home-assistant':
+        specifier: workspace:*
+        version: link:../../packages/integrations/home-assistant
       '@orbit/integration-ics-calendar':
         specifier: workspace:*
         version: link:../../packages/integrations/ics-calendar
+      '@orbit/integration-mealie':
+        specifier: workspace:*
+        version: link:../../packages/integrations/mealie
       '@orbit/module-planets':
         specifier: workspace:*
         version: link:../../packages/modules/planets
@@ -198,6 +210,9 @@ importers:
       '@orbit/module-lists':
         specifier: workspace:*
         version: link:../../packages/modules/lists
+      '@orbit/module-meals':
+        specifier: workspace:*
+        version: link:../../packages/modules/meals
       '@orbit/widget-sdk':
         specifier: workspace:*
         version: link:../../packages/widget-sdk
@@ -296,6 +311,15 @@ importers:
         specifier: workspace:*
         version: link:../../domain
 
+  packages/adapters/oidc:
+    dependencies:
+      '@orbit/application':
+        specifier: workspace:*
+        version: link:../../application
+      jose:
+        specifier: 6.2.12
+        version: 6.2.12
+
   packages/adapters/persistence-sqlite:
     dependencies:
       '@orbit/application':
@@ -343,6 +367,24 @@ importers:
 
   packages/domain: {}
 
+  packages/integrations/grocy:
+    dependencies:
+      '@orbit/application':
+        specifier: workspace:*
+        version: link:../../application
+      '@orbit/domain':
+        specifier: workspace:*
+        version: link:../../domain
+
+  packages/integrations/home-assistant:
+    dependencies:
+      '@orbit/application':
+        specifier: workspace:*
+        version: link:../../application
+      '@orbit/domain':
+        specifier: workspace:*
+        version: link:../../domain
+
   packages/integrations/ics-calendar:
     dependencies:
       '@orbit/application':
@@ -357,6 +399,15 @@ importers:
       node-ical:
         specifier: 0.27.3
         version: 0.27.3
+
+  packages/integrations/mealie:
+    dependencies:
+      '@orbit/application':
+        specifier: workspace:*
+        version: link:../../application
+      '@orbit/domain':
+        specifier: workspace:*
+        version: link:../../domain
 
   packages/modules/budget:
     dependencies:
@@ -403,6 +454,28 @@ importers:
         version: 19.3.1
 
   packages/modules/lists:
+    dependencies:
+      '@orbit/application':
+        specifier: workspace:*
+        version: link:../../application
+      '@orbit/contracts':
+        specifier: workspace:*
+        version: link:../../contracts
+      '@orbit/domain':
+        specifier: workspace:*
+        version: link:../../domain
+      '@orbit/widget-sdk':
+        specifier: workspace:*
+        version: link:../../widget-sdk
+    devDependencies:
+      '@types/react':
+        specifier: ^19.3.0
+        version: 19.3.0
+      react:
+        specifier: ^19.3.1
+        version: 19.3.1
+
+  packages/modules/meals:
     dependencies:
       '@orbit/application':
         specifier: workspace:*
@@ -1651,6 +1724,9 @@ packages:
 
   isexe@2.0.0:
     resolution: {integrity: sha512-RHxMLp9lnKHGHRng9QFhRCMbYAcVpn69smSGcq3f36xjgVVWThj4qqLbTLlq7Ssj8B+fIQ1EuCEGI2lKsyQeIw==}
+
+  jose@6.2.12:
+    resolution: {integrity: sha512-9NiFmJEex0sy2Dk58j2UGBSHgUs2ypF9eZSu4L6vjOX3Dp96Sw1F3uL+H+D1sx02jZZdzUT0HgvCy59CuvXcWw==}
 
   js-tokens@4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
@@ -3471,6 +3547,8 @@ snapshots:
   is-potential-custom-element-name@1.0.1: {}
 
   isexe@2.0.0: {}
+
+  jose@6.2.12: {}
 
   js-tokens@4.0.0: {}
 

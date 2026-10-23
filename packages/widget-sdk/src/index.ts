@@ -1,5 +1,14 @@
 import type { ComponentType } from 'react'
 
+/**
+ * The version of the widget contract in this file: `WidgetDefinition`, `WidgetProps`,
+ * `WidgetOption` and `resolveOptions`. It is a whole number that goes up only when a change
+ * would break an existing widget (a removed or renamed field, a changed meaning). Adding an
+ * optional field or a new option kind does not change it. A module can compare it with the
+ * version it was written against and refuse to load on a mismatch.
+ */
+export const WIDGET_API_VERSION = 1
+
 export interface WidgetProps {
   /** Saved settings for this placement. Plain JSON, validated and size-limited by the API. */
   readonly config: Readonly<Record<string, unknown>>
@@ -58,6 +67,12 @@ export interface WidgetDefinition {
   readonly tone?: 'surface' | 'accent'
   /** Settings the user can change in the editor. Read them with `resolveOptions`. */
   readonly options?: readonly WidgetOption[]
+  /**
+   * Settings whose choices depend on data, such as "which list". A hook, called while the
+   * options panel is open, so it may read context and query data. It replaces `options` there.
+   * Saved values are still validated with `resolveOptions`.
+   */
+  readonly useOptions?: () => readonly WidgetOption[]
   readonly Component: ComponentType<WidgetProps>
 }
 

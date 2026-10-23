@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { useSignedIn } from './auth.ts'
 import { request } from './client.ts'
 import { keys } from './keys.ts'
+import type { Role } from '../features/households/roles.ts'
 
 const listSchema = z.object({ households: z.array(householdSchema) })
 
@@ -54,6 +55,19 @@ export function useAddMember(householdId: string) {
         body: input,
         schema: householdSchema,
       }),
+    onSuccess: cache,
+  })
+}
+
+export function useChangeMemberRole(householdId: string) {
+  const cache = useCacheHousehold()
+  return useMutation({
+    mutationFn: (input: { userId: string; role: Role }) =>
+      request(
+        'PATCH',
+        `/households/${encodeURIComponent(householdId)}/members/${encodeURIComponent(input.userId)}`,
+        { body: { role: input.role }, schema: householdSchema },
+      ),
     onSuccess: cache,
   })
 }

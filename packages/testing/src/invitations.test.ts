@@ -73,9 +73,9 @@ describe.each([
   })
 
   it('gives the role the owner chose', async () => {
-    const { token } = await invite({ role: 'owner' })
+    const { token } = await invite({ role: 'child' })
     const user = await accept(token)
-    expect(roleOf((await sys.useCases.getHousehold(alice, household))!, user.id)).toBe('owner')
+    expect(roleOf((await sys.useCases.getHousehold(alice, household))!, user.id)).toBe('child')
   })
 
   it('shows the household and role to someone holding the link', async () => {

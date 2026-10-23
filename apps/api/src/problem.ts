@@ -2,8 +2,12 @@ import {
   FeedTooLargeError,
   ForbiddenError,
   InvalidCredentialsError,
+  LocalLoginDisabledError,
   NotFoundError,
+  OidcError,
+  OidcIdentityTakenError,
   RegistrationClosedError,
+  SecretsNotConfiguredError,
   SetupCodeInvalidError,
   UsernameTakenError,
 } from '@orbit/application'
@@ -56,6 +60,19 @@ export function toProblem(error: unknown): Problem {
     return problem(403, 'setup-code-invalid', 'Forbidden', error.message)
   if (error instanceof OriginNotAllowedError)
     return problem(403, 'origin-not-allowed', 'Forbidden', error.message)
+  if (error instanceof SecretsNotConfiguredError)
+    return problem(409, 'secrets-not-configured', 'Conflict', error.message)
+  if (error instanceof LocalLoginDisabledError)
+    return problem(403, 'local-login-disabled', 'Forbidden', error.message)
+  if (error instanceof OidcIdentityTakenError)
+    return problem(409, 'identity-taken', 'Conflict', error.message)
+  if (error instanceof OidcError)
+    return problem(
+      502,
+      'identity-provider-unavailable',
+      'Bad Gateway',
+      'The identity provider did not answer as expected',
+    )
   if (error instanceof UsernameTakenError)
     return problem(409, 'username-taken', 'Conflict', error.message)
   if (error instanceof WebhookRejectedError) {

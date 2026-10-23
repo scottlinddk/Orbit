@@ -12,10 +12,12 @@ import { buildApp } from './app.ts'
 import { createSqliteServices } from './composition.ts'
 import { ConfigError, loadConfig } from './config.ts'
 import { loggerOptions } from './logging.ts'
+import { createOidcWiring } from './oidc.ts'
 import { createPlanetWiring } from './planets.ts'
 
 const HOUR = 60 * 60 * 1000
 const PLANET_TICK_MS = 30 * 1000
+const NOTIFICATION_TICK_MS = 30 * 1000
 
 async function main() {
   const config = loadConfig(process.env)
@@ -49,10 +51,22 @@ async function main() {
       : undefined
 
   const planets = createPlanetWiring(db, config)
-  const services = createSqliteServices(db, config, setup?.gate, planets.runtime)
+  const services = createSqliteServices(
+    db,
+    config,
+    setup?.gate,
+    planets.runtime,
+    createOidcWiring(config),
+  )
   const app = await buildApp({ services, config, logger: loggerOptions(config.logLevel) })
   if (applied.length > 0) app.log.info({ applied }, 'applied database migrations')
   app.log.info({ webApp: config.webDir ?? 'not served' }, 'configuration loaded')
+  if (config.oidc) {
+    app.log.info(
+      { issuer: config.oidc.issuer, redirectUri: config.oidc.redirectUri },
+      'OpenID Connect sign-in is on. Register the redirect URI at the provider.',
+    )
+  }
   for (const refused of planets.refused)
     app.log.error({ planet: refused.id }, `Planet not loaded: ${refused.reason}`)
   if (planets.lockProblem) app.log.error(`No Planets loaded: ${planets.lockProblem}`)
@@ -69,6 +83,14 @@ async function main() {
     planets.runtime.tick().catch((error) => app.log.error({ err: error }, 'planet refresh failed'))
   }, PLANET_TICK_MS)
   planetTick.unref()
+
+  // Calendar reminders and queued webhook deliveries (ADR 0020).
+  const notificationTick = setInterval(() => {
+    services.notifications
+      .tick()
+      .catch((error) => app.log.error({ err: error }, 'notification delivery failed'))
+  }, NOTIFICATION_TICK_MS)
+  notificationTick.unref()
 
   // Backups go next to the database, so they do not protect against losing the volume. The
   // operations guide says to copy them off the machine. The hourly check is shorter than the
@@ -95,6 +117,7 @@ async function main() {
     app.log.info({ signal }, 'shutting down')
     clearInterval(purge)
     clearInterval(planetTick)
+    clearInterval(notificationTick)
     if (backups) clearInterval(backups)
     await app.close()
     db.close()

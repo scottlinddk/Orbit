@@ -15,7 +15,13 @@ type Handler = Reply | ((call: RecordedCall) => Reply | Promise<Reply>)
  * its real network code. Any request without a handler fails the test, so a UI that starts
  * calling an endpoint nobody stubbed cannot pass silently.
  */
-export function stubApi(handlers: Record<string, Handler>) {
+export function stubApi(given: Record<string, Handler>) {
+  // Every page that can show a login form asks how people may sign in. Tests of single sign-on
+  // override this answer.
+  const handlers: Record<string, Handler> = {
+    'GET /api/v1/auth/providers': { body: { local: true, oidc: null } },
+    ...given,
+  }
   const calls: RecordedCall[] = []
   const unhandled: string[] = []
 
@@ -30,7 +36,7 @@ export function stubApi(handlers: Record<string, Handler>) {
         body: typeof init?.body === 'string' ? JSON.parse(init.body) : undefined,
       }
       calls.push(call)
-      const handler = handlers[`${method} ${url.pathname}`]
+      const handler = handlers[`${method} ${url.pathname}`] ?? noCalendars(method, url.pathname)
       if (!handler) {
         unhandled.push(`${method} ${url.pathname}`)
         return new Response('{}', { status: 500 })
@@ -59,6 +65,24 @@ export function stubApi(handlers: Record<string, Handler>) {
     sent: (method: string, path: string) =>
       calls.filter((c) => c.method === method && c.path === path),
   }
+}
+
+/**
+ * A household with no calendars and no notification webhooks. Most pages ask for these, and most
+ * tests are about something else, so an unstubbed request gets the empty answer. A test about calendars stubs
+ * its own.
+ */
+function noCalendars(method: string, path: string): Reply | undefined {
+  if (method !== 'GET') return undefined
+  if (/^\/api\/v1\/households\/[^/]+\/calendar\/sources$/.test(path))
+    return { body: { sources: [] } }
+  if (/^\/api\/v1\/households\/[^/]+\/calendar\/events$/.test(path))
+    return { body: { events: [], sources: [] } }
+  // Owners' household page also asks for connections to other systems. None unless a test says.
+  if (/^\/api\/v1\/households\/[^/]+\/connections$/.test(path)) return { body: { connections: [] } }
+  if (/^\/api\/v1\/households\/[^/]+\/notifications\/endpoints$/.test(path))
+    return { body: { endpoints: [] } }
+  return undefined
 }
 
 export const problem = (status: number, detail: string, type = 'rule-violation') => ({

@@ -1,10 +1,13 @@
 // @vitest-environment jsdom
 import { screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { ME, household } from '../../test/fixtures.ts'
 import { problem, stubApi } from '../../test/fakeApi.ts'
 import { renderApp } from '../../test/render.tsx'
+import { goTo } from '../../api/navigate.ts'
 import { tokenFromHash } from './JoinPage.tsx'
+
+vi.mock('../../api/navigate.ts', () => ({ goTo: vi.fn() }))
 
 const signedOut = { 'GET /api/v1/auth/me': problem(401, 'Sign in required', 'unauthenticated') }
 const preview = {
@@ -98,5 +101,39 @@ describe('join page', () => {
     ).toBeInTheDocument()
     expect(screen.queryByLabelText('Password')).not.toBeInTheDocument()
     expect(stub.sent('POST', '/api/v1/invitations/accept')).toHaveLength(0)
+  })
+})
+
+describe('join page with single sign-on', () => {
+  it('lets the invitee join with the provider, sending the token in the body only', async () => {
+    const stub = stubApi({
+      ...signedOut,
+      ...preview,
+      'GET /api/v1/auth/providers': { body: { local: true, oidc: { label: 'Home login' } } },
+      'POST /api/v1/auth/oidc/start': {
+        body: { authorizationUrl: 'https://id.example.com/authorize' },
+      },
+    })
+    const { user } = renderApp('/join#tok-123')
+    await user.click(await screen.findByRole('button', { name: 'Join with Home login' }))
+    await vi.waitFor(() => expect(goTo).toHaveBeenCalledWith('https://id.example.com/authorize'))
+    expect(stub.sent('POST', '/api/v1/auth/oidc/start')[0]?.body).toEqual({
+      inviteToken: 'tok-123',
+    })
+    expect(stub.calls.map((c) => c.path).join(' ')).not.toContain('tok-123')
+  })
+
+  it('offers only the provider when password sign-up is off', async () => {
+    stubApi({
+      ...signedOut,
+      ...preview,
+      'GET /api/v1/auth/providers': { body: { local: false, oidc: { label: 'Home login' } } },
+    })
+    renderApp('/join#tok-123')
+    expect(await screen.findByRole('button', { name: 'Join with Home login' })).toBeInTheDocument()
+    expect(screen.queryByLabelText('Password')).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Create account and join' }),
+    ).not.toBeInTheDocument()
   })
 })

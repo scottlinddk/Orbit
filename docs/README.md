@@ -19,6 +19,10 @@
   - [0015 Household invitations](architecture/adr/0015-household-invitations.md)
   - [0016 TRMNL display feed](architecture/adr/0016-trmnl-display-feed.md)
   - [0017 Planets: declarative, permission-scoped plugins](architecture/adr/0017-planets-declarative-plugins.md)
+  - [0018 OIDC login](architecture/adr/0018-oidc-login.md)
+  - [0019 Connections to other systems, and Home Assistant](architecture/adr/0019-connections-and-home-assistant.md)
+  - [0020 Notifications and reminders](architecture/adr/0020-notifications.md)
+  - [0021 Meals from Mealie, and Grocy](architecture/adr/0021-meals-and-grocy.md)
 
 - [Phase 0 architecture check](architecture/phase-0-architecture-check.md)
 - [Security model for the TRMNL feed and Planets](architecture/security-model.md)
@@ -26,11 +30,21 @@
 
 - [Deploying with Docker](operations/deployment.md)
 - [Backup and restore](operations/backup-and-restore.md)
+- [Wall display and installing the app](operations/kiosk.md)
+- [Shared lists](operations/lists.md)
+- [Calendars (ICS)](operations/calendar.md)
+- [Home Assistant](operations/home-assistant.md)
+- [Mealie: meal plan and recipes](operations/mealie.md)
+- [Grocy: shopping lists and stock](operations/grocy.md)
+- [Notifications and reminders](operations/notifications.md)
+- [Sign in with OpenID Connect](operations/oidc.md)
 - Hosting guides
   - [Home server with Tailscale](operations/hosting/home-server.md)
   - [HTTPS for a home network or a tailnet](operations/hosting/https-lan-and-tailscale.md)
   - [Public VPS with Caddy](operations/hosting/vps.md)
 - [Naming](product/naming.md)
+- [HTTP API](api/README.md)
+- [Extending Orbit](extending/README.md)
 - [Planets: install, permissions and authoring](operations/planets.md)
 
 Open decisions are tracked in [open questions](architecture/open-questions.md).

@@ -1,0 +1,28 @@
+{
+  "name": "@orbit/module-meals",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Built-in meal plan module: shows the plan of a connected Mealie, read only",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    "./server": "./src/server/index.ts",
+    "./web": "./src/web/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@orbit/application": "workspace:*",
+    "@orbit/contracts": "workspace:*",
+    "@orbit/domain": "workspace:*",
+    "@orbit/widget-sdk": "workspace:*"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "react": "^19.3.1"
+  }
+}

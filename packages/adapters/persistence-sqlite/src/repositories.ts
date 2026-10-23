@@ -1,9 +1,13 @@
 import type {
+  CalendarSourceRepository,
+  ConnectionRepository,
   AccountRepository,
   Credential,
   DashboardRepository,
+  ExternalIdentityRepository,
   FeedRepository,
   HouseholdRepository,
+  IdentityCreateOutcome,
   InvitationRepository,
   RegistrationOutcome,
   RegistrationPolicy,
@@ -12,15 +16,23 @@ import type {
   UserRepository,
 } from '@orbit/application'
 import {
+  CalendarSourceId,
+  type CalendarSource,
+  ConnectionId,
+  type Connection,
+  type ConnectionKind,
+  type Mirror,
   DashboardId,
   FeedId,
   HouseholdId,
   InvitationId,
+  ListId,
   UserId,
   Username,
   WidgetPlacementId,
   type Columns,
   type Dashboard,
+  type ExternalIdentity,
   type Feed,
   type FeedField,
   type Household,
@@ -236,6 +248,73 @@ export class SqliteAccountRepository implements AccountRepository {
   }
 }
 
+export class SqliteExternalIdentityRepository implements ExternalIdentityRepository {
+  readonly #db: Database
+
+  constructor(db: Database) {
+    this.#db = db
+  }
+
+  async find(issuer: string, subject: string): Promise<ExternalIdentity | undefined> {
+    const row = this.#db
+      .prepare(
+        'SELECT issuer, subject, user_id, created_at FROM external_identities WHERE issuer = ? AND subject = ?',
+      )
+      .get(issuer, subject) as Row | undefined
+    return row && toIdentity(row)
+  }
+
+  async link(identity: ExternalIdentity): Promise<'linked' | 'conflict'> {
+    return inTransaction(this.#db, () => (this.#insert(identity) ? 'linked' : 'conflict'))
+  }
+
+  async createUser(
+    user: User,
+    identity: ExternalIdentity,
+    policy: RegistrationPolicy,
+  ): Promise<IdentityCreateOutcome> {
+    // BEGIN IMMEDIATE, as for password registration: two first logins cannot both see an empty instance.
+    return inTransaction(this.#db, (): IdentityCreateOutcome => {
+      if (policy === 'first-user-only') {
+        const existing = this.#db.prepare('SELECT COUNT(*) AS n FROM users').get() as Row
+        if (Number(existing.n) > 0) return 'registration-closed'
+      }
+      const taken = this.#db
+        .prepare('SELECT 1 AS found FROM external_identities WHERE issuer = ? AND subject = ?')
+        .get(identity.issuer, identity.subject)
+      if (taken) return 'identity-exists'
+      this.#db
+        .prepare('INSERT INTO users (id, display_name) VALUES (?, ?)')
+        .run(user.id, user.displayName)
+      this.#insert(identity)
+      return 'created'
+    })
+  }
+
+  /** False when the subject is taken or the user already has an identity at that issuer. */
+  #insert(identity: ExternalIdentity): boolean {
+    const conflict = this.#db
+      .prepare(
+        'SELECT 1 AS found FROM external_identities WHERE (issuer = ? AND subject = ?) OR (issuer = ? AND user_id = ?)',
+      )
+      .get(identity.issuer, identity.subject, identity.issuer, identity.userId)
+    if (conflict) return false
+    this.#db
+      .prepare(
+        'INSERT INTO external_identities (issuer, subject, user_id, created_at) VALUES (?, ?, ?, ?)',
+      )
+      .run(identity.issuer, identity.subject, identity.userId, identity.createdAt.toISOString())
+    return true
+  }
+}
+
+const toIdentity = (row: Row): ExternalIdentity => ({
+  issuer: String(row.issuer),
+  subject: String(row.subject),
+  userId: UserId(String(row.user_id)),
+  createdAt: new Date(String(row.created_at)),
+})
+
 export class SqliteSessionStore implements SessionStore {
   readonly #db: Database
 
@@ -392,8 +471,8 @@ export class SqliteFeedRepository implements FeedRepository {
     this.#db
       .prepare(
         `INSERT INTO feeds
-           (id, household_id, name, fields, dashboard_id, token_hash, created_by, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+           (id, household_id, name, fields, dashboard_id, list_id, token_hash, created_by, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         feed.id,
@@ -401,6 +480,7 @@ export class SqliteFeedRepository implements FeedRepository {
         feed.name,
         JSON.stringify(feed.fields),
         feed.dashboardId ?? null,
+        feed.listId ?? null,
         feed.tokenHash,
         feed.createdBy,
         feed.createdAt.toISOString(),
@@ -433,8 +513,8 @@ export class SqliteFeedRepository implements FeedRepository {
   }
 }
 
-const SELECT_FEED = `SELECT id, household_id, name, fields, dashboard_id, token_hash, created_by,
-  created_at, revoked_at FROM feeds`
+const SELECT_FEED = `SELECT id, household_id, name, fields, dashboard_id, list_id, token_hash,
+  created_by, created_at, revoked_at FROM feeds`
 
 function hydrateFeed(row: Row): Feed {
   return {
@@ -443,9 +523,131 @@ function hydrateFeed(row: Row): Feed {
     name: String(row.name),
     fields: JSON.parse(String(row.fields)) as FeedField[],
     ...(row.dashboard_id === null ? {} : { dashboardId: DashboardId(String(row.dashboard_id)) }),
+    ...(row.list_id === null ? {} : { listId: ListId(String(row.list_id)) }),
     tokenHash: String(row.token_hash),
     createdBy: UserId(String(row.created_by)),
     createdAt: new Date(String(row.created_at)),
     ...(row.revoked_at === null ? {} : { revokedAt: new Date(String(row.revoked_at)) }),
+  }
+}
+
+export class SqliteCalendarSourceRepository implements CalendarSourceRepository {
+  readonly #db: Database
+
+  constructor(db: Database) {
+    this.#db = db
+  }
+
+  async create(source: CalendarSource): Promise<void> {
+    this.#db
+      .prepare(
+        `INSERT INTO calendar_sources (id, household_id, name, color, host, created_by, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        source.id,
+        source.householdId,
+        source.name,
+        source.color ?? null,
+        source.host,
+        source.createdBy,
+        source.createdAt.toISOString(),
+      )
+  }
+
+  async get(id: CalendarSourceId): Promise<CalendarSource | undefined> {
+    const row = this.#db.prepare(`${SELECT_CALENDAR_SOURCE} WHERE id = ?`).get(id) as
+      Row | undefined
+    return row && hydrateCalendarSource(row)
+  }
+
+  async listForHousehold(householdId: HouseholdId): Promise<CalendarSource[]> {
+    const rows = this.#db
+      .prepare(`${SELECT_CALENDAR_SOURCE} WHERE household_id = ? ORDER BY rowid`)
+      .all(householdId) as Row[]
+    return rows.map(hydrateCalendarSource)
+  }
+
+  async delete(id: CalendarSourceId): Promise<void> {
+    this.#db.prepare('DELETE FROM calendar_sources WHERE id = ?').run(id)
+  }
+}
+
+const SELECT_CALENDAR_SOURCE = `SELECT id, household_id, name, color, host, created_by, created_at
+  FROM calendar_sources`
+
+export class SqliteConnectionRepository implements ConnectionRepository {
+  readonly #db: Database
+
+  constructor(db: Database) {
+    this.#db = db
+  }
+
+  async create(connection: Connection): Promise<void> {
+    this.#db
+      .prepare(
+        `INSERT INTO connections (id, household_id, kind, name, host, mirrors, created_by, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        connection.id,
+        connection.householdId,
+        connection.kind,
+        connection.name,
+        connection.host,
+        JSON.stringify(connection.mirrors),
+        connection.createdBy,
+        connection.createdAt.toISOString(),
+      )
+  }
+
+  async get(id: ConnectionId): Promise<Connection | undefined> {
+    const row = this.#db.prepare(`${SELECT_CONNECTION} WHERE id = ?`).get(id) as Row | undefined
+    return row && hydrateConnection(row)
+  }
+
+  async save(connection: Connection): Promise<void> {
+    this.#db
+      .prepare('UPDATE connections SET name = ?, mirrors = ? WHERE id = ?')
+      .run(connection.name, JSON.stringify(connection.mirrors), connection.id)
+  }
+
+  async listForHousehold(householdId: HouseholdId): Promise<Connection[]> {
+    const rows = this.#db
+      .prepare(`${SELECT_CONNECTION} WHERE household_id = ? ORDER BY rowid`)
+      .all(householdId) as Row[]
+    return rows.map(hydrateConnection)
+  }
+
+  async delete(id: ConnectionId): Promise<void> {
+    this.#db.prepare('DELETE FROM connections WHERE id = ?').run(id)
+  }
+}
+
+const SELECT_CONNECTION = `SELECT id, household_id, kind, name, host, mirrors, created_by, created_at
+  FROM connections`
+
+function hydrateConnection(row: Row): Connection {
+  return {
+    id: ConnectionId(String(row.id)),
+    householdId: HouseholdId(String(row.household_id)),
+    kind: String(row.kind) as ConnectionKind,
+    name: String(row.name),
+    host: String(row.host),
+    mirrors: JSON.parse(String(row.mirrors)) as Mirror[],
+    createdBy: UserId(String(row.created_by)),
+    createdAt: new Date(String(row.created_at)),
+  }
+}
+
+function hydrateCalendarSource(row: Row): CalendarSource {
+  return {
+    id: CalendarSourceId(String(row.id)),
+    householdId: HouseholdId(String(row.household_id)),
+    name: String(row.name),
+    ...(row.color === null ? {} : { color: String(row.color) }),
+    host: String(row.host),
+    createdBy: UserId(String(row.created_by)),
+    createdAt: new Date(String(row.created_at)),
   }
 }

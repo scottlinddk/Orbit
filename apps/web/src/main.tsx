@@ -5,11 +5,13 @@ import { createBrowserRouter } from 'react-router'
 import { RouterProvider } from 'react-router/dom'
 import { createQueryClient } from './app/queryClient.ts'
 import { routes } from './app/routes.tsx'
+import { registerServiceWorker } from './pwa/register.ts'
 import './styles/global.css'
 import { ThemeProvider, bootTheme } from './theme/ThemeProvider.tsx'
 
 // Before React renders, so the first paint already has the saved colors and no flash of the default.
 bootTheme()
+registerServiceWorker()
 
 const queryClient = createQueryClient()
 const router = createBrowserRouter(routes)

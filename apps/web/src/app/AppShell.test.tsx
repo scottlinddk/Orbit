@@ -1,9 +1,12 @@
 // @vitest-environment jsdom
 import { screen, waitFor } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { ME, household } from '../test/fixtures.ts'
 import { problem, stubApi } from '../test/fakeApi.ts'
 import { renderApp } from '../test/render.tsx'
+import { goTo } from '../api/navigate.ts'
+
+vi.mock('../api/navigate.ts', () => ({ goTo: vi.fn() }))
 
 describe('app shell', () => {
   it('lists the households and switches between them', async () => {
@@ -41,7 +44,11 @@ describe('app shell', () => {
     expect(await screen.findByRole('heading', { name: 'Sign in to Orbit' })).toBeInTheDocument()
     await waitFor(() => expect(api.sent('POST', '/api/v1/auth/logout')).toHaveLength(1))
 
-    const after = api.calls.slice(before).map((c) => `${c.method} ${c.path}`)
+    // The login page asks how people may sign in. That is the instance's setting, not user data.
+    const after = api.calls
+      .slice(before)
+      .map((c) => `${c.method} ${c.path}`)
+      .filter((call) => call !== 'GET /api/v1/auth/providers')
     expect(after).toEqual(['POST /api/v1/auth/logout'])
   })
 
@@ -64,7 +71,13 @@ describe('app shell', () => {
       const holdingData = queryClient
         .getQueryCache()
         .findAll()
-        .filter((query) => query.queryKey[0] !== 'me' && query.state.data !== undefined)
+        .filter(
+          (query) =>
+            query.queryKey[0] !== 'me' &&
+            // How sign-in works on this instance, the same for everyone.
+            query.queryKey[0] !== 'auth-providers' &&
+            query.state.data !== undefined,
+        )
       expect(holdingData).toHaveLength(0)
     })
     expect(queryClient.getQueryData(['me'])).toBeNull()
@@ -87,5 +100,44 @@ describe('app shell', () => {
     stubApi({ 'GET /api/v1/auth/me': problem(401, 'Sign in required', 'unauthenticated') })
     renderApp('/')
     expect(await screen.findByRole('heading', { name: 'Sign in to Orbit' })).toBeInTheDocument()
+  })
+
+  describe('single sign-on', () => {
+    const shell = (providers: unknown) => ({
+      'GET /api/v1/auth/me': { body: ME },
+      'GET /api/v1/auth/providers': { body: providers },
+      'GET /api/v1/households': { body: { households: [household()] } },
+      'GET /api/v1/households/h1': { body: household() },
+      'GET /api/v1/households/h1/dashboards': { body: { dashboards: [] } },
+      'GET /api/v1/households/h1/invitations': { body: { invitations: [] } },
+    })
+
+    it('starts linking the provider account for the signed-in user', async () => {
+      const api = stubApi({
+        ...shell({ local: true, oidc: { label: 'Home login' } }),
+        'POST /api/v1/auth/oidc/start': {
+          body: { authorizationUrl: 'https://id.example.com/authorize' },
+        },
+      })
+      const { user } = renderApp('/h/h1')
+      await user.click(await screen.findByRole('button', { name: 'Link Home login' }))
+      await waitFor(() => expect(goTo).toHaveBeenCalledWith('https://id.example.com/authorize'))
+      expect(api.sent('POST', '/api/v1/auth/oidc/start')[0]?.body).toEqual({ link: true })
+    })
+
+    it('says so after a successful link', async () => {
+      stubApi(shell({ local: true, oidc: { label: 'Home login' } }))
+      renderApp('/h/h1?oidc=linked')
+      await waitFor(() =>
+        expect(screen.getByRole('status')).toHaveTextContent('Your Home login account is linked'),
+      )
+    })
+
+    it('shows no link button without a provider', async () => {
+      stubApi(shell({ local: true, oidc: null }))
+      renderApp('/h/h1')
+      await screen.findByRole('heading', { name: 'Home', level: 1 })
+      expect(screen.queryByRole('button', { name: /^Link / })).not.toBeInTheDocument()
+    })
   })
 })

@@ -1,5 +1,6 @@
 import {
   addMemberRequestSchema,
+  changeMemberRoleRequestSchema,
   createHouseholdRequestSchema,
   createInvitationRequestSchema,
   createDashboardRequestSchema,
@@ -12,7 +13,7 @@ import {
   idSchema,
   invitationSchema,
 } from '@orbit/contracts'
-import { DashboardId, FeedId, HouseholdId, InvitationId, UserId } from '@orbit/domain'
+import { DashboardId, FeedId, HouseholdId, InvitationId, ListId, UserId } from '@orbit/domain'
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod'
 import { z } from 'zod'
 import { actorOf } from '../http/session.ts'
@@ -107,6 +108,35 @@ export const householdRoutes =
             actorOf(request),
             HouseholdId(request.params.householdId),
             request.body,
+          ),
+        ),
+    )
+
+    app.patch(
+      '/households/:householdId/members/:userId',
+      {
+        schema: {
+          ...common,
+          summary: "Change a member's role (owners only). A household always keeps one owner.",
+          params: householdParams.extend({ userId: idSchema }),
+          body: changeMemberRoleRequestSchema,
+          response: {
+            200: householdSchema,
+            400: errors[400],
+            401: errors[401],
+            403: errors[403],
+            404: errors[404],
+            422: errors[422],
+          },
+        },
+      },
+      async (request) =>
+        householdResponse(
+          await useCases.changeHouseholdMemberRole(
+            actorOf(request),
+            HouseholdId(request.params.householdId),
+            UserId(request.params.userId),
+            request.body.role,
           ),
         ),
     )
@@ -240,13 +270,14 @@ export const householdRoutes =
         },
       },
       async (request, reply) => {
-        const { dashboardId, ...rest } = request.body
+        const { dashboardId, listId, ...rest } = request.body
         const { feed, token } = await useCases.createFeed(
           actorOf(request),
           HouseholdId(request.params.householdId),
           {
             ...rest,
             dashboardId: dashboardId === undefined ? undefined : DashboardId(dashboardId),
+            listId: listId === undefined ? undefined : ListId(listId),
           },
         )
         return reply.code(201).send({ ...feedResponse(feed), token })

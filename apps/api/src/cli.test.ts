@@ -85,6 +85,17 @@ describe('operator CLI', () => {
       expect(await run('config', 'print')).toBe(2)
     })
 
+    it('redacts the OIDC client secret but shows the issuer and redirect URI', async () => {
+      env.ORBIT_OIDC_ISSUER = 'https://id.example.com'
+      env.ORBIT_OIDC_CLIENT_ID = 'orbit'
+      env.ORBIT_OIDC_CLIENT_SECRET = 'very-secret-client-value'
+      expect(await run('config', 'print', '--redacted')).toBe(0)
+      const printed = out.join('\n')
+      expect(printed).not.toContain('very-secret-client-value')
+      expect(printed).toContain('https://id.example.com')
+      expect(printed).toContain('/api/v1/auth/oidc/callback')
+    })
+
     it('checks storage and health, reporting failed reachability', async () => {
       const healthyResponse = new Response('{"status":"ok"}', {
         headers: { date: new Date().toUTCString() },

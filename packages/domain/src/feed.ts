@@ -1,7 +1,11 @@
+import { calendarGlance, type CalendarGlanceEvent } from './calendar-day.ts'
+import type { CalendarEvent } from './calendar-event.ts'
 import type { Dashboard, JsonObject } from './dashboard.ts'
 import { invariant } from './errors.ts'
-import type { DashboardId, FeedId, HouseholdId, UserId } from './ids.ts'
+import type { DashboardId, FeedId, HouseholdId, ListId, UserId } from './ids.ts'
 import type { Household } from './household.ts'
+import { mealsToday, stockExpiring, type MealPlanEntry, type StockItem } from './meal.ts'
+import { openListItems, type HouseholdList, type HouseholdListItem } from './household-list.ts'
 
 /** A TRMNL plugin must stay under 100 KB in total. One feed may use at most this much of it. */
 export const MAX_FEED_BYTES = 64 * 1024
@@ -11,10 +15,24 @@ export const MAX_FEED_BYTES = 64 * 1024
  * its owner picked, and a field that is not registered here cannot be published at all.
  * Widget configuration is deliberately not a field, because it may reference integrations.
  */
-export const FEED_FIELDS = ['household.name', 'dashboard.name', 'dashboard.widgets'] as const
+/** A feed shows at most this many open items of a list, which keeps it far below the size cap. */
+export const MAX_FEED_LIST_ITEMS = 50
+
+export const FEED_FIELDS = [
+  'household.name',
+  'dashboard.name',
+  'dashboard.widgets',
+  'list.name',
+  'list.items',
+  'calendar.today',
+  'calendar.upcoming',
+  'meals.today',
+  'stock.expiring',
+] as const
 export type FeedField = (typeof FEED_FIELDS)[number]
 
 const DASHBOARD_FIELDS: ReadonlySet<FeedField> = new Set(['dashboard.name', 'dashboard.widgets'])
+const LIST_FIELDS: ReadonlySet<FeedField> = new Set(['list.name', 'list.items'])
 
 /**
  * A read-only view of one household's data for a display. The secret token is never part of the
@@ -27,6 +45,8 @@ export interface Feed {
   readonly fields: readonly FeedField[]
   /** The dashboard the `dashboard.*` fields describe. Required when any of them is chosen. */
   readonly dashboardId?: DashboardId
+  /** The list the `list.*` fields describe. Required when any of them is chosen. */
+  readonly listId?: ListId
   readonly tokenHash: string
   readonly createdBy: UserId
   readonly createdAt: Date
@@ -39,6 +59,7 @@ export function createFeed(input: {
   name: string
   fields: readonly FeedField[]
   dashboardId?: DashboardId | undefined
+  listId?: ListId | undefined
   tokenHash: string
   createdBy: UserId
   now: Date
@@ -56,6 +77,8 @@ export function createFeed(input: {
     !needsDashboard || input.dashboardId !== undefined,
     'Choose a dashboard for the dashboard fields',
   )
+  const needsList = fields.some((f) => LIST_FIELDS.has(f))
+  invariant(!needsList || input.listId !== undefined, 'Choose a list for the list fields')
   return {
     id: input.id,
     householdId: input.householdId,
@@ -64,6 +87,7 @@ export function createFeed(input: {
     ...(needsDashboard && input.dashboardId !== undefined
       ? { dashboardId: input.dashboardId }
       : {}),
+    ...(needsList && input.listId !== undefined ? { listId: input.listId } : {}),
     tokenHash: input.tokenHash,
     createdBy: input.createdBy,
     createdAt: input.now,
@@ -79,10 +103,40 @@ export const isActiveFeed = (feed: Feed) => feed.revokedAt === undefined
  */
 export function renderFeed(
   feed: Feed,
-  source: { household: Household; dashboard: Dashboard | undefined },
+  source: {
+    household: Household
+    dashboard: Dashboard | undefined
+    list?: { list: HouseholdList; items: readonly HouseholdListItem[] } | undefined
+    /** Events the household's calendars have, if any. Without them the lists are empty. */
+    calendar?: { events: readonly CalendarEvent[]; now: Date; timeZone: string } | undefined
+    /** Planned meals from a connected Mealie, and which date is today. */
+    meals?: { entries: readonly MealPlanEntry[]; today: string } | undefined
+    /** Stock that needs attention, from a connected Grocy. */
+    stock?: { items: readonly StockItem[] } | undefined
+  },
 ): JsonObject {
   const has = (f: FeedField) => feed.fields.includes(f)
   const out: Record<string, JsonObject | null> = {}
+  if (has('calendar.today') || has('calendar.upcoming')) {
+    const glance = source.calendar
+      ? calendarGlance(source.calendar.events, source.calendar.now, source.calendar.timeZone)
+      : { today: [], upcoming: [] }
+    const list = (events: CalendarGlanceEvent[]) => events.map((e) => ({ ...e }))
+    out.calendar = {
+      ...(has('calendar.today') ? { today: list(glance.today) } : {}),
+      ...(has('calendar.upcoming') ? { upcoming: list(glance.upcoming) } : {}),
+    }
+  }
+  if (has('meals.today'))
+    out.meals = {
+      today: source.meals
+        ? mealsToday(source.meals.entries, source.meals.today).map((m) => ({ ...m }))
+        : [],
+    }
+  if (has('stock.expiring'))
+    out.stock = {
+      expiring: source.stock ? stockExpiring(source.stock.items).map((i) => ({ ...i })) : [],
+    }
   if (has('household.name')) out.household = { name: source.household.name }
   if (feed.dashboardId !== undefined) {
     const { dashboard } = source
@@ -92,6 +146,24 @@ export function renderFeed(
         ...(has('dashboard.name') ? { name: dashboard.name } : {}),
         ...(has('dashboard.widgets')
           ? { widgets: dashboard.widgets.map((w) => ({ type: w.type, span: w.span })) }
+          : {}),
+      }
+  }
+  if (feed.listId !== undefined) {
+    const { list } = source
+    if (!list) out.list = null
+    else
+      out.list = {
+        ...(has('list.name') ? { name: list.list.name } : {}),
+        ...(has('list.items')
+          ? {
+              items: openListItems(list.items)
+                .slice(0, MAX_FEED_LIST_ITEMS)
+                .map((i) => ({
+                  text: i.text,
+                  ...(i.quantity === undefined ? {} : { quantity: i.quantity }),
+                })),
+            }
           : {}),
       }
   }

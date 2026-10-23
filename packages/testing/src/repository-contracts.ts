@@ -1,19 +1,35 @@
 import type { Repositories } from '@orbit/application'
 import {
+  CalendarSourceId,
+  ConnectionId,
   DashboardId,
   FeedId,
   HouseholdId,
   InvitationId,
+  ListId,
+  ListItemId,
+  NotificationEndpointId,
   UserId,
   Username,
   WidgetPlacementId,
   addMember,
   addWidget,
+  withMirrors,
+  changeMemberRole,
+  createCalendarSource,
+  createConnection,
   createDashboard,
   createFeed,
+  createExternalIdentity,
   createHousehold,
   createInvitation,
+  createList,
+  createNotificationEndpoint,
   createUser,
+  recordDeliveryResult,
+  updateNotificationEndpoint,
+  type DeliveryLogEntry,
+  type HouseholdListItem,
 } from '@orbit/domain'
 import { beforeEach, describe, expect, it } from 'vitest'
 
@@ -49,6 +65,25 @@ export function describeRepositoryContracts(name: string, create: () => Promise<
       await repos.households.save(bigger)
       expect(await repos.households.get(h.id)).toEqual(bigger)
       expect(await repos.households.get(HouseholdId('missing'))).toBeUndefined()
+    })
+
+    it('round-trips every role, including child and device', async () => {
+      const kid = UserId('kid')
+      const screen = UserId('screen')
+      const h = addMember(
+        addMember(
+          addMember(createHousehold({ id: HouseholdId('h1'), name: 'Home', ownerId: alice }), bob),
+          kid,
+          'child',
+        ),
+        screen,
+        'device',
+      )
+      await repos.households.save(h)
+      const loaded = await repos.households.get(h.id)
+      expect(loaded?.members.map((m) => m.role)).toEqual(['owner', 'member', 'child', 'device'])
+      await repos.households.save(changeMemberRole(h, bob, 'device'))
+      expect((await repos.households.get(h.id))?.members[1]?.role).toBe('device')
     })
 
     it('lists only the households a user belongs to', async () => {
@@ -280,6 +315,21 @@ export function describeInvitationContracts(name: string, create: () => Promise<
       })
     const later = (days: number) => new Date(t0.getTime() + days * 24 * 60 * 60 * 1000)
 
+    it('keeps the child and device roles of an invitation', async () => {
+      for (const role of ['child', 'device'] as const) {
+        const i = createInvitation({
+          id: InvitationId(`i-${role}`),
+          householdId: HouseholdId('h1'),
+          role,
+          tokenHash: `hash-${role}`,
+          createdBy: UserId('alice'),
+          now: t0,
+        })
+        await repos.invitations.create(i)
+        expect((await repos.invitations.get(i.id))?.role).toBe(role)
+      }
+    })
+
     it('round-trips an invitation, by id and by token hash', async () => {
       const i = invite('i1')
       await repos.invitations.create(i)
@@ -397,6 +447,21 @@ export function describeFeedContracts(name: string, create: () => Promise<Reposi
       expect(await repos.feeds.get(f.id)).toEqual(f)
     })
 
+    it('round-trips a feed that publishes a list', async () => {
+      const f = createFeed({
+        id: FeedId('f1'),
+        householdId: HouseholdId('h1'),
+        name: 'Fridge',
+        fields: ['list.name', 'list.items'],
+        listId: ListId('l1'),
+        tokenHash: 'hash-f1',
+        createdBy: UserId('alice'),
+        now: t0,
+      })
+      await repos.feeds.create(f)
+      expect(await repos.feeds.get(f.id)).toEqual(f)
+    })
+
     it('refuses a second feed with the same token hash', async () => {
       await repos.feeds.create(feed('f1'))
       await expect(repos.feeds.create({ ...feed('f2'), tokenHash: 'hash-f1' })).rejects.toThrow()
@@ -416,6 +481,441 @@ export function describeFeedContracts(name: string, create: () => Promise<Reposi
       expect(await repos.feeds.revoke(FeedId('f1'), t0)).toBe(false)
       expect(await repos.feeds.revoke(FeedId('missing'), t0)).toBe(false)
       expect((await repos.feeds.get(FeedId('f1')))?.revokedAt).toEqual(t0)
+    })
+  })
+}
+
+export function describeListContracts(name: string, create: () => Promise<RepositorySet>) {
+  describe(`list contracts: ${name}`, () => {
+    let repos: RepositorySet
+    beforeEach(async () => {
+      repos = await create()
+    })
+
+    const t0 = new Date('2026-01-01T00:00:00.000Z')
+    const t1 = new Date('2026-01-02T00:00:00.000Z')
+    const alice = UserId('alice')
+    const list = (id: string, household = 'h1') =>
+      createList({
+        id: ListId(id),
+        householdId: HouseholdId(household),
+        name: `List ${id}`,
+        kind: 'shopping',
+        createdBy: alice,
+        now: t0,
+      })
+    const item = (
+      id: string,
+      listId: string,
+      position: number,
+      extra: Partial<HouseholdListItem> = {},
+    ): HouseholdListItem => ({
+      id: ListItemId(id),
+      listId: ListId(listId),
+      text: `Item ${id}`,
+      done: false,
+      position,
+      createdBy: alice,
+      createdAt: t0,
+      updatedBy: alice,
+      updatedAt: t0,
+      ...extra,
+    })
+
+    it('round-trips a list, renames it, and lists only one household', async () => {
+      const l = list('l1')
+      await repos.lists.createList(l)
+      await repos.lists.createList(list('l2', 'h2'))
+      await repos.lists.createList(list('l3'))
+      expect(await repos.lists.getList(l.id)).toEqual(l)
+      expect(await repos.lists.getList(ListId('missing'))).toBeUndefined()
+      expect((await repos.lists.listsForHousehold(HouseholdId('h1'))).map((x) => x.id)).toEqual([
+        'l1',
+        'l3',
+      ])
+      await repos.lists.saveList({ ...l, name: 'Renamed' })
+      expect((await repos.lists.getList(l.id))?.name).toBe('Renamed')
+    })
+
+    it('refuses a duplicate list id', async () => {
+      await repos.lists.createList(list('l1'))
+      await expect(repos.lists.createList(list('l1'))).rejects.toThrow()
+    })
+
+    it('stores items in position order with optional fields', async () => {
+      await repos.lists.createList(list('l1'))
+      const rich = item('b', 'l1', 1, { quantity: '2 l', note: 'oat' })
+      await repos.lists.saveItems([rich, item('a', 'l1', 0)])
+      const items = await repos.lists.items(ListId('l1'))
+      expect(items.map((i) => i.id)).toEqual(['a', 'b'])
+      expect(items[1]).toEqual(rich)
+      expect(items[0]!.quantity).toBeUndefined()
+      expect(await repos.lists.getItem(ListItemId('b'))).toEqual(rich)
+      expect(await repos.lists.getItem(ListItemId('missing'))).toBeUndefined()
+    })
+
+    it('replaces an item on save and can clear its optional fields', async () => {
+      await repos.lists.createList(list('l1'))
+      await repos.lists.saveItems([item('a', 'l1', 0, { quantity: '1', note: 'x' })])
+      const changed = item('a', 'l1', 3, { done: true, updatedAt: t1 })
+      await repos.lists.saveItems([changed])
+      expect(await repos.lists.getItem(ListItemId('a'))).toEqual(changed)
+    })
+
+    it('keeps items of different lists apart', async () => {
+      await repos.lists.createList(list('l1'))
+      await repos.lists.createList(list('l2'))
+      await repos.lists.saveItems([item('a', 'l1', 0), item('b', 'l2', 0)])
+      expect((await repos.lists.items(ListId('l1'))).map((i) => i.id)).toEqual(['a'])
+      expect((await repos.lists.items(ListId('l2'))).map((i) => i.id)).toEqual(['b'])
+    })
+
+    it('deletes one item, and the completed ones of one list', async () => {
+      await repos.lists.createList(list('l1'))
+      await repos.lists.createList(list('l2'))
+      await repos.lists.saveItems([
+        item('a', 'l1', 0),
+        item('b', 'l1', 1, { done: true }),
+        item('c', 'l1', 2, { done: true }),
+        item('d', 'l2', 0, { done: true }),
+      ])
+      await repos.lists.deleteItem(ListItemId('a'))
+      expect(await repos.lists.deleteCompleted(ListId('l1'))).toBe(2)
+      expect(await repos.lists.deleteCompleted(ListId('l1'))).toBe(0)
+      expect(await repos.lists.items(ListId('l1'))).toEqual([])
+      expect(await repos.lists.items(ListId('l2'))).toHaveLength(1)
+    })
+
+    it('deletes a list together with its items and nothing else', async () => {
+      await repos.lists.createList(list('l1'))
+      await repos.lists.createList(list('l2'))
+      await repos.lists.saveItems([item('a', 'l1', 0), item('b', 'l2', 0)])
+      await repos.lists.deleteList(ListId('l1'))
+      expect(await repos.lists.getList(ListId('l1'))).toBeUndefined()
+      expect(await repos.lists.getItem(ListItemId('a'))).toBeUndefined()
+      expect(await repos.lists.getItem(ListItemId('b'))).toBeDefined()
+    })
+
+    it('saves a batch of items all or none', async () => {
+      await repos.lists.createList(list('l1'))
+      await expect(
+        repos.lists.saveItems([item('a', 'l1', 0), item('b', 'no-such-list', 0)]),
+      ).rejects.toThrow()
+      expect(await repos.lists.items(ListId('l1'))).toEqual([])
+    })
+  })
+}
+
+export function describeCalendarSourceContracts(
+  name: string,
+  create: () => Promise<RepositorySet>,
+) {
+  describe(`calendar source contracts: ${name}`, () => {
+    let repos: RepositorySet
+    beforeEach(async () => {
+      repos = await create()
+    })
+
+    const t0 = new Date('2026-01-01T00:00:00.000Z')
+    const source = (id: string, household = 'h1', color?: string) =>
+      createCalendarSource({
+        id: CalendarSourceId(id),
+        householdId: HouseholdId(household),
+        name: `Calendar ${id}`,
+        color,
+        host: 'cal.example.com',
+        createdBy: UserId('alice'),
+        now: t0,
+      })
+
+    it('round-trips a source with and without a color', async () => {
+      const plain = source('s1')
+      const colored = source('s2', 'h1', '#aa00ff')
+      await repos.calendarSources.create(plain)
+      await repos.calendarSources.create(colored)
+      expect(await repos.calendarSources.get(plain.id)).toEqual(plain)
+      expect(await repos.calendarSources.get(colored.id)).toEqual(colored)
+      expect(await repos.calendarSources.get(CalendarSourceId('missing'))).toBeUndefined()
+    })
+
+    it('lists only the sources of one household, oldest first', async () => {
+      await repos.calendarSources.create(source('s1'))
+      await repos.calendarSources.create(source('s2', 'h2'))
+      await repos.calendarSources.create(source('s3'))
+      const list = await repos.calendarSources.listForHousehold(HouseholdId('h1'))
+      expect(list.map((s) => s.id)).toEqual(['s1', 's3'])
+    })
+
+    it('refuses a duplicate id and deletes only the one source', async () => {
+      await repos.calendarSources.create(source('s1'))
+      await expect(repos.calendarSources.create(source('s1'))).rejects.toThrow()
+      await repos.calendarSources.create(source('s2'))
+      await repos.calendarSources.delete(CalendarSourceId('s1'))
+      expect(await repos.calendarSources.get(CalendarSourceId('s1'))).toBeUndefined()
+      expect(await repos.calendarSources.get(CalendarSourceId('s2'))).toBeDefined()
+    })
+  })
+}
+
+export function describeConnectionContracts(name: string, create: () => Promise<RepositorySet>) {
+  describe(`connection contracts: ${name}`, () => {
+    let repos: RepositorySet
+    beforeEach(async () => {
+      repos = await create()
+    })
+
+    const t0 = new Date('2026-01-01T00:00:00.000Z')
+    const connection = (id: string, household = 'h1') =>
+      createConnection({
+        id: ConnectionId(id),
+        householdId: HouseholdId(household),
+        kind: 'homeassistant',
+        name: `Connection ${id}`,
+        host: 'ha.local:8123',
+        createdBy: UserId('alice'),
+        now: t0,
+      })
+
+    it('round-trips a connection with and without mirrors', async () => {
+      const plain = connection('c1')
+      const mirrored = withMirrors(connection('c2'), [
+        { entityId: 'calendar.family', role: 'calendar', name: 'Family' },
+        { entityId: 'todo.shopping_list', role: 'todo', name: 'Shopping' },
+      ])
+      await repos.connections.create(plain)
+      await repos.connections.create(mirrored)
+      expect(await repos.connections.get(plain.id)).toEqual(plain)
+      expect(await repos.connections.get(mirrored.id)).toEqual(mirrored)
+      expect(await repos.connections.get(ConnectionId('missing'))).toBeUndefined()
+    })
+
+    it('saves a change of mirrors without touching anything else', async () => {
+      const c = connection('c1')
+      await repos.connections.create(c)
+      const changed = withMirrors(c, [{ entityId: 'todo.a', role: 'todo', name: 'A' }])
+      await repos.connections.save(changed)
+      expect(await repos.connections.get(c.id)).toEqual(changed)
+    })
+
+    it('lists only the connections of one household, oldest first', async () => {
+      await repos.connections.create(connection('c1'))
+      await repos.connections.create(connection('c2', 'h2'))
+      await repos.connections.create(connection('c3'))
+      const list = await repos.connections.listForHousehold(HouseholdId('h1'))
+      expect(list.map((c) => c.id)).toEqual(['c1', 'c3'])
+    })
+
+    it('refuses a duplicate id and deletes only the one connection', async () => {
+      await repos.connections.create(connection('c1'))
+      await expect(repos.connections.create(connection('c1'))).rejects.toThrow()
+      await repos.connections.create(connection('c2'))
+      await repos.connections.delete(ConnectionId('c1'))
+      expect(await repos.connections.get(ConnectionId('c1'))).toBeUndefined()
+      expect(await repos.connections.get(ConnectionId('c2'))).toBeDefined()
+    })
+  })
+}
+
+export function describeIdentityContracts(name: string, create: () => Promise<RepositorySet>) {
+  describe(`external identity contracts: ${name}`, () => {
+    let repos: RepositorySet
+    beforeEach(async () => {
+      repos = await create()
+    })
+
+    const issuer = 'https://id.example.com'
+    const now = new Date('2026-01-01T00:00:00Z')
+    const identityOf = (userId: string, subject: string, at = issuer) =>
+      createExternalIdentity({ issuer: at, subject, userId: UserId(userId), now })
+
+    it('creates a user together with its identity, and finds it by issuer and subject', async () => {
+      const user = createUser({ id: UserId('u1'), displayName: 'Una' })
+      expect(await repos.identities.createUser(user, identityOf('u1', 's1'), 'open')).toBe(
+        'created',
+      )
+      expect(await repos.users.get(UserId('u1'))).toEqual(user)
+      expect(await repos.identities.find(issuer, 's1')).toEqual(identityOf('u1', 's1'))
+      expect(await repos.identities.find(issuer, 'other')).toBeUndefined()
+      expect(await repos.identities.find('https://other.example.com', 's1')).toBeUndefined()
+    })
+
+    it('refuses a second user for the same subject and stores nothing for it', async () => {
+      await repos.identities.createUser(
+        createUser({ id: UserId('u1'), displayName: 'Una' }),
+        identityOf('u1', 's1'),
+        'open',
+      )
+      const outcome = await repos.identities.createUser(
+        createUser({ id: UserId('u2'), displayName: 'Two' }),
+        identityOf('u2', 's1'),
+        'open',
+      )
+      expect(outcome).toBe('identity-exists')
+      expect(await repos.users.get(UserId('u2'))).toBeUndefined()
+    })
+
+    it('with first-user-only, closes as soon as any user exists', async () => {
+      await repos.users.save(createUser({ id: UserId('boss'), displayName: 'Boss' }))
+      const outcome = await repos.identities.createUser(
+        createUser({ id: UserId('u1'), displayName: 'Una' }),
+        identityOf('u1', 's1'),
+        'first-user-only',
+      )
+      expect(outcome).toBe('registration-closed')
+      expect(await repos.identities.find(issuer, 's1')).toBeUndefined()
+    })
+
+    it('with first-user-only, lets exactly one of two simultaneous first logins in', async () => {
+      const results = await Promise.all(
+        ['a', 'b'].map((n) =>
+          repos.identities.createUser(
+            createUser({ id: UserId(n), displayName: n }),
+            identityOf(n, `s-${n}`),
+            'first-user-only',
+          ),
+        ),
+      )
+      expect(results.filter((r) => r === 'created')).toHaveLength(1)
+      expect(results.filter((r) => r === 'registration-closed')).toHaveLength(1)
+    })
+
+    it('links an identity to an existing user, once per subject and once per user and issuer', async () => {
+      await repos.users.save(createUser({ id: UserId('u1'), displayName: 'Una' }))
+      await repos.users.save(createUser({ id: UserId('u2'), displayName: 'Two' }))
+      expect(await repos.identities.link(identityOf('u1', 's1'))).toBe('linked')
+      // The subject already belongs to u1.
+      expect(await repos.identities.link(identityOf('u2', 's1'))).toBe('conflict')
+      // u1 already has an identity at this issuer.
+      expect(await repos.identities.link(identityOf('u1', 's2'))).toBe('conflict')
+      // A different issuer is a different identity.
+      expect(await repos.identities.link(identityOf('u1', 's1', 'https://other.example.com'))).toBe(
+        'linked',
+      )
+    })
+  })
+}
+
+export function describeNotificationContracts(name: string, create: () => Promise<RepositorySet>) {
+  describe(`notification contracts: ${name}`, () => {
+    let repos: RepositorySet
+    beforeEach(async () => {
+      repos = await create()
+    })
+
+    const t0 = new Date('2026-01-01T00:00:00.000Z')
+    const endpoint = (id: string, household = 'h1', events: string[] = ['list.item.added']) =>
+      createNotificationEndpoint({
+        id: NotificationEndpointId(id),
+        householdId: HouseholdId(household),
+        name: `Hook ${id}`,
+        host: 'hooks.example.com',
+        events,
+        leadMinutes: 30,
+        createdBy: UserId('alice'),
+        now: t0,
+      })
+    const entry = (endpointId: string, n: number, extra: Partial<DeliveryLogEntry> = {}) =>
+      ({
+        endpointId: NotificationEndpointId(endpointId),
+        deliveryId: `d${n}`,
+        event: 'list.item.added',
+        at: new Date(t0.getTime() + n * 1000),
+        attempt: 1,
+        outcome: 'delivered',
+        ...extra,
+      }) satisfies DeliveryLogEntry
+
+    it('round-trips an endpoint, including a switched-off one', async () => {
+      const on = endpoint('e1', 'h1', ['calendar.event.starting', 'list.item.added'])
+      await repos.notificationEndpoints.create(on)
+      expect(await repos.notificationEndpoints.get(on.id)).toEqual(on)
+      const off = updateNotificationEndpoint(endpoint('e2'), { enabled: false })
+      await repos.notificationEndpoints.create(off)
+      expect(await repos.notificationEndpoints.get(off.id)).toEqual(off)
+      expect(
+        await repos.notificationEndpoints.get(NotificationEndpointId('missing')),
+      ).toBeUndefined()
+    })
+
+    it('lists one household oldest first, and refuses a duplicate id', async () => {
+      await repos.notificationEndpoints.create(endpoint('e1'))
+      await repos.notificationEndpoints.create(endpoint('e2', 'h2'))
+      await repos.notificationEndpoints.create(endpoint('e3'))
+      const list = await repos.notificationEndpoints.listForHousehold(HouseholdId('h1'))
+      expect(list.map((e) => e.id)).toEqual(['e1', 'e3'])
+      await expect(repos.notificationEndpoints.create(endpoint('e1'))).rejects.toThrow()
+    })
+
+    it('saves changes and deletes only the one endpoint', async () => {
+      const e = endpoint('e1')
+      await repos.notificationEndpoints.create(e)
+      await repos.notificationEndpoints.create(endpoint('e2'))
+      const changed = recordDeliveryResult(e, { delivered: false, error: 'boom' })
+      await repos.notificationEndpoints.save(changed)
+      expect(await repos.notificationEndpoints.get(e.id)).toEqual(changed)
+      await repos.notificationEndpoints.delete(e.id)
+      expect(await repos.notificationEndpoints.get(e.id)).toBeUndefined()
+      expect(await repos.notificationEndpoints.get(NotificationEndpointId('e2'))).toBeDefined()
+    })
+
+    it('finds enabled endpoints of every household that want an event', async () => {
+      await repos.notificationEndpoints.create(endpoint('e1', 'h1', ['list.item.added']))
+      await repos.notificationEndpoints.create(endpoint('e2', 'h2', ['list.item.added']))
+      await repos.notificationEndpoints.create(endpoint('e3', 'h1', ['calendar.event.starting']))
+      await repos.notificationEndpoints.create(
+        updateNotificationEndpoint(endpoint('e4'), { enabled: false }),
+      )
+      const found = await repos.notificationEndpoints.listEnabledFor('list.item.added')
+      expect(found.map((e) => e.id)).toEqual(['e1', 'e2'])
+    })
+
+    it('keeps the newest log entries per endpoint, newest first', async () => {
+      for (const n of [1, 2, 3, 4]) await repos.deliveryLog.append(entry('e1', n), 3)
+      await repos.deliveryLog.append(entry('e2', 1), 3)
+      const own = await repos.deliveryLog.recent(NotificationEndpointId('e1'), 10)
+      expect(own.map((e) => e.deliveryId)).toEqual(['d4', 'd3', 'd2'])
+      expect(await repos.deliveryLog.recent(NotificationEndpointId('e2'), 10)).toHaveLength(1)
+      expect(await repos.deliveryLog.recent(NotificationEndpointId('e1'), 1)).toHaveLength(1)
+    })
+
+    it('round-trips a failed entry with its status and error, and deletes by endpoint', async () => {
+      const failed = entry('e1', 1, {
+        outcome: 'failed',
+        httpStatus: 500,
+        error: 'The server answered 500.',
+      })
+      await repos.deliveryLog.append(failed, 20)
+      await repos.deliveryLog.append(entry('e2', 1), 20)
+      expect(await repos.deliveryLog.recent(NotificationEndpointId('e1'), 5)).toEqual([failed])
+      await repos.deliveryLog.deleteForEndpoint(NotificationEndpointId('e1'))
+      expect(await repos.deliveryLog.recent(NotificationEndpointId('e1'), 5)).toEqual([])
+      expect(await repos.deliveryLog.recent(NotificationEndpointId('e2'), 5)).toHaveLength(1)
+    })
+
+    it('lets exactly one claim of a key win, until it is pruned', async () => {
+      const until = new Date(t0.getTime() + 1000)
+      const results = await Promise.all([
+        repos.notificationDedupe.claim('e1|x', until),
+        repos.notificationDedupe.claim('e1|x', until),
+      ])
+      expect(results.filter(Boolean)).toHaveLength(1)
+      await repos.notificationDedupe.prune(new Date(t0.getTime() + 500))
+      expect(await repos.notificationDedupe.claim('e1|x', until)).toBe(false)
+      await repos.notificationDedupe.prune(new Date(t0.getTime() + 2000))
+      expect(await repos.notificationDedupe.claim('e1|x', until)).toBe(true)
+    })
+
+    it('forgets keys by prefix, taking % and _ literally', async () => {
+      const until = new Date(t0.getTime() + 1000)
+      for (const key of ['e1|a', 'e1|b', 'e2|a', 'e%|a', 'eX|a']) {
+        await repos.notificationDedupe.claim(key, until)
+      }
+      await repos.notificationDedupe.deleteWithPrefix('e%|')
+      expect(await repos.notificationDedupe.claim('e%|a', until)).toBe(true)
+      expect(await repos.notificationDedupe.claim('eX|a', until)).toBe(false)
+      await repos.notificationDedupe.deleteWithPrefix('e1|')
+      expect(await repos.notificationDedupe.claim('e1|a', until)).toBe(true)
+      expect(await repos.notificationDedupe.claim('e2|a', until)).toBe(false)
     })
   })
 }

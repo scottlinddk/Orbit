@@ -92,6 +92,34 @@ describe('household page', () => {
     expect(screen.getByLabelText('Add a member by username')).toHaveValue('')
   })
 
+  it('lets an owner change a role, and offers no owner invitations', async () => {
+    const after = household({
+      members: [
+        { userId: ME.id, role: 'owner' },
+        { userId: 'u2', role: 'child' },
+      ],
+    })
+    const stub = stubApi({
+      ...api(
+        household({
+          members: [
+            { userId: ME.id, role: 'owner' },
+            { userId: 'u2', role: 'member' },
+          ],
+        }),
+      ),
+      'PATCH /api/v1/households/h1/members/u2': { body: after },
+    })
+    const { user } = renderApp('/h/h1')
+    await user.selectOptions(await screen.findByLabelText('Role of member 2'), 'child')
+    expect(await screen.findByText(/Member 2 · child/)).toBeInTheDocument()
+    expect(stub.sent('PATCH', '/api/v1/households/h1/members/u2')[0]?.body).toEqual({
+      role: 'child',
+    })
+    const invite = screen.getByLabelText('Role')
+    expect(within(invite).queryByRole('option', { name: /Owner/ })).not.toBeInTheDocument()
+  })
+
   it('shows why adding a member failed', async () => {
     stubApi({
       ...api(),

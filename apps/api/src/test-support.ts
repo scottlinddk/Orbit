@@ -1,25 +1,67 @@
 import {
   CounterIdGenerator,
+  InMemoryJobScheduler,
+  InMemorySecretStore,
   InsecureTestPasswordHasher,
   ManualClock,
   SequentialSessionTokens,
 } from '@orbit/adapter-in-memory'
-import type { Auth, SetupGate, UseCases } from '@orbit/application'
+import {
+  SecretsNotConfiguredError,
+  type Auth,
+  type EgressFetcher,
+  type EgressRequest,
+  type EgressResponse,
+  type IntegrationProvider,
+  type OidcProvider,
+  type SetupGate,
+  type UseCases,
+} from '@orbit/application'
 import { SqliteJobScheduler } from '@orbit/adapter-jobs-sqlite'
 import { migrate, openDatabase } from '@orbit/adapter-persistence-sqlite'
 import { SqlitePlanetStateStore } from '@orbit/adapter-planets-sqlite'
 import { EncryptedDbSecretStore } from '@orbit/adapter-secrets-encrypted-db'
 import { buildPackage, PlanetRuntime } from '@orbit/module-planets/server'
-import { createInMemoryRepositories, createSqliteRepositories } from '@orbit/testing'
+import {
+  FakeIntegrationProvider,
+  FakeWebhookFetcher,
+  createInMemoryRepositories,
+  createSqliteRepositories,
+} from '@orbit/testing'
 import type { LightMyRequestResponse } from 'fastify'
 import { buildApp, type AppOptions, type App } from './app.ts'
+import { createIcsFeedReader } from './calendar.ts'
 import { loadConfig, type Config } from './config.ts'
+import { createNodeNotificationPlatform } from './notification-platform.ts'
 import { cookieName } from './http/session.ts'
+import { MissingKeySecretStore } from './secrets.ts'
 import { assembleServices, type Services } from './services.ts'
 
 export const PASSWORD = 'correct horse battery'
 
+/** A calendar server for tests: serves ICS text by address, and remembers what was asked. */
+export class FakeIcsServer implements EgressFetcher {
+  readonly feeds = new Map<string, string>()
+  readonly requests: string[] = []
+
+  async fetchText(request: EgressRequest): Promise<EgressResponse> {
+    this.requests.push(request.url)
+    const body = this.feeds.get(request.url)
+    if (body === undefined) return { status: 404, body: '', finalUrl: request.url }
+    return { status: 200, body, finalUrl: request.url }
+  }
+}
+
 export interface TestEnv {
+  ics: FakeIcsServer
+  /** A Home Assistant for tests. Register a system with `integrations.add(url, token)`. */
+  integrations: FakeIntegrationProvider
+  /** A Mealie and a Grocy for tests, registered like `integrations`. */
+  mealie: FakeIntegrationProvider
+  grocy: FakeIntegrationProvider
+  /** The receiver of outgoing webhooks, and the queue that feeds it. */
+  webhooks: FakeWebhookFetcher
+  jobs: InMemoryJobScheduler
   app: App
   config: Config
   clock: ManualClock
@@ -34,12 +76,23 @@ export interface TestEnvOptions {
   app?: Partial<AppOptions>
   setupGate?: SetupGate
   planets?: PlanetRuntime
+  /** `missing` behaves like a server without ORBIT_SECRET_KEY. */
+  calendarSecrets?: 'working' | 'missing'
+  oidc?: OidcProvider
+  /** Replaces the fake Home Assistant, for tests that exercise the real provider and guard. */
+  connectionProviders?: IntegrationProvider[]
 }
 
 /** The real HTTP app wired with fast, deterministic parts. Registration is open by default. */
 export async function createTestEnv(options: TestEnvOptions = {}): Promise<TestEnv> {
   const config = loadConfig({ ORBIT_REGISTRATION: 'open', ...options.env })
   const clock = new ManualClock()
+  const ics = new FakeIcsServer()
+  const integrations = new FakeIntegrationProvider()
+  const mealie = new FakeIntegrationProvider('mealie')
+  const grocy = new FakeIntegrationProvider('grocy')
+  const webhooks = new FakeWebhookFetcher()
+  const jobs = new InMemoryJobScheduler()
   const services = assembleServices({
     repos: options.storage === 'sqlite' ? createSqliteRepositories() : createInMemoryRepositories(),
     hasher: new InsecureTestPasswordHasher(),
@@ -49,6 +102,18 @@ export async function createTestEnv(options: TestEnvOptions = {}): Promise<TestE
     registrationPolicy: config.registration,
     setupGate: options.setupGate,
     planets: options.planets,
+    calendar: {
+      secrets:
+        options.calendarSecrets === 'missing'
+          ? new MissingKeySecretStore(() => new SecretsNotConfiguredError())
+          : new InMemorySecretStore(),
+      reader: createIcsFeedReader(ics),
+    },
+    connections: { providers: options.connectionProviders ?? [integrations, mealie, grocy] },
+    notifications: { fetcher: webhooks, jobs, platform: createNodeNotificationPlatform() },
+    timeZone: config.timeZone,
+    oidc: options.oidc,
+    localLoginEnabled: config.localLogin,
   })
   const app = await buildApp({
     services,
@@ -60,6 +125,12 @@ export async function createTestEnv(options: TestEnvOptions = {}): Promise<TestE
   })
   await app.ready()
   return {
+    ics,
+    integrations,
+    mealie,
+    grocy,
+    webhooks,
+    jobs,
     app,
     config,
     clock,
@@ -126,7 +197,7 @@ export class TestClient {
   }
 
   async request(
-    method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+    method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
     url: string,
     body?: unknown,
     headers: Record<string, string> = {},
@@ -160,6 +231,7 @@ export class TestClient {
   post = (url: string, body?: unknown, headers?: Record<string, string>) =>
     this.request('POST', url, body ?? {}, headers)
   put = (url: string, body: unknown) => this.request('PUT', url, body)
+  patch = (url: string, body: unknown) => this.request('PATCH', url, body)
   delete = (url: string) => this.request('DELETE', url)
 
   /** Registers (open policy) and signs in. */

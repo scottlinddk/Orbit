@@ -1,7 +1,17 @@
 import { z } from 'zod'
 
 /** Mirrors FEED_FIELDS in the domain. A contract test keeps the two lists equal. */
-export const feedFieldSchema = z.enum(['household.name', 'dashboard.name', 'dashboard.widgets'])
+export const feedFieldSchema = z.enum([
+  'household.name',
+  'dashboard.name',
+  'dashboard.widgets',
+  'list.name',
+  'list.items',
+  'calendar.today',
+  'calendar.upcoming',
+  'meals.today',
+  'stock.expiring',
+])
 
 export const createFeedRequestSchema = z.strictObject({
   name: z.string().min(1).max(80),
@@ -9,6 +19,8 @@ export const createFeedRequestSchema = z.strictObject({
   fields: z.array(feedFieldSchema).min(1).max(feedFieldSchema.options.length),
   /** Required when a `dashboard.*` field is chosen. */
   dashboardId: z.string().min(1).max(128).optional(),
+  /** Required when a `list.*` field is chosen. */
+  listId: z.string().min(1).max(128).optional(),
 })
 
 export const feedSchema = z
@@ -17,6 +29,7 @@ export const feedSchema = z
     name: z.string(),
     fields: z.array(feedFieldSchema),
     dashboardId: z.string().optional(),
+    listId: z.string().optional(),
     createdAt: z.string(),
   })
   .meta({ id: 'Feed' })
@@ -29,13 +42,56 @@ export const createdFeedSchema = feedSchema
 export type CreatedFeedResponse = z.infer<typeof createdFeedSchema>
 
 /** What a display reads. Only the fields the owner chose are present. */
+const feedCalendarEventSchema = z.object({
+  title: z.string(),
+  allDay: z.boolean(),
+  /** An ISO instant for timed events, `YYYY-MM-DD` for all-day ones. */
+  start: z.string(),
+  /** Same format as `start`. For all-day events the date is exclusive. */
+  end: z.string(),
+})
+
 export const feedContentSchema = z
   .object({
+    /** Titles only, never notes or recipes. At most 20. */
+    meals: z
+      .object({
+        today: z.array(z.object({ type: z.string(), title: z.string() })).optional(),
+      })
+      .optional(),
+    /** Most urgent first. No amounts and no ids. At most 20. */
+    stock: z
+      .object({
+        expiring: z
+          .array(
+            z.object({
+              name: z.string(),
+              status: z.enum(['expired', 'overdue', 'due-soon', 'missing']),
+              bestBefore: z.string().optional(),
+            }),
+          )
+          .optional(),
+      })
+      .optional(),
+    calendar: z
+      .object({
+        today: z.array(feedCalendarEventSchema).optional(),
+        upcoming: z.array(feedCalendarEventSchema).optional(),
+      })
+      .optional(),
     household: z.object({ name: z.string() }).optional(),
     dashboard: z
       .object({
         name: z.string().optional(),
         widgets: z.array(z.object({ type: z.string(), span: z.number() })).optional(),
+      })
+      .nullable()
+      .optional(),
+    /** Open items only, in the order on the list, at most 50. */
+    list: z
+      .object({
+        name: z.string().optional(),
+        items: z.array(z.object({ text: z.string(), quantity: z.string().optional() })).optional(),
       })
       .nullable()
       .optional(),

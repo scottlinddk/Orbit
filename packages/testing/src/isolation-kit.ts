@@ -1,10 +1,15 @@
 import { ForbiddenError, NotFoundError, type Actor } from '@orbit/application'
 import type { HouseholdId } from '@orbit/domain'
 import {
+  CalendarSourceId,
+  ConnectionId,
   DashboardId,
   FeedId,
   InvariantViolation,
   InvitationId,
+  ListId,
+  ListItemId,
+  NotificationEndpointId,
   WidgetPlacementId,
 } from '@orbit/domain'
 import { beforeEach, describe, expect, it } from 'vitest'
@@ -13,32 +18,52 @@ import type { TestSystem } from './fixtures.ts'
 /**
  * Household isolation: the security invariant every protected operation must keep.
  *
- * Scenario: Alice owns household A and Bob is a plain member of it. Carol owns household B
+ * Scenario: Alice owns household A, Bob is a plain member of it, Dave is a child and Eve is a
+ * display device. Carol owns household B
  * and has no relation to A. Every operation that takes an id is tried by Carol against A's
  * resources, and by Bob where his role should not allow it.
  *
  * Add every new household-scoped use case to the tables below. A use case missing here is a
  * gap in the security test suite.
  */
+const CALENDAR_URL = 'https://calendar.example.com/private/abc123.ics'
+const WEBHOOK_URL = 'https://hooks.example.com/services/T000/B000/secret-token'
+const MEALIE_URL = 'http://mealie.local:9000'
+const GROCY_URL = 'http://grocy.local:9283'
+/** Inside the window around the test clock's 2026-01-01. */
+const CALENDAR_RANGE = {
+  from: new Date('2026-01-01T00:00:00Z'),
+  to: new Date('2026-01-08T00:00:00Z'),
+}
+
 export function describeHouseholdIsolation(name: string, create: () => TestSystem) {
   describe(`household isolation: ${name}`, () => {
     let sys: TestSystem
-    let alice: Actor, bob: Actor, carol: Actor
+    let alice: Actor, bob: Actor, carol: Actor, dave: Actor, eve: Actor
     let householdA: HouseholdId
     let dashboardA: DashboardId
     let widgetA: WidgetPlacementId
     let invitationA: InvitationId
     let feedA: FeedId
     let feedTokenA: string
+    let listA: ListId
+    let itemA: ListItemId
+    let calendarSourceA: CalendarSourceId
+    let endpointA: NotificationEndpointId
+    let mealieA: ConnectionId
 
     beforeEach(async () => {
       sys = create()
       alice = await sys.newActor('alice')
       bob = await sys.newActor('bob')
       carol = await sys.newActor('carol')
+      dave = await sys.newActor('dave')
+      eve = await sys.newActor('eve')
       const { useCases: uc } = sys
       householdA = (await uc.createHousehold(alice, { name: 'A' })).id
       await uc.addHouseholdMember(alice, householdA, { userId: bob.userId })
+      await uc.addHouseholdMember(alice, householdA, { userId: dave.userId, role: 'child' })
+      await uc.addHouseholdMember(alice, householdA, { userId: eve.userId, role: 'device' })
       await uc.createHousehold(carol, { name: 'B' })
       const dashboard = await uc.createDashboard(alice, householdA, { name: 'Family' })
       dashboardA = dashboard.id
@@ -52,6 +77,67 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
       })
       feedA = feed.feed.id
       feedTokenA = feed.token
+      const list = await uc.createList(alice, householdA, { name: 'Groceries', kind: 'shopping' })
+      listA = list.list.id
+      itemA = (await uc.addListItem(alice, householdA, listA, { text: 'Milk' })).items[0]!.id
+      sys.calendarReader.feeds.set(CALENDAR_URL, [
+        {
+          kind: 'timed',
+          id: 'e1',
+          title: 'Private appointment',
+          start: '2026-01-02T09:00:00.000Z',
+          end: '2026-01-02T10:00:00.000Z',
+          isOverride: false,
+          isRecurring: false,
+        },
+      ])
+      calendarSourceA = (
+        await sys.calendar.addSource(alice, householdA, { name: 'Family', url: CALENDAR_URL })
+      ).id
+      const mealie = sys.mealie.add(MEALIE_URL, 'mealie-secret')
+      mealie.entities.push({ entityId: 'mealplan.mealplan', role: 'meals', name: 'Meal plan' })
+      mealie.mealPlans.set('mealplan.mealplan', [
+        {
+          id: 'm1',
+          date: '2026-01-01',
+          type: 'dinner',
+          title: 'Chili',
+          recipe: { ref: 'chili', name: 'Chili' },
+        },
+      ])
+      mealie.recipes.set('chili', {
+        ref: 'chili',
+        name: 'Chili',
+        ingredients: ['beans'],
+        instructions: ['Simmer.'],
+      })
+      const mealieConnection = await sys.connections.addConnection(alice, householdA, {
+        kind: 'mealie',
+        name: 'Mealie',
+        url: MEALIE_URL,
+        token: 'mealie-secret',
+      })
+      mealieA = mealieConnection.id
+      await sys.connections.setMirrors(alice, householdA, mealieA, ['mealplan.mealplan'])
+      const grocy = sys.grocy.add(GROCY_URL, 'grocy-secret')
+      grocy.entities.push({ entityId: 'stock.stock', role: 'stock', name: 'Stock overview' })
+      grocy.stock.set('stock.stock', [
+        { id: '1', name: 'Milk', status: 'due-soon', amount: 1, bestBefore: '2026-01-03' },
+      ])
+      const grocyConnection = await sys.connections.addConnection(alice, householdA, {
+        kind: 'grocy',
+        name: 'Grocy',
+        url: GROCY_URL,
+        token: 'grocy-secret',
+      })
+      await sys.connections.setMirrors(alice, householdA, grocyConnection.id, ['stock.stock'])
+      endpointA = (
+        await sys.notifications.addEndpoint(alice, householdA, {
+          name: 'Chat',
+          url: WEBHOOK_URL,
+          events: ['list.item.added', 'calendar.event.starting'],
+        })
+      ).endpoint.id
     })
 
     /** Every operation, parameterized by who performs it. */
@@ -65,13 +151,36 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
         addHouseholdMemberByUsername: () =>
           uc().addHouseholdMemberByUsername(as(), householdA, { username: 'carol' }),
         removeHouseholdMember: () => uc().removeHouseholdMember(as(), householdA, alice.userId),
-        createInvitation: () => uc().createInvitation(as(), householdA, { role: 'owner' }),
+        changeHouseholdMemberRole: () =>
+          uc().changeHouseholdMemberRole(as(), householdA, bob.userId, 'owner'),
+        createInvitation: () => uc().createInvitation(as(), householdA, { role: 'member' }),
         listInvitations: () => uc().listInvitations(as(), householdA),
         revokeInvitation: () => uc().revokeInvitation(as(), householdA, invitationA),
         createFeed: () =>
           uc().createFeed(as(), householdA, { name: 'Intruder', fields: ['household.name'] }),
         listFeeds: () => uc().listFeeds(as(), householdA),
         revokeFeed: () => uc().revokeFeed(as(), householdA, feedA),
+        addCalendarSource: () =>
+          sys.calendar.addSource(as(), householdA, { name: 'Intruder', url: CALENDAR_URL }),
+        listCalendarSources: () => sys.calendar.listSources(as(), householdA),
+        removeCalendarSource: () => sys.calendar.removeSource(as(), householdA, calendarSourceA),
+        calendarEvents: () => sys.calendar.events(as(), householdA, CALENDAR_RANGE),
+        mealPlan: () => sys.connections.mealPlan(as(), householdA, {}),
+        mealRecipe: () => sys.connections.recipe(as(), householdA, mealieA, 'chili'),
+        stock: () => sys.connections.stock(as(), householdA),
+        addNotificationEndpoint: () =>
+          sys.notifications.addEndpoint(as(), householdA, {
+            name: 'Intruder',
+            url: WEBHOOK_URL,
+            events: ['list.item.added'],
+          }),
+        listNotificationEndpoints: () => sys.notifications.listEndpoints(as(), householdA),
+        updateNotificationEndpoint: () =>
+          sys.notifications.updateEndpoint(as(), householdA, endpointA, { enabled: false }),
+        removeNotificationEndpoint: () =>
+          sys.notifications.removeEndpoint(as(), householdA, endpointA),
+        notificationDeliveries: () => sys.notifications.deliveries(as(), householdA, endpointA),
+        sendTestNotification: () => sys.notifications.sendTest(as(), householdA, endpointA),
         createDashboard: () => uc().createDashboard(as(), householdA, { name: 'Intruder' }),
         listDashboards: () => uc().listDashboards(as(), householdA),
         getDashboard: () => uc().getDashboard(as(), dashboardA),
@@ -83,11 +192,33 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
         resizeWidget: () => uc().resizeWidget(as(), dashboardA, widgetA, 2),
         configureWidget: () => uc().configureWidget(as(), dashboardA, widgetA, { hacked: true }),
         deleteDashboard: () => uc().deleteDashboard(as(), dashboardA),
+        createList: () => uc().createList(as(), householdA, { name: 'Intruder', kind: 'todo' }),
+        listLists: () => uc().listLists(as(), householdA),
+        getList: () => uc().getList(as(), householdA, listA),
+        renameList: () => uc().renameList(as(), householdA, listA, 'Hacked'),
+        addListItem: () => uc().addListItem(as(), householdA, listA, { text: 'Intruder' }),
+        updateListItem: () =>
+          uc().updateListItem(as(), householdA, listA, itemA, { text: 'Hacked', done: true }),
+        moveListItem: () => uc().moveListItem(as(), householdA, listA, itemA, 0),
+        deleteListItem: () => uc().deleteListItem(as(), householdA, listA, itemA),
+        clearCompletedListItems: () => uc().clearCompletedListItems(as(), householdA, listA),
+        deleteList: () => uc().deleteList(as(), householdA, listA),
         // Operations on ids that do not exist must be indistinguishable from foreign ones.
         removeWidgetMissing: () => uc().removeWidget(as(), dashboardA, missingWidget),
         revokeInvitationMissing: () =>
           uc().revokeInvitation(as(), householdA, InvitationId('missing')),
         revokeFeedMissing: () => uc().revokeFeed(as(), householdA, FeedId('missing')),
+        getListMissing: () => uc().getList(as(), householdA, ListId('missing')),
+        updateListItemMissing: () =>
+          uc().updateListItem(as(), householdA, listA, ListItemId('missing'), { done: true }),
+        removeCalendarSourceMissing: () =>
+          sys.calendar.removeSource(as(), householdA, CalendarSourceId('missing')),
+        mealRecipeMissing: () =>
+          sys.connections.recipe(as(), householdA, ConnectionId('missing'), 'chili'),
+        removeNotificationEndpointMissing: () =>
+          sys.notifications.removeEndpoint(as(), householdA, NotificationEndpointId('missing')),
+        sendTestNotificationMissing: () =>
+          sys.notifications.sendTest(as(), householdA, NotificationEndpointId('missing')),
       }
     }
 
@@ -96,6 +227,10 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
       dashboards: await sys.useCases.listDashboards(alice, householdA),
       invitations: await sys.useCases.listInvitations(alice, householdA),
       feeds: await sys.useCases.listFeeds(alice, householdA),
+      lists: await sys.useCases.listLists(alice, householdA),
+      list: await sys.useCases.getList(alice, householdA, listA),
+      calendarSources: await sys.calendar.listSources(alice, householdA),
+      notificationEndpoints: await sys.notifications.listEndpoints(alice, householdA),
     })
 
     describe('a user from another household', () => {
@@ -121,39 +256,167 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
       })
     })
 
+    const writes = [
+      'addHouseholdMember',
+      'addHouseholdMemberByUsername',
+      'removeHouseholdMember',
+      'changeHouseholdMemberRole',
+      'createInvitation',
+      'listInvitations',
+      'revokeInvitation',
+      'createFeed',
+      'listFeeds',
+      'revokeFeed',
+      'addCalendarSource',
+      'removeCalendarSource',
+      'addNotificationEndpoint',
+      'listNotificationEndpoints',
+      'updateNotificationEndpoint',
+      'removeNotificationEndpoint',
+      'notificationDeliveries',
+      'sendTestNotification',
+      'createDashboard',
+      'renameDashboard',
+      'setDashboardColumns',
+      'addWidget',
+      'removeWidget',
+      'moveWidget',
+      'resizeWidget',
+      'configureWidget',
+      'deleteDashboard',
+    ]
     describe('a plain member', () => {
       it('can read', async () => {
         await expect(operations(() => bob).getHousehold()).resolves.toBeDefined()
         // The starter dashboard every household gets, and the one this kit creates.
         await expect(operations(() => bob).listDashboards()).resolves.toHaveLength(2)
         await expect(operations(() => bob).getDashboard()).resolves.toBeDefined()
+        await expect(operations(() => bob).listCalendarSources()).resolves.toHaveLength(1)
+        await expect(operations(() => bob).calendarEvents()).resolves.toMatchObject({
+          events: [{ title: 'Private appointment' }],
+        })
+        await expect(operations(() => bob).mealPlan()).resolves.toMatchObject({
+          entries: [{ title: 'Chili' }],
+        })
+        await expect(operations(() => bob).stock()).resolves.toMatchObject({
+          items: [{ name: 'Milk' }],
+        })
       })
 
-      const writes = [
-        'addHouseholdMember',
-        'addHouseholdMemberByUsername',
-        'removeHouseholdMember',
-        'createInvitation',
-        'listInvitations',
-        'revokeInvitation',
-        'createFeed',
-        'listFeeds',
-        'revokeFeed',
-        'createDashboard',
-        'renameDashboard',
-        'setDashboardColumns',
-        'addWidget',
-        'removeWidget',
-        'moveWidget',
-        'resizeWidget',
-        'configureWidget',
-        'deleteDashboard',
-      ]
       it.each(writes)('%s is forbidden and changes nothing', async (op) => {
         const before = await snapshot()
         const attempt = (operations(() => bob) as Record<string, () => Promise<unknown>>)[op]!
         await expect(attempt()).rejects.toBeInstanceOf(ForbiddenError)
         expect(await snapshot()).toEqual(before)
+      })
+    })
+
+    describe.each([
+      ['a child', () => dave],
+      ['a device', () => eve],
+    ] as const)('%s', (_label, who) => {
+      it.each(writes)('%s is forbidden and changes nothing', async (op) => {
+        const before = await snapshot()
+        const attempt = (operations(who) as Record<string, () => Promise<unknown>>)[op]!
+        await expect(attempt()).rejects.toBeInstanceOf(ForbiddenError)
+        expect(await snapshot()).toEqual(before)
+      })
+
+      it('can read the meal plan, a planned recipe and the stock', async () => {
+        await expect(operations(who).mealPlan()).resolves.toMatchObject({
+          entries: [{ title: 'Chili' }],
+        })
+        await expect(operations(who).mealRecipe()).resolves.toMatchObject({ name: 'Chili' })
+        await expect(operations(who).stock()).resolves.toMatchObject({
+          items: [{ name: 'Milk' }],
+        })
+      })
+
+      it('can read dashboards but never learns who else is in the household', async () => {
+        await expect(operations(who).listDashboards()).resolves.toHaveLength(2)
+        await expect(operations(who).getDashboard()).resolves.toBeDefined()
+        const viewed = await operations(who).getHousehold()
+        expect(viewed.members.map((m) => m.userId)).toEqual([who().userId])
+        const listed = await sys.useCases.listHouseholds(who())
+        expect(listed[0]!.members.map((m) => m.userId)).toEqual([who().userId])
+      })
+    })
+
+    describe('lists', () => {
+      const carolsHousehold = async () => (await sys.useCases.listHouseholds(carol))[0]!.id
+
+      it('are shared: a plain member can read and change them', async () => {
+        await expect(operations(() => bob).listLists()).resolves.toHaveLength(1)
+        await expect(operations(() => bob).getList()).resolves.toBeDefined()
+        await expect(operations(() => bob).addListItem()).resolves.toBeDefined()
+        await expect(operations(() => bob).updateListItem()).resolves.toBeDefined()
+        await expect(operations(() => bob).clearCompletedListItems()).resolves.toBeDefined()
+        await expect(operations(() => bob).deleteList()).resolves.toBeUndefined()
+      })
+
+      it("cannot be reached through another household's id", async () => {
+        const carols = await carolsHousehold()
+        const before = await snapshot()
+        for (const attempt of [
+          () => sys.useCases.getList(carol, carols, listA),
+          () => sys.useCases.renameList(carol, carols, listA, 'Hacked'),
+          () => sys.useCases.addListItem(carol, carols, listA, { text: 'Intruder' }),
+          () => sys.useCases.updateListItem(carol, carols, listA, itemA, { done: true }),
+          () => sys.useCases.moveListItem(carol, carols, listA, itemA, 0),
+          () => sys.useCases.deleteListItem(carol, carols, listA, itemA),
+          () => sys.useCases.clearCompletedListItems(carol, carols, listA),
+          () => sys.useCases.deleteList(carol, carols, listA),
+        ])
+          await expect(attempt()).rejects.toBeInstanceOf(NotFoundError)
+        expect(await snapshot()).toEqual(before)
+      })
+
+      it('gives a foreign list the same answer as a missing one', async () => {
+        const carols = await carolsHousehold()
+        const foreign = await sys.useCases.getList(carol, carols, listA).catch((e) => e)
+        const missing = await sys.useCases.getList(carol, carols, ListId('nope')).catch((e) => e)
+        expect(foreign).toBeInstanceOf(NotFoundError)
+        expect(foreign.message).toBe(missing.message)
+      })
+
+      it("does not move an item through another household's own list", async () => {
+        const carols = await carolsHousehold()
+        const carolsList = (
+          await sys.useCases.createList(carol, carols, { name: 'Mine', kind: 'todo' })
+        ).list.id
+        await expect(
+          sys.useCases.updateListItem(carol, carols, carolsList, itemA, { done: true }),
+        ).rejects.toBeInstanceOf(NotFoundError)
+        expect((await sys.useCases.getList(alice, householdA, listA)).items[0]!.done).toBe(false)
+      })
+
+      it("cannot be published through another household's feed", async () => {
+        const carols = await carolsHousehold()
+        const foreign = await sys.useCases
+          .createFeed(carol, carols, { name: 'Spy', fields: ['list.items'], listId: listA })
+          .catch((e) => e)
+        const missing = await sys.useCases
+          .createFeed(carol, carols, {
+            name: 'Spy',
+            fields: ['list.items'],
+            listId: ListId('nope'),
+          })
+          .catch((e) => e)
+        expect(foreign).toBeInstanceOf(NotFoundError)
+        expect(foreign.message).toBe(missing.message)
+      })
+
+      it('are published only by the feed that names them', async () => {
+        const fridge = await sys.useCases.createFeed(alice, householdA, {
+          name: 'Fridge',
+          fields: ['list.items'],
+          listId: listA,
+        })
+        expect(await sys.feedReader.read(fridge.token)).toEqual({
+          list: { items: [{ text: 'Milk' }] },
+        })
+        // The kit's own feed names no list, so it shows none.
+        expect(JSON.stringify(await sys.feedReader.read(feedTokenA))).not.toContain('Milk')
       })
     })
 
@@ -176,6 +439,77 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
           .catch((e) => e)
         expect(foreign).toBeInstanceOf(NotFoundError)
         expect(foreign.message).toBe(missing.message)
+      })
+    })
+
+    describe('calendars', () => {
+      const carolsHousehold = async () => (await sys.useCases.listHouseholds(carol))[0]!.id
+
+      it("cannot be removed through another household's id", async () => {
+        await expect(
+          sys.calendar.removeSource(carol, await carolsHousehold(), calendarSourceA),
+        ).rejects.toBeInstanceOf(NotFoundError)
+        expect(await sys.calendar.listSources(alice, householdA)).toHaveLength(1)
+      })
+
+      it('gives a foreign source id the same answer as a missing one', async () => {
+        const foreign = await sys.calendar
+          .removeSource(carol, await carolsHousehold(), calendarSourceA)
+          .catch((e) => e)
+        const missing = await sys.calendar
+          .removeSource(carol, await carolsHousehold(), CalendarSourceId('missing'))
+          .catch((e) => e)
+        expect(foreign).toBeInstanceOf(NotFoundError)
+        expect(foreign.message).toBe(missing.message)
+      })
+
+      it("never shows another household's events in your own", async () => {
+        const mine = await sys.calendar.events(carol, await carolsHousehold(), CALENDAR_RANGE)
+        expect(mine).toEqual({ events: [], sources: [] })
+      })
+    })
+
+    describe('notification webhooks', () => {
+      const carolsHousehold = async () => (await sys.useCases.listHouseholds(carol))[0]!.id
+
+      it("cannot be changed, tested or read through another household's id", async () => {
+        const carols = await carolsHousehold()
+        for (const attempt of [
+          () => sys.notifications.updateEndpoint(carol, carols, endpointA, { enabled: false }),
+          () => sys.notifications.removeEndpoint(carol, carols, endpointA),
+          () => sys.notifications.deliveries(carol, carols, endpointA),
+          () => sys.notifications.sendTest(carol, carols, endpointA),
+        ])
+          await expect(attempt()).rejects.toBeInstanceOf(NotFoundError)
+        expect(await sys.notifications.listEndpoints(alice, householdA)).toHaveLength(1)
+        expect(sys.webhooks.calls).toEqual([])
+      })
+
+      it('gives a foreign endpoint id the same answer as a missing one', async () => {
+        const carols = await carolsHousehold()
+        const foreign = await sys.notifications.sendTest(carol, carols, endpointA).catch((e) => e)
+        const missing = await sys.notifications
+          .sendTest(carol, carols, NotificationEndpointId('missing'))
+          .catch((e) => e)
+        expect(foreign).toBeInstanceOf(NotFoundError)
+        expect(foreign.message).toBe(missing.message)
+      })
+
+      it("never list another household's endpoints", async () => {
+        expect(await sys.notifications.listEndpoints(carol, await carolsHousehold())).toEqual([])
+      })
+
+      it("do not receive another household's events", async () => {
+        const carols = await carolsHousehold()
+        await sys.notifications.addEndpoint(carol, carols, {
+          name: 'Carol chat',
+          url: 'https://carol.example.com/hook',
+          events: ['list.item.added'],
+        })
+        await sys.useCases.addListItem(alice, householdA, listA, { text: 'Eggs' })
+        await sys.notifications.tick()
+        expect(sys.webhooks.callsTo('https://carol.example.com/hook')).toEqual([])
+        expect(sys.webhooks.callsTo(WEBHOOK_URL)).toHaveLength(1)
       })
     })
 
@@ -292,6 +626,29 @@ export function describeHouseholdIsolation(name: string, create: () => TestSyste
       it('cannot remove the last owner', async () => {
         await expect(
           sys.useCases.removeHouseholdMember(alice, householdA, alice.userId),
+        ).rejects.toBeInstanceOf(InvariantViolation)
+      })
+
+      it('lets an owner change a role, which takes effect at once', async () => {
+        await sys.useCases.changeHouseholdMemberRole(alice, householdA, bob.userId, 'device')
+        await expect(operations(() => bob).listDashboards()).resolves.toHaveLength(2)
+        await expect(operations(() => bob).createDashboard()).rejects.toBeInstanceOf(ForbiddenError)
+        const viewed = await sys.useCases.getHousehold(bob, householdA)
+        expect(viewed.members.map((m) => m.userId)).toEqual([bob.userId])
+      })
+
+      it('cannot demote the last owner, and a missing member is not found', async () => {
+        await expect(
+          sys.useCases.changeHouseholdMemberRole(alice, householdA, alice.userId, 'member'),
+        ).rejects.toBeInstanceOf(InvariantViolation)
+        await expect(
+          sys.useCases.changeHouseholdMemberRole(alice, householdA, carol.userId, 'member'),
+        ).rejects.toBeInstanceOf(NotFoundError)
+      })
+
+      it('never makes an owner through an invitation', async () => {
+        await expect(
+          sys.useCases.createInvitation(alice, householdA, { role: 'owner' as never }),
         ).rejects.toBeInstanceOf(InvariantViolation)
       })
 

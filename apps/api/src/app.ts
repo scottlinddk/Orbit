@@ -14,14 +14,21 @@ import {
 import type { Config } from './config.ts'
 import { registerSecurity } from './http/security.ts'
 import { registerWebApp } from './http/web.ts'
+import { createStateCodec } from './http/oidc-state.ts'
 import { createRequireActor } from './http/session.ts'
 import { toProblem } from './problem.ts'
 import { authRoutes } from './routes/auth.ts'
 import { defaultFeedRateLimit, type FeedRateLimitOptions } from './http/feed-rate-limit.ts'
+import { calendarRoutes } from './routes/calendar.ts'
+import { connectionRoutes } from './routes/connections.ts'
+import { mealRoutes } from './routes/meals.ts'
+import { notificationRoutes } from './routes/notifications.ts'
 import { dashboardRoutes } from './routes/dashboards.ts'
 import { feedRoutes } from './routes/feed.ts'
 import { errors } from './routes/schemas.ts'
 import { householdRoutes } from './routes/households.ts'
+import { listRoutes } from './routes/lists.ts'
+import { oidcRoutes } from './routes/oidc.ts'
 import { planetRoutes, planetWebhookRoutes } from './routes/planets.ts'
 import type { Services } from './services.ts'
 
@@ -37,6 +44,8 @@ export interface AppOptions {
   generalRateLimit?: { max: number; timeWindow: string }
   /** Limits for the public display feed. The clock is injectable for tests. */
   feedRateLimit?: Partial<FeedRateLimitOptions>
+  /** The clock for OIDC sign-in state, in milliseconds. Injectable for tests. */
+  oidcNow?: () => number
 }
 
 export const API_PREFIX = '/api/v1'
@@ -134,6 +143,15 @@ export async function buildApp(options: AppOptions) {
         }),
       )
       await api.register(
+        oidcRoutes({
+          services,
+          config,
+          codec: createStateCodec(config.secretKey, options.oidcNow),
+          now: options.oidcNow,
+          rateLimit: authRateLimitOptions,
+        }),
+      )
+      await api.register(
         feedRoutes({
           services,
           rateLimit: { ...defaultFeedRateLimit, ...options.feedRateLimit },
@@ -142,7 +160,12 @@ export async function buildApp(options: AppOptions) {
       await api.register(async (protectedScope) => {
         protectedScope.addHook('onRequest', requireActor)
         await protectedScope.register(householdRoutes({ services }))
+        await protectedScope.register(calendarRoutes({ services }))
+        await protectedScope.register(connectionRoutes({ services }))
+        await protectedScope.register(mealRoutes({ services }))
+        await protectedScope.register(notificationRoutes({ services }))
         await protectedScope.register(dashboardRoutes({ services }))
+        await protectedScope.register(listRoutes({ services }))
         await protectedScope.register(planetRoutes({ services }))
       })
       await api.register(planetWebhookRoutes({ services }))

@@ -1,7 +1,16 @@
 import { invariant } from './errors.ts'
 import type { HouseholdId, UserId } from './ids.ts'
 
-export type HouseholdRole = 'owner' | 'member'
+export const HOUSEHOLD_ROLES = ['owner', 'member', 'child', 'device'] as const
+export type HouseholdRole = (typeof HOUSEHOLD_ROLES)[number]
+
+/** Roles an owner can hand out through an invitation. There is exactly one way to become an owner: create the household. */
+export const INVITABLE_ROLES = [
+  'member',
+  'child',
+  'device',
+] as const satisfies readonly HouseholdRole[]
+export type InvitableRole = (typeof INVITABLE_ROLES)[number]
 
 export interface Membership {
   readonly userId: UserId
@@ -54,4 +63,23 @@ export function removeMember(household: Household, userId: UserId): Household {
     'A household must keep at least one owner',
   )
   return { ...household, members: remaining }
+}
+
+/**
+ * Changes a member's role. The last owner cannot be demoted, because a household without an
+ * owner could never be managed again.
+ */
+export function changeMemberRole(
+  household: Household,
+  userId: UserId,
+  role: HouseholdRole,
+): Household {
+  const current = roleOf(household, userId)
+  invariant(current !== undefined, 'User is not a member of this household')
+  const members = household.members.map((m) => (m.userId === userId ? { ...m, role } : m))
+  invariant(
+    members.some((m) => m.role === 'owner'),
+    'A household must keep at least one owner',
+  )
+  return { ...household, members }
 }

@@ -47,15 +47,18 @@ Compose binds the port to `127.0.0.1` only. To reach Orbit from other devices, p
 
 Copy `.env.example` to `.env` next to `compose.yaml` and change what you need. Every variable is documented in [`apps/api/README.md`](../../apps/api/README.md). The ones that matter for Docker:
 
-| Variable                           | Why                                                                                                                                                 |
-| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ORBIT_PUBLIC_URL`                 | The address people type in the browser. Must match exactly, because the API rejects writes from any other origin. Use `https://...` behind a proxy. |
-| `ORBIT_HOST_PORT`                  | The port on this machine. Default 3000. The default `ORBIT_PUBLIC_URL` (`http://localhost:<port>`) follows it.                                      |
-| `ORBIT_TRUST_PROXY`                | `true` only behind a reverse proxy you control, so rate limits see real client addresses.                                                           |
-| `ORBIT_REGISTRATION`               | `first-user-only` (default) or `open`.                                                                                                              |
-| `ORBIT_IMAGE_TAG`                  | Published image tag to pull. Defaults to `latest`.                                                                                                  |
-| `ORBIT_SECRET_KEY`                 | Master key (at least 32 characters) for stored secrets such as Planet API keys. See [Planets](planets.md).                                          |
-| `ORBIT_EGRESS_ALLOW_PRIVATE_HOSTS` | Host names that outbound requests may reach on your local network. Per host. Empty by default.                                                      |
+| Variable                                            | Why                                                                                                                                                      |
+| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ORBIT_PUBLIC_URL`                                  | The address people type in the browser. Must match exactly, because the API rejects writes from any other origin. Use `https://...` behind a proxy.      |
+| `ORBIT_HOST_PORT`                                   | The port on this machine. Default 3000. The default `ORBIT_PUBLIC_URL` (`http://localhost:<port>`) follows it.                                           |
+| `ORBIT_TRUST_PROXY`                                 | `true` only behind a reverse proxy you control, so rate limits see real client addresses.                                                                |
+| `ORBIT_REGISTRATION`                                | `first-user-only` (default) or `open`.                                                                                                                   |
+| `ORBIT_IMAGE_TAG`                                   | Published image tag to pull. Defaults to `latest`.                                                                                                       |
+| `ORBIT_SECRET_KEY`                                  | Master key (at least 32 characters) for stored secrets such as Planet API keys, calendar addresses and Home Assistant tokens. See [Planets](planets.md). |
+| `ORBIT_OIDC_ISSUER`, `_CLIENT_ID`, `_CLIENT_SECRET` | Sign in with an identity provider. All three or none. See [OpenID Connect](oidc.md).                                                                     |
+| `ORBIT_LOCAL_LOGIN`                                 | `enabled` (default) or `disabled`. Disabled turns off password sign-in and sign-up and needs OIDC.                                                       |
+| `ORBIT_EGRESS_ALLOW_PRIVATE_HOSTS`                  | Host names that outbound requests may reach on your local network. Per host. Empty by default.                                                           |
+| `ORBIT_TIME_ZONE`                                   | The time zone that decides what "today" means in the TRMNL feed, for example `Europe/Copenhagen`. Default `UTC`.                                         |
 
 Check settings and the running instance from inside the container:
 
@@ -93,6 +96,17 @@ By default only the first account can register on the web page, but owners can b
 2. Under **Invite someone**, pick a role and choose **Create invitation link**.
 3. Copy the link and send it to the person privately. It is shown only once, works once, and expires after 7 days.
 4. They open the link, choose their own username and password, and land in the household.
+
+Roles you can give:
+
+| Role     | What it is for                                                                                                     |
+| -------- | ------------------------------------------------------------------------------------------------------------------ |
+| `owner`  | Manages everything. Only the person who created the household, or someone an owner promotes.                       |
+| `member` | Adults. Can see the household and its members, and will edit shared lists.                                         |
+| `child`  | Like a member for lists and the calendar, but cannot see who else is in the household.                             |
+| `device` | A shared screen, such as a wall display. Shows dashboards, calendar and lists, and nothing else. Cannot edit them. |
+
+An invitation can give `member`, `child` or `device`, never `owner`. Owners change anyone's role on the household page, under **Members**. A household always keeps one owner: to hand it over, promote the second owner first. Limits are enforced by the server, not only hidden in the page ([ADR 0007](../architecture/adr/0007-household-authorization-model.md)).
 
 Open invitations are listed on the same page and can be revoked. If a link is lost, revoke it and make a new one: Orbit keeps only a hash of the secret and cannot show it again. The link looks like `https://orbit.example.com/join#<secret>`. The secret sits after the `#`, which browsers never send to the server, so it does not appear in logs. The link uses the address in your browser's address bar, so open Orbit at the address you want to hand out (the one in `ORBIT_PUBLIC_URL`).
 

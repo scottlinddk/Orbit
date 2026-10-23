@@ -119,6 +119,10 @@ export function createGuardedFetcher(options: GuardedFetcherOptions = {}): Egres
         const headers = current.origin === origin ? request.headers : undefined
         const result = await get(current, target, request, headers, deadline - Date.now())
         if (result.redirect === undefined) return result.response
+        // Following a redirect would send the body to a place nobody chose.
+        if (request.method === 'POST') {
+          throw new EgressDeniedError('redirect', 'The server answered with a redirect.')
+        }
         let next: URL
         try {
           next = parseUrl(new URL(result.redirect, current).toString())
@@ -176,7 +180,7 @@ function get(
     const req = transport.request(
       url,
       {
-        method: 'GET',
+        method: request.method ?? 'GET',
         // Connect to the address that was checked. The URL still supplies the Host header and the
         // TLS server name, so certificates are verified against the real host name.
         lookup: (_host, _opts, callback) => {
@@ -189,7 +193,14 @@ function get(
             target.family,
           )
         },
-        headers: { 'user-agent': 'Orbit', accept: '*/*', ...headers },
+        headers: {
+          'user-agent': 'Orbit',
+          accept: '*/*',
+          ...(request.method === 'POST'
+            ? { 'content-length': String(Buffer.byteLength(request.body ?? '')) }
+            : {}),
+          ...headers,
+        },
         agent: false,
         timeout: timeLeftMs,
       },
@@ -229,7 +240,7 @@ function get(
       req.destroy(new EgressDeniedError('timeout', 'The request took too long.')),
     )
     req.on('error', (error) => reject(toDenied(error)))
-    req.end()
+    req.end(request.method === 'POST' ? (request.body ?? '') : undefined)
   })
 }
 

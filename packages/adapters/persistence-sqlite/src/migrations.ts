@@ -149,4 +149,159 @@ export const migrations: readonly Migration[] = [
       ) STRICT;
     `,
   },
+  {
+    // SQLite cannot change a CHECK constraint, so both tables are rebuilt with the new role list.
+    version: 6,
+    name: 'child-and-device-roles',
+    sql: `
+      CREATE TABLE household_members_new (
+        household_id TEXT NOT NULL REFERENCES households(id) ON DELETE CASCADE,
+        user_id TEXT NOT NULL,
+        role TEXT NOT NULL CHECK (role IN ('owner', 'member', 'child', 'device')),
+        position INTEGER NOT NULL,
+        PRIMARY KEY (household_id, user_id)
+      ) STRICT;
+      INSERT INTO household_members_new SELECT household_id, user_id, role, position FROM household_members;
+      DROP TABLE household_members;
+      ALTER TABLE household_members_new RENAME TO household_members;
+      CREATE INDEX household_members_by_user ON household_members(user_id);
+
+      CREATE TABLE invitations_new (
+        id TEXT PRIMARY KEY,
+        household_id TEXT NOT NULL,
+        role TEXT NOT NULL CHECK (role IN ('owner', 'member', 'child', 'device')),
+        token_hash TEXT NOT NULL UNIQUE,
+        created_by TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        accepted_by TEXT,
+        accepted_at TEXT,
+        revoked_at TEXT
+      ) STRICT;
+      INSERT INTO invitations_new SELECT id, household_id, role, token_hash, created_by, created_at, expires_at, accepted_by, accepted_at, revoked_at FROM invitations;
+      DROP TABLE invitations;
+      ALTER TABLE invitations_new RENAME TO invitations;
+      CREATE INDEX invitations_by_household ON invitations(household_id);
+    `,
+  },
+  {
+    version: 7,
+    name: 'household-lists',
+    sql: `
+      CREATE TABLE lists (
+        id TEXT PRIMARY KEY,
+        household_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        kind TEXT NOT NULL CHECK (kind IN ('shopping', 'todo')),
+        created_by TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      ) STRICT;
+      CREATE INDEX lists_by_household ON lists(household_id);
+
+      CREATE TABLE list_items (
+        id TEXT PRIMARY KEY,
+        list_id TEXT NOT NULL REFERENCES lists(id) ON DELETE CASCADE,
+        text TEXT NOT NULL,
+        done INTEGER NOT NULL CHECK (done IN (0, 1)),
+        quantity TEXT,
+        note TEXT,
+        position INTEGER NOT NULL,
+        created_by TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_by TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      ) STRICT;
+      CREATE INDEX list_items_by_list ON list_items(list_id, position);
+
+      ALTER TABLE feeds ADD COLUMN list_id TEXT;
+    `,
+  },
+  {
+    version: 8,
+    name: 'calendar-sources',
+    // The feed address is a credential and lives in the encrypted secret store, not here.
+    sql: `
+      CREATE TABLE calendar_sources (
+        id TEXT PRIMARY KEY,
+        household_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        color TEXT,
+        host TEXT NOT NULL,
+        created_by TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      ) STRICT;
+      CREATE INDEX calendar_sources_by_household ON calendar_sources(household_id);
+    `,
+  },
+  {
+    version: 9,
+    name: 'external-identities',
+    sql: `
+      CREATE TABLE external_identities (
+        issuer TEXT NOT NULL,
+        subject TEXT NOT NULL,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        created_at TEXT NOT NULL,
+        PRIMARY KEY (issuer, subject),
+        UNIQUE (issuer, user_id)
+      ) STRICT;
+    `,
+  },
+  {
+    version: 10,
+    name: 'connections',
+    // The address and the access token are credentials and live in the encrypted secret store.
+    sql: `
+      CREATE TABLE connections (
+        id TEXT PRIMARY KEY,
+        household_id TEXT NOT NULL,
+        kind TEXT NOT NULL,
+        name TEXT NOT NULL,
+        host TEXT NOT NULL,
+        mirrors TEXT NOT NULL,
+        created_by TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      ) STRICT;
+      CREATE INDEX connections_by_household ON connections(household_id);
+    `,
+  },
+  {
+    version: 11,
+    name: 'notifications',
+    // The webhook address and the signing secret are credentials and live in the secret store.
+    sql: `
+      CREATE TABLE notification_endpoints (
+        id TEXT PRIMARY KEY,
+        household_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        host TEXT NOT NULL,
+        events TEXT NOT NULL,
+        lead_minutes INTEGER NOT NULL,
+        enabled INTEGER NOT NULL,
+        disabled_reason TEXT,
+        failures INTEGER NOT NULL,
+        created_by TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      ) STRICT;
+      CREATE INDEX notification_endpoints_by_household ON notification_endpoints(household_id);
+
+      CREATE TABLE notification_deliveries (
+        endpoint_id TEXT NOT NULL,
+        delivery_id TEXT NOT NULL,
+        event TEXT NOT NULL,
+        at TEXT NOT NULL,
+        attempt INTEGER NOT NULL,
+        outcome TEXT NOT NULL,
+        http_status INTEGER,
+        error TEXT
+      ) STRICT;
+      CREATE INDEX notification_deliveries_by_endpoint ON notification_deliveries(endpoint_id);
+
+      CREATE TABLE notification_dedupe (
+        key TEXT PRIMARY KEY,
+        relevant_until TEXT NOT NULL
+      ) STRICT;
+      CREATE INDEX notification_dedupe_by_age ON notification_dedupe(relevant_until);
+    `,
+  },
 ]

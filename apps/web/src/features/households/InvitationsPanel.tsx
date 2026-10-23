@@ -7,11 +7,7 @@ import { Loading } from '../../components/Loading.tsx'
 import { SelectField } from '../../components/SelectField.tsx'
 import { TextField } from '../../components/TextField.tsx'
 import styles from './Household.module.css'
-
-const ROLES = [
-  { value: 'member', label: 'Member (can view)' },
-  { value: 'owner', label: 'Owner (can manage)' },
-] as const
+import { INVITE_ROLE_OPTIONS, isInvitableRole, roleLabel, type InvitableRole } from './roles.ts'
 
 const date = (iso: string) => new Date(iso).toLocaleDateString(undefined, { dateStyle: 'medium' })
 
@@ -22,7 +18,7 @@ const date = (iso: string) => new Date(iso).toLocaleDateString(undefined, { date
 export const inviteLink = (token: string) => `${window.location.origin}/join#${token}`
 
 export function InvitationsPanel({ householdId }: { householdId: string }) {
-  const [role, setRole] = useState<'member' | 'owner'>('member')
+  const [role, setRole] = useState<InvitableRole>('member')
   const [copied, setCopied] = useState(false)
   const invitations = useInvitations(householdId, true)
   const create = useCreateInvitation(householdId)
@@ -60,8 +56,10 @@ export function InvitationsPanel({ householdId }: { householdId: string }) {
         <SelectField
           label="Role"
           value={role}
-          options={ROLES}
-          onChange={(event) => setRole(event.target.value === 'owner' ? 'owner' : 'member')}
+          options={INVITE_ROLE_OPTIONS}
+          onChange={(event) => {
+            if (isInvitableRole(event.target.value)) setRole(event.target.value)
+          }}
         />
         <Button type="submit" variant="primary" busy={create.isPending}>
           Create invitation link
@@ -87,8 +85,7 @@ export function InvitationsPanel({ householdId }: { householdId: string }) {
       <ul className={styles.members}>
         {invitations.data?.map((invitation, index) => (
           <li key={invitation.id} className={styles.member}>
-            {invitation.role === 'owner' ? 'Owner' : 'Member'} invitation, expires{' '}
-            {date(invitation.expiresAt)}{' '}
+            {roleLabel(invitation.role)} invitation, expires {date(invitation.expiresAt)}{' '}
             <Button
               variant="danger"
               busy={revoke.isPending && revoke.variables === invitation.id}

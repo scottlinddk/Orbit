@@ -2,6 +2,7 @@ import type { RouteObject } from 'react-router'
 import { JoinPage } from '../features/auth/JoinPage.tsx'
 import { LoginPage } from '../features/auth/LoginPage.tsx'
 import { DashboardPage } from '../features/dashboards/DashboardPage.tsx'
+import { KioskPage } from '../features/kiosk/KioskPage.tsx'
 import { HomePage } from '../features/households/HomePage.tsx'
 import { HouseholdPage } from '../features/households/HouseholdPage.tsx'
 import { AppShell } from './AppShell.tsx'
@@ -15,6 +16,11 @@ export const routes: RouteObject[] = [
   {
     element: <RequireAuth />,
     children: [
+      {
+        // The wall display has no navigation chrome, so it sits outside the app shell.
+        path: 'kiosk/:dashboardId',
+        element: <KioskPage />,
+      },
       {
         element: <AppShell />,
         children: [

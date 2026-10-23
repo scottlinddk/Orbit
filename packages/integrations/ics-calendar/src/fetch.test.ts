@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { EgressDeniedError, type EgressFetcher, type EgressRequest } from '@orbit/application'
-import { fetchIcsEvents, IcsFetchError, normalizeFeedUrl } from './fetch.ts'
+import { fetchIcsEvents, IcsFetchError, normalizeFeedUrl, parseFeedAddress } from './fetch.ts'
+import { InvariantViolation } from '@orbit/domain'
 import { MAX_ICS_BYTES } from './parse.ts'
 
 const FEED = [
@@ -64,5 +65,28 @@ describe('normalizeFeedUrl', () => {
     expect(normalizeFeedUrl(' webcal://a.test/x.ics ')).toBe('https://a.test/x.ics')
     expect(normalizeFeedUrl('WEBCALS://a.test/x.ics')).toBe('https://a.test/x.ics')
     expect(normalizeFeedUrl('http://a.test/x.ics')).toBe('http://a.test/x.ics')
+  })
+})
+
+describe('parseFeedAddress', () => {
+  it('turns webcal into https and returns the host', () => {
+    expect(parseFeedAddress(' webcal://cal.example.com/a/b.ics?key=1 ')).toEqual({
+      url: 'https://cal.example.com/a/b.ics?key=1',
+      host: 'cal.example.com',
+    })
+    expect(parseFeedAddress('http://nas.local:8080/cal.ics').host).toBe('nas.local:8080')
+  })
+
+  it.each([
+    [''],
+    ['   '],
+    ['not an address'],
+    ['file:///etc/passwd'],
+    ['ftp://example.com/a.ics'],
+    ['javascript:alert(1)'],
+    ['https://user:secret@example.com/a.ics'],
+    [`https://example.com/${'a'.repeat(2100)}`],
+  ])('refuses %j', (input) => {
+    expect(() => parseFeedAddress(input)).toThrow(InvariantViolation)
   })
 })
