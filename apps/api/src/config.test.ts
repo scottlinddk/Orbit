@@ -36,7 +36,7 @@ describe('loadConfig', () => {
   })
 
   it('derives the origin and cookie security from the public URL', () => {
-    const c = loadConfig({ ORBIT_PUBLIC_URL: 'https://orbit.example.com/some/path' })
+    const c = loadConfig({ ORBIT_PUBLIC_URL: 'https://orbit.example.com/' })
     expect(c.origin).toBe('https://orbit.example.com')
     expect(c.secureCookies).toBe(true)
   })
@@ -81,6 +81,10 @@ describe('loadConfig', () => {
     ['ORBIT_PORT', '70000'],
     ['ORBIT_PUBLIC_URL', 'ftp://example.com'],
     ['ORBIT_PUBLIC_URL', 'not a url'],
+    ['ORBIT_PUBLIC_URL', 'https://orbit.example.com/some/path'],
+    ['ORBIT_PUBLIC_URL', 'https://orbit.example.com/?token=secret'],
+    ['ORBIT_PUBLIC_URL', 'https://orbit.example.com/#section'],
+    ['ORBIT_PUBLIC_URL', 'https://user:password@orbit.example.com'],
     ['ORBIT_REGISTRATION', 'maybe'],
     ['ORBIT_TRUST_PROXY', 'yes'],
   ])('rejects %s=%s with a readable message', (key, value) => {
@@ -90,7 +94,7 @@ describe('loadConfig', () => {
 
   describe('OpenID Connect', () => {
     const oidc = {
-      ORBIT_PUBLIC_URL: 'https://orbit.example.com/ignored/path',
+      ORBIT_PUBLIC_URL: 'https://orbit.example.com',
       ORBIT_OIDC_ISSUER: 'https://id.example.com/realms/home',
       ORBIT_OIDC_CLIENT_ID: 'orbit',
       ORBIT_OIDC_CLIENT_SECRET: 'shh',
@@ -112,6 +116,14 @@ describe('loadConfig', () => {
     it('always asks for openid and drops duplicates', () => {
       const c = loadConfig({ ...oidc, ORBIT_OIDC_SCOPES: 'email  profile email' })
       expect(c.oidc?.scopes).toEqual(['openid', 'email', 'profile'])
+    })
+
+    it.each([
+      'https://user:password@id.example.com/realms/home',
+      'https://id.example.com/realms/home?token=secret',
+      'https://id.example.com/realms/home#fragment',
+    ])('rejects issuer credentials and non-issuer URL components: %s', (issuer) => {
+      expect(() => loadConfig({ ...oidc, ORBIT_OIDC_ISSUER: issuer })).toThrow(/ORBIT_OIDC_ISSUER/)
     })
 
     it('needs all three settings, or none', () => {

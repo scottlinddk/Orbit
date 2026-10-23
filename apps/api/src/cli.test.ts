@@ -110,6 +110,83 @@ describe('operator CLI', () => {
       ).toBe(1)
       expect(err.join('\n')).toContain('unreachable')
     })
+
+    it('detects an incorrect clock using an independent HTTPS reference', async () => {
+      const requests: Array<{ url: string; method: string | undefined }> = []
+      const result = await doctor(
+        loadConfig(env),
+        io(),
+        async (url, init) => {
+          requests.push({ url: String(url), method: init?.method })
+          return String(url) === 'https://time.example.com'
+            ? new Response(null, {
+                headers: { date: new Date(Date.now() + 10 * 60_000).toUTCString() },
+              })
+            : new Response('{"status":"ok"}', { headers: { date: new Date().toUTCString() } })
+        },
+        { clockUrl: new URL('https://time.example.com') },
+      )
+      expect(result).toBe(1)
+      expect(err.join('\n')).toContain('Independent clock reference')
+      expect(requests).toContainEqual({ url: 'https://time.example.com', method: 'HEAD' })
+    })
+
+    it.each([undefined, 'not a date'])('fails when the reference date is %s', async (date) => {
+      expect(
+        await doctor(
+          loadConfig(env),
+          io(),
+          async () =>
+            new Response('{"status":"ok"}', {
+              headers: date === undefined ? {} : { date },
+            }),
+        ),
+      ).toBe(1)
+      expect(err.join('\n')).toContain('no valid Date header')
+    })
+
+    it('does not mistake a writable folder for a writable database', async () => {
+      chmodSync(dbPath, 0o400)
+      expect(
+        await doctor(
+          loadConfig(env),
+          io(),
+          async () =>
+            new Response('{"status":"ok"}', {
+              headers: { date: new Date().toUTCString() },
+            }),
+        ),
+      ).toBe(1)
+      expect(err.join('\n')).toContain('storage is not writable')
+      expect(readdirSync(dir).some((name) => name.startsWith('.orbit-doctor-'))).toBe(false)
+    })
+
+    it('rejects insecure public URLs but permits IPv6 loopback for local use', async () => {
+      const fetcher = async () =>
+        new Response('{"status":"ok"}', {
+          headers: { date: new Date().toUTCString() },
+        })
+      expect(
+        await doctor(
+          loadConfig({ ...env, ORBIT_PUBLIC_URL: 'http://orbit.example.com' }),
+          io(),
+          fetcher,
+        ),
+      ).toBe(1)
+      expect(err.join('\n')).toContain('must use HTTPS')
+      expect(
+        await doctor(loadConfig({ ...env, ORBIT_PUBLIC_URL: 'http://[::1]:3000' }), io(), fetcher),
+      ).toBe(0)
+    })
+
+    it.each([
+      'http://time.example.com',
+      'https://user:secret@time.example.com',
+      'https://time.example.com/?secret=token',
+    ])('rejects an unsafe clock reference before making a request: %s', async (url) => {
+      expect(await run('doctor', '--clock-url', url)).toBe(2)
+      expect(err.join('\n')).toContain('Usage: orbit doctor')
+    })
   })
 
   describe('backup', () => {

@@ -73,6 +73,16 @@ answers from the server, and whether its HTTP Date is within five minutes of the
 also warns when a non-local URL uses plain HTTP. Check public reachability separately from a device
 outside your network; a successful request from the server does not prove external access.
 
+The proxy may share the machine's clock, so its Date header alone cannot establish clock accuracy.
+To compare with an independent server that you trust and that sends an HTTP Date header, run
+`docker compose exec orbit orbit doctor --clock-url https://time.example.com`. Replace that example
+with the HTTPS origin of your reference server. This makes a HEAD request, follows no redirects,
+and fails if the response has no valid Date or differs by more than five minutes. Orbit contacts
+no third-party clock service by default. Check the host's time synchronization if it reports skew.
+
+`ORBIT_PUBLIC_URL` must be an origin such as `https://orbit.example.com`, with no path, query,
+fragment or credentials. Orbit serves at the root; a path prefix is not supported.
+
 ## HTTPS with Caddy
 
 Point a DNS name at the machine and open ports 80 and 443. Then:
