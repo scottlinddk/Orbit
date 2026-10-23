@@ -7,7 +7,14 @@ const environment = z.object({
   ORBIT_HOST: z.string().min(1).default('127.0.0.1'),
   ORBIT_PORT: z.coerce.number().int().min(1).max(65535).default(3000),
   /** The address people type into the browser. Decides the cookie flags and the allowed Origin. */
-  ORBIT_PUBLIC_URL: z.url({ protocol: /^https?$/ }).default('http://localhost:3000'),
+  ORBIT_PUBLIC_URL: z
+    .url({ protocol: /^https?$/ })
+    .refine((value) => {
+      if (!URL.canParse(value)) return false
+      const url = new URL(value)
+      return !url.username && !url.password && url.pathname === '/' && !url.search && !url.hash
+    }, 'Must be an origin without a path, query, fragment or credentials')
+    .default('http://localhost:3000'),
   /** Your own setup code for the first registration, instead of one printed in the log. */
   ORBIT_SETUP_CODE: z.string().min(12).max(64).optional(),
   ORBIT_REGISTRATION: z.enum(['first-user-only', 'open']).default('first-user-only'),
@@ -36,7 +43,14 @@ const environment = z.object({
     .refine(isTimeZone, 'must be an IANA time zone such as Europe/Copenhagen')
     .default('UTC'),
   /** OpenID Connect sign-in (ADR 0018). Issuer, client id and client secret go together. */
-  ORBIT_OIDC_ISSUER: z.url({ protocol: /^https?$/ }).optional(),
+  ORBIT_OIDC_ISSUER: z
+    .url({ protocol: /^https?$/ })
+    .refine((value) => {
+      if (!URL.canParse(value)) return false
+      const url = new URL(value)
+      return !url.username && !url.password && !url.search && !url.hash
+    }, 'Must not contain credentials, a query or a fragment')
+    .optional(),
   ORBIT_OIDC_CLIENT_ID: z.string().min(1).max(256).optional(),
   ORBIT_OIDC_CLIENT_SECRET: z.string().min(1).max(1024).optional(),
   ORBIT_OIDC_SCOPES: z.string().min(1).max(256).default('openid profile'),

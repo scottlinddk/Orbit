@@ -38,7 +38,7 @@ export const USAGE = `Orbit operator commands. Run on the server that holds the 
   reset-password <username> Set a new password and sign that user out everywhere.
   config validate           Check configuration without opening the database.
   config print --redacted   Print effective settings with secrets hidden.
-  doctor                    Check storage, URL reachability and clock skew.
+  doctor [--clock-url <https-origin>] Check storage, URL reachability and clock skew.
   planet <command>          Install and manage Planets. Run "planet" for its commands.
 
 The database is the one ORBIT_DATABASE_PATH points to.`
@@ -98,12 +98,27 @@ export async function runCli(
     }
   }
   if (command === 'doctor') {
-    if (argv.length !== 1) {
-      io.err('Usage: orbit doctor')
+    let clockUrl: URL | undefined
+    if (argv.length === 3 && argument === '--clock-url' && URL.canParse(argv[2]!)) {
+      clockUrl = new URL(argv[2]!)
+    }
+    if (
+      argv.length !== 1 &&
+      (!clockUrl ||
+        clockUrl.protocol !== 'https:' ||
+        clockUrl.username ||
+        clockUrl.password ||
+        clockUrl.pathname !== '/' ||
+        clockUrl.search ||
+        clockUrl.hash)
+    ) {
+      io.err(
+        'Usage: orbit doctor [--clock-url <https-origin>] (no credentials, path, query or fragment)',
+      )
       return EXIT_USAGE
     }
     try {
-      return await doctor(loadConfig(env), io)
+      return await doctor(loadConfig(env), io, fetch, { clockUrl })
     } catch (error) {
       io.err(error instanceof Error ? error.message : String(error))
       return EXIT_FAILED
@@ -148,10 +163,13 @@ export async function doctor(
   config: ReturnType<typeof loadConfig>,
   io: CliIo,
   fetcher: typeof fetch = fetch,
+  options: { clockUrl?: URL | undefined } = {},
 ): Promise<number> {
   let healthy = true
   try {
     const parent = dirname(config.databasePath)
+    if (existsSync(config.databasePath))
+      accessSync(config.databasePath, constants.R_OK | constants.W_OK)
     const probe = mkdtempSync(`${parent}/.orbit-doctor-`)
     try {
       writeFileSync(`${probe}/probe`, 'ok', { flag: 'wx' })
@@ -166,7 +184,7 @@ export async function doctor(
 
   if (
     !config.secureCookies &&
-    !new URL(config.origin).hostname.match(/^(localhost|127\.0\.0\.1)$/)
+    !new Set(['localhost', '127.0.0.1', '[::1]']).has(new URL(config.origin).hostname)
   ) {
     healthy = false
     io.err('PROBLEM: the public URL must use HTTPS for secure session cookies.')
@@ -181,27 +199,48 @@ export async function doctor(
       io.err(`PROBLEM: health endpoint returned HTTP ${response.status} or unexpected content.`)
     } else io.out(`OK: ${config.origin} is reachable from this machine.`)
 
-    const date = response.headers.get('date')
-    if (!date || Number.isNaN(Date.parse(date))) {
-      healthy = false
-      io.err('PROBLEM: health response has no valid Date header; clock skew cannot be checked.')
-    } else {
-      const skew = Math.abs(Date.now() - Date.parse(date))
-      if (skew > 5 * 60_000) {
-        healthy = false
-        io.err(
-          `PROBLEM: clock differs from the server response by ${Math.round(skew / 1000)} seconds.`,
-        )
-      } else io.out('OK: clock differs from the server response by less than five minutes.')
-    }
+    if (!options.clockUrl) checkDate(response.headers.get('date'), 'Health response')
   } catch (error) {
     healthy = false
     io.err(
       `PROBLEM: cannot reach ${config.origin} from this machine: ${error instanceof Error ? error.message : error}`,
     )
   }
+  if (options.clockUrl) {
+    try {
+      const response = await fetcher(options.clockUrl.origin, {
+        method: 'HEAD',
+        signal: AbortSignal.timeout(5000),
+        redirect: 'error',
+      })
+      if (!response.ok) {
+        healthy = false
+        io.err(`PROBLEM: clock reference returned HTTP ${response.status}.`)
+      } else checkDate(response.headers.get('date'), 'Independent clock reference')
+    } catch {
+      healthy = false
+      io.err(`PROBLEM: cannot reach the clock reference at ${options.clockUrl.origin}.`)
+    }
+  } else {
+    io.out(
+      'A local proxy may share this clock. Use --clock-url with an independent HTTPS origin to check clock accuracy.',
+    )
+  }
   io.out('Public reachability must also be checked from outside this network.')
   return healthy ? EXIT_OK : EXIT_FAILED
+
+  function checkDate(date: string | null, source: string) {
+    if (!date || Number.isNaN(Date.parse(date))) {
+      healthy = false
+      io.err(`PROBLEM: ${source} has no valid Date header; clock skew cannot be checked.`)
+    } else {
+      const skew = Math.abs(Date.now() - Date.parse(date))
+      if (skew > 5 * 60_000) {
+        healthy = false
+        io.err(`PROBLEM: clock differs from ${source} by ${Math.round(skew / 1000)} seconds.`)
+      } else io.out(`OK: ${source} Date differs from this clock by less than five minutes.`)
+    }
+  }
 }
 
 async function backup(databasePath: string, destination: string, io: CliIo): Promise<number> {
