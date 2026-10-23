@@ -46,13 +46,15 @@ ENV NODE_ENV=production \
 
 # Node runs the TypeScript sources directly (type stripping), so the workspace layout is kept
 # as is. Symlinked workspace packages resolve outside node_modules, where Node allows that.
-COPY --from=prod /app/package.json /app/pnpm-workspace.yaml ./
-COPY --from=prod /app/node_modules ./node_modules
-COPY --from=prod /app/apps/api ./apps/api
-COPY --from=prod /app/packages ./packages
-COPY --from=web /app/apps/web/dist ./web
-COPY LICENSE NOTICE ./
-COPY deploy/orbit /usr/local/bin/orbit
+# Own the runtime files as well as /data, so a checkout created with a restrictive umask still
+# works after USER node. COPY preserves source modes; root-owned 0600 files cannot be read.
+COPY --from=prod --chown=node:node /app/package.json /app/pnpm-workspace.yaml ./
+COPY --from=prod --chown=node:node /app/node_modules ./node_modules
+COPY --from=prod --chown=node:node /app/apps/api ./apps/api
+COPY --from=prod --chown=node:node /app/packages ./packages
+COPY --from=web --chown=node:node /app/apps/web/dist ./web
+COPY --chown=node:node LICENSE NOTICE ./
+COPY --chown=node:node deploy/orbit /usr/local/bin/orbit
 
 # The database lives on a volume. The unprivileged user owns it, never root.
 RUN mkdir -p /data && chown node:node /data

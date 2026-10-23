@@ -7,6 +7,9 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# The recovery drill destroys its volume. Never reuse the operator's deployment project.
+export COMPOSE_PROJECT_NAME="orbit-smoke-$$"
+
 PORT="${ORBIT_HOST_PORT:-3055}"
 export ORBIT_HOST_PORT="$PORT" ORBIT_PUBLIC_URL="http://127.0.0.1:$PORT"
 BASE="$ORBIT_PUBLIC_URL"
@@ -21,7 +24,9 @@ trap cleanup EXIT
 
 wait_healthy() {
   for _ in $(seq 1 40); do
-    [ "$(docker inspect -f '{{.State.Health.Status}}' orbit-orbit-1 2>/dev/null || true)" = healthy ] && return 0
+    local container
+    container="$(docker compose ps -q orbit)"
+    [ -n "$container" ] && [ "$(docker inspect -f '{{.State.Health.Status}}' "$container" 2>/dev/null || true)" = healthy ] && return 0
     sleep 2
   done
   fail "orbit did not become healthy"
@@ -47,6 +52,12 @@ docker compose exec -T orbit sh -c 'touch /data/ok' || fail "data volume is not 
 step "The web app and the API answer on one port"
 expect "shell" "$(curl -s -o /dev/null -w '%{http_code}' -H 'accept: text/html' "$BASE/d/anything")" 200
 expect "health" "$(curl -s "$BASE/api/v1/health")" '{"status":"ok"}'
+
+step "Operator configuration and storage diagnostics work in the locked-down image"
+docker compose exec -T orbit orbit config validate
+# The host's loopback port is outside the container. Probe its internal listener here;
+# external/public reachability is a separate operator acceptance check.
+docker compose exec -T -e ORBIT_PUBLIC_URL=http://127.0.0.1:3000 orbit orbit doctor
 
 step "A new instance refuses the first account without its setup code"
 expect "setup code required" "$(curl -s "$BASE/api/v1/auth/setup")" '{"setupCodeRequired":true}'

@@ -147,6 +147,10 @@ Keep copies **outside** the volume (`docker compose cp`, see the backup page). A
 
 ## Upgrading
 
+CI runs an upgrade and rollback drill on native amd64 and arm64 before release publishing.
+See [deployment verification](deployment-verification.md) to run it locally and record the
+physical-device and public HTTPS checks.
+
 ```sh
 docker compose exec orbit orbit backup /data/backups/before-upgrade.sqlite
 git pull
