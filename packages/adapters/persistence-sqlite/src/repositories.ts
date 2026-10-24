@@ -162,6 +162,34 @@ export class SqliteDashboardRepository implements DashboardRepository {
     })
   }
 
+  /**
+   * Removes every placement of a widget type from every dashboard and closes the gaps in the
+   * positions. Used when the Planet that supplied the type is uninstalled. Returns the count.
+   */
+  removeWidgetsOfType(type: string): number {
+    return inTransaction(this.#db, () => {
+      const affected = this.#db
+        .prepare('SELECT DISTINCT dashboard_id FROM dashboard_widgets WHERE type = ?')
+        .all(type) as Row[]
+      const removed = this.#db.prepare('DELETE FROM dashboard_widgets WHERE type = ?').run(type)
+      const remaining = this.#db.prepare(
+        'SELECT id FROM dashboard_widgets WHERE dashboard_id = ? ORDER BY position',
+      )
+      // Positions are unique per dashboard, so park them out of range before renumbering.
+      const park = this.#db.prepare(
+        'UPDATE dashboard_widgets SET position = position + 1000000 WHERE dashboard_id = ?',
+      )
+      const place = this.#db.prepare('UPDATE dashboard_widgets SET position = ? WHERE id = ?')
+      for (const { dashboard_id } of affected) {
+        const id = String(dashboard_id)
+        const rows = remaining.all(id) as Row[]
+        park.run(id)
+        rows.forEach((row, i) => place.run(i, String(row.id)))
+      }
+      return Number(removed.changes)
+    })
+  }
+
   async listForHousehold(householdId: HouseholdId): Promise<Dashboard[]> {
     const rows = this.#db
       .prepare(

@@ -51,5 +51,5 @@ For each of a Raspberry Pi 5 with a 64-bit OS and an x86 VM:
 4. For a feed install, follow the Caddy override, confirm a publicly trusted certificate, and
    fetch `/api/v1/health` over HTTPS from a machine outside the installation's network. Then
    verify a feed request with a token; keep the token out of the issue report.
-5. Record the result and date on #48. A failed check needs its observed error and environment,
+5. Record the result and date on #48, using the [report template](deployment-report-template.md). A failed check needs its observed error and environment,
    rather than a checked box without evidence.

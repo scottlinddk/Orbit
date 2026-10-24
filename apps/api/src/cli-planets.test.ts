@@ -50,6 +50,27 @@ describe('orbit planet', () => {
   })
   afterEach(() => rmSync(dir, { recursive: true, force: true }))
 
+  it('removes the dashboard widgets of the Planet and leaves the others', async () => {
+    const db = openDatabase(env.ORBIT_DATABASE_PATH ?? '')
+    db.exec(`
+      INSERT INTO dashboards (id, household_id, name, columns) VALUES ('d', 'h', 'Home', 2);
+      INSERT INTO dashboard_widgets (id, dashboard_id, position, type, span, config) VALUES
+        ('w0', 'd', 0, 'clock', 1, '{}'),
+        ('w1', 'd', 1, 'planet.dev.orbit.hello', 1, '{}'),
+        ('w2', 'd', 2, 'planet.dev.other', 1, '{}');
+    `)
+    db.close()
+    expect(await run('planet', 'uninstall', 'dev.orbit.hello')).toBe(0)
+    expect(out.join('\n')).toContain('1 dashboard widget')
+    const check = openDatabase(env.ORBIT_DATABASE_PATH ?? '')
+    const rows = check.prepare('SELECT id, position FROM dashboard_widgets ORDER BY position').all()
+    check.close()
+    expect(rows).toEqual([
+      { id: 'w0', position: 0 },
+      { id: 'w2', position: 1 },
+    ])
+  })
+
   it('lists every permission and refuses to install without approval', async () => {
     expect(await run('planet', 'install', FIXTURE)).toBe(1)
     expect(out.join('\n')).toContain('None: this Planet uses only data inside its own files.')
