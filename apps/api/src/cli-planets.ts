@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { migrate, openDatabase } from '@orbit/adapter-persistence-sqlite'
+import { migrate, openDatabase, SqliteDashboardRepository } from '@orbit/adapter-persistence-sqlite'
 import { NotFoundError } from '@orbit/application'
 import {
   installPlanet,
@@ -145,13 +145,15 @@ async function install(folder: string, yes: boolean, config: Config, io: PlanetC
 
 async function uninstall(id: string, config: Config, io: PlanetCliIo) {
   const known = uninstallPlanetFiles(config.planetsDir, id)
-  await withDatabase(config, async (db) => {
+  const widgets = await withDatabase(config, async (db) => {
     await createPlanetWiring(db, config).runtime.removeData(id)
+    return new SqliteDashboardRepository(db).removeWidgetsOfType(`planet.${id}`)
   })
+  const placed = widgets === 1 ? '1 dashboard widget' : `${widgets} dashboard widgets`
   io.out(
     known
-      ? `Removed ${id}, its stored data, secrets and scheduled jobs. Restart Orbit to unload it. Dashboard widgets of this Planet stay and show as unavailable until removed.`
-      : `${id} was not installed. Any leftover data was removed.`,
+      ? `Removed ${id}, its stored data, secrets, scheduled jobs and ${placed}. Restart Orbit to unload it.`
+      : `${id} was not installed. Any leftover data and ${placed} were removed.`,
   )
   return EXIT_OK
 }

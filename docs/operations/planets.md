@@ -22,11 +22,11 @@ Without Docker: `node apps/api/src/cli.ts planet install ./my-planet`.
 | `orbit planet list`                              | Installed planets. A planet that no longer matches its pin is marked `NOT LOADED`.             |
 | `orbit planet secret set <id> <name>`            | Stores a secret the planet declared. Reads the value hidden from the terminal, or from a pipe. |
 | `orbit planet webhook <id> <widget-id> <source>` | Makes the webhook URL of a `webhook` source. Shown once.                                       |
-| `orbit planet uninstall <id>`                    | Removes the files, stored data, webhook tokens, secrets and scheduled jobs of the planet.      |
+| `orbit planet uninstall <id>`                    | Removes the files, stored data, webhook tokens, secrets, scheduled jobs and dashboard widgets. |
 
 Installing copies the files to `<data folder>/planets/installed/<id>/`, so editing the source folder later changes nothing until you install again. `planets.lock` records each planet's version and a SHA-256 digest of all its files. At start, Orbit compares the installed files with that digest and **refuses to load** a planet that differs. It logs why, and `orbit planet list` shows it. Reinstall from a source you trust to fix it.
 
-Installing needs Orbit to be restarted to load the planet. Updating asks again, and says when the permissions changed. Widgets of an uninstalled planet stay on their dashboards and show "Unknown widget" until an owner removes them.
+Installing needs Orbit to be restarted to load the planet. Updating asks again, and says when the permissions changed. Uninstalling also removes the planet's widgets from every dashboard.
 
 Secrets need `ORBIT_SECRET_KEY` (at least 32 characters, `openssl rand -base64 32`). Back it up separately from the database: without it, stored secrets cannot be read. Secrets are encrypted at rest, are never returned by the API, and a planet can only use the names it declared.
 
