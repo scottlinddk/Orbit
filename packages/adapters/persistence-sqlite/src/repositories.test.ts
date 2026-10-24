@@ -36,6 +36,32 @@ describe('sqlite repositories', () => {
     expect(count(db, 'households')).toBe(1)
   })
 
+  it('removes every placement of a widget type and keeps the rest in order', async () => {
+    const make = (id: string, types: string[]) => {
+      let d = createDashboard({ id: DashboardId(id), householdId: HouseholdId('h'), name: id })
+      types.forEach((type, i) => {
+        d = addWidget(d, { id: WidgetPlacementId(`${id}-${i}`), type, config: {} })
+      })
+      return d
+    }
+    await dashboards.save(make('a', ['notes.quick', 'planet.dev.x', 'clock.now', 'planet.dev.x']))
+    await dashboards.save(make('b', ['planet.dev.y', 'planet.dev.x']))
+    await dashboards.save(make('c', ['clock.now']))
+
+    expect(dashboards.removeWidgetsOfType('planet.dev.x')).toBe(3)
+    expect((await dashboards.get(DashboardId('a')))?.widgets.map((w) => w.id)).toEqual([
+      'a-0',
+      'a-2',
+    ])
+    expect((await dashboards.get(DashboardId('b')))?.widgets.map((w) => w.id)).toEqual(['b-0'])
+    expect((await dashboards.get(DashboardId('c')))?.widgets).toHaveLength(1)
+    const positions = db
+      .prepare('SELECT position FROM dashboard_widgets WHERE dashboard_id = ? ORDER BY position')
+      .all('a') as { position: number }[]
+    expect(positions.map((p) => p.position)).toEqual([0, 1])
+    expect(dashboards.removeWidgetsOfType('planet.dev.x')).toBe(0)
+  })
+
   it('round-trips unicode and awkward JSON in widget config', async () => {
     let d = createDashboard({
       id: DashboardId('d'),
