@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- Build the web app's buttons, alerts and form fields on `@scttlnd/ui` with its Orbit theme; user-edited themes still apply to them.
 - Prepare native amd64 and arm64 smoke tests and multi-architecture image publishing.
 - Run native deployment and upgrade/rollback checks on both architectures for pull requests.
 - Validate deployment URL components and support an independent HTTPS clock reference in `orbit doctor`.

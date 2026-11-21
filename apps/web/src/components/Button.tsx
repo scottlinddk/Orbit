@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes } from 'react'
+import { Button as UiButton } from '@scttlnd/ui'
 import styles from './Button.module.css'
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -7,6 +8,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   busy?: boolean
 }
 
+/** App button API over @scttlnd/ui's Button. `danger` is a secondary button in the danger color. */
 export function Button({
   variant = 'secondary',
   busy = false,
@@ -16,16 +18,17 @@ export function Button({
   type = 'button',
   ...rest
 }: ButtonProps) {
-  const classes = [styles.button, styles[variant], className].filter(Boolean).join(' ')
+  const classes = [variant === 'danger' ? styles.danger : '', className].filter(Boolean).join(' ')
   return (
-    <button
+    <UiButton
       {...rest}
       type={type}
-      className={classes}
+      variant={variant === 'primary' ? 'primary' : 'secondary'}
+      className={classes || undefined}
       disabled={disabled || busy}
       aria-busy={busy || undefined}
     >
       {children}
-    </button>
+    </UiButton>
   )
 }

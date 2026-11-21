@@ -18,6 +18,44 @@ function focusColor(theme: Theme): string {
   return contrastRatio(accent, background) >= 3 ? accent : text
 }
 
+/** Readable text on a solid status color: white or near-black, whichever contrasts more. */
+function onSolid(color: string): string {
+  return contrastRatio(color, '#ffffff') >= contrastRatio(color, '#0e0e0e') ? '#ffffff' : '#0e0e0e'
+}
+
+/**
+ * The same theme expressed as @scttlnd/ui tokens, so package components (Button, Notice, Field, ...)
+ * follow a user-edited theme and not just the shipped Ember default in the package's orbit.css.
+ */
+function fdsVars(theme: Theme): Record<string, string> {
+  const { colors, shape } = theme
+  return {
+    '--fds-background': colors.background,
+    '--fds-foreground': colors.text,
+    '--fds-muted': colors.textMuted,
+    '--fds-muted-strong': colors.text,
+    '--fds-line': colors.border,
+    '--fds-line-soft': colors.border,
+    '--fds-panel': colors.surface,
+    '--fds-panel-raised': colors.surfaceRaised,
+    '--fds-panel-soft': colors.surface,
+    '--fds-accent': colors.accent,
+    '--fds-accent-strong': colors.accent,
+    '--fds-on-accent': colors.accentText,
+    '--fds-focus-ring': focusColor(theme),
+    '--fds-success': colors.success,
+    '--fds-warn': colors.warning,
+    '--fds-danger': colors.danger,
+    '--fds-on-success': onSolid(colors.success),
+    '--fds-on-danger': onSolid(colors.danger),
+    '--fds-radius-sm': `${Math.round(shape.radius * 0.35)}px`,
+    '--fds-radius-md': `${Math.round(shape.radius * 0.65)}px`,
+    '--fds-radius-lg': `${shape.radius}px`,
+    '--fds-font-sans': fontStack(theme.fonts.body),
+    '--fds-shadow-card': SHADOWS[shape.shadow],
+  }
+}
+
 /**
  * Every CSS custom property a theme controls. Components read only these, so applying a theme
  * is setting this list on the root element. Values come from validated hex colors, numbers and
@@ -54,6 +92,7 @@ export function themeToCssVars(theme: Theme): Record<string, string> {
     '--border-style': shape.borderStyle,
     '--shadow': SHADOWS[shape.shadow],
     '--density': DENSITY[theme.density],
+    ...fdsVars(theme),
   }
 }
 
@@ -63,6 +102,8 @@ export function applyTheme(theme: Theme, root: HTMLElement = document.documentEl
   }
   root.style.colorScheme = theme.scheme
   root.dataset.scheme = theme.scheme
+  // @scttlnd/ui picks its light or dark palette from data-fds-mode.
+  root.dataset.fdsMode = theme.scheme
   // The browser's own chrome (address bar, installed-app title bar) follows the page color.
   const background = themeToCssVars(theme)['--color-bg']
   if (background) {

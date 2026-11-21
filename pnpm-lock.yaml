@@ -216,6 +216,9 @@ importers:
       '@orbit/widget-sdk':
         specifier: workspace:*
         version: link:../../packages/widget-sdk
+      '@scttlnd/ui':
+        specifier: 0.9.0
+        version: 0.9.0(react@19.3.1)
       '@tanstack/react-query':
         specifier: ^5.104.5
         version: 5.104.5(@types/react@19.3.0)(react@19.3.1)
@@ -1088,6 +1091,12 @@ packages:
 
   '@rolldown/pluginutils@1.0.1':
     resolution: {integrity: sha512-2j9bGt5Jh8hj+vPtgzPtl72j0yRxHAyumoo6TNfAjsLB04UtpSvPbPcDcBMxz7n+9CYB0c1GxQFxYRg2jimqGw==}
+
+  '@scttlnd/ui@0.9.0':
+    resolution: {integrity: sha512-zqzRkYAsZTCOMe0IGg5pNZ/nKz3CwGNGu13aC6ReA3mENJs9gb0JXXdYP7XniGRSjISvSuqFARApnELdGQUsFQ==}
+    engines: {node: '>=22.14.0'}
+    peerDependencies:
+      react: ^18.3.0 || ^19.0.0
 
   '@tanstack/query-core@5.104.5':
     resolution: {integrity: sha512-Q94gI8Opd+CbdVNOdj8ZCyV8WqLYitrDq1t96Xc8WZT6lY0r5iRnJLXYDxMex7EEf2v+mXvn4FcjaBKSxXZQ9A==}
@@ -2906,6 +2915,10 @@ snapshots:
     optional: true
 
   '@rolldown/pluginutils@1.0.1': {}
+
+  '@scttlnd/ui@0.9.0(react@19.3.1)':
+    dependencies:
+      react: 19.3.1
 
   '@tanstack/query-core@5.104.5': {}
 

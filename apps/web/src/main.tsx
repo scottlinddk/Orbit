@@ -6,6 +6,8 @@ import { RouterProvider } from 'react-router/dom'
 import { createQueryClient } from './app/queryClient.ts'
 import { routes } from './app/routes.tsx'
 import { registerServiceWorker } from './pwa/register.ts'
+import '@scttlnd/ui/styles.css'
+import '@scttlnd/ui/themes/orbit.css'
 import './styles/global.css'
 import { ThemeProvider, bootTheme } from './theme/ThemeProvider.tsx'
 

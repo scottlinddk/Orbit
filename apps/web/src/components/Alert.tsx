@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import styles from './Alert.module.css'
+import { Notice } from '@scttlnd/ui'
 
 interface AlertProps {
   tone?: 'error' | 'info'
@@ -8,9 +8,5 @@ interface AlertProps {
 
 /** Errors use role="alert" so screen readers announce them as soon as they appear. */
 export function Alert({ tone = 'error', children }: AlertProps) {
-  return (
-    <div role={tone === 'error' ? 'alert' : 'status'} className={`${styles.alert} ${styles[tone]}`}>
-      {children}
-    </div>
-  )
+  return <Notice tone={tone === 'error' ? 'danger' : 'info'}>{children}</Notice>
 }
