@@ -47,4 +47,6 @@ See [`packages/widget-sdk`](../../packages/widget-sdk/README.md). Export a `Widg
 
 The Appearance page (`/appearance`) edits the theme. It is saved in this browser's `localStorage` and applied before React renders. Open any page with `?reset-theme` to forget it.
 
+The UI primitives (`Button`, `Alert`, `TextField`, `SelectField`) are thin wrappers over [`@scttlnd/ui`](https://www.npmjs.com/package/@scttlnd/ui), imported with its `orbit` theme in `main.tsx`. Because the theme is user-editable, `themeToCssVars` also emits the matching `--fds-*` tokens and `data-fds-mode`, so package components follow a custom theme and not just the shipped Ember default. `styles/ui-bridge.css` holds the one thing tokens cannot carry: the user's button shape. A test keeps every emitted `--fds-*` name in sync with the package.
+
 Fonts are Google Fonts served from this server (Fontsource), because the content security policy allows no third-party fonts. To add one: `pnpm --filter @orbit/web add @fontsource-variable/<name>`, add it to `src/theme/fonts/catalog.ts` and keep the license check green. See [ADR 0013](../../docs/architecture/adr/0013-dashboard-editor-and-theming.md).

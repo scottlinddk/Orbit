@@ -1,4 +1,6 @@
 // @vitest-environment jsdom
+import { readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { beforeEach, describe, expect, it } from 'vitest'
 import css from '../styles/tokens.css?raw'
 import { findPreset } from './presets.ts'
@@ -50,6 +52,25 @@ describe('themeToCssVars', () => {
     expect(themeToCssVars(lowContrast)['--color-focus']).toBe(ember.colors.text)
   })
 
+  it('maps the theme to @scttlnd/ui tokens so package components follow user themes', () => {
+    const graphite = findPreset('graphite')!.theme
+    const vars = themeToCssVars(graphite)
+    expect(vars['--fds-background']).toBe(graphite.colors.background)
+    expect(vars['--fds-panel']).toBe(graphite.colors.surface)
+    expect(vars['--fds-accent']).toBe(graphite.colors.accent)
+    expect(vars['--fds-on-accent']).toBe(graphite.colors.accentText)
+    expect(vars['--fds-radius-lg']).toBe('16px')
+    expect(vars['--fds-font-sans']).toBe(vars['--font-body'])
+  })
+
+  it('picks readable text for solid status colors', () => {
+    const vars = themeToCssVars(ember)
+    expect(vars['--fds-on-danger']).toBe('#ffffff')
+    expect(vars['--fds-on-success']).toBe('#ffffff')
+    const dark = themeToCssVars(findPreset('graphite')!.theme)
+    expect(dark['--fds-on-danger']).toBe('#0e0e0e')
+  })
+
   it('only ever emits custom properties', () => {
     for (const name of Object.keys(themeToCssVars(ember))) expect(name).toMatch(/^--[a-z0-9-]+$/)
   })
@@ -68,6 +89,7 @@ describe('applyTheme', () => {
     expect(root.style.getPropertyValue('--radius')).toBe('16px')
     expect(root.style.colorScheme).toBe('dark')
     expect(root.dataset.scheme).toBe('dark')
+    expect(root.dataset.fdsMode).toBe('dark')
   })
 
   it('keeps the browser chrome color in step with the page background', () => {
@@ -117,7 +139,21 @@ describe('tokens.css', () => {
         '--hero-from',
       ]),
     )
-    // Every variable the theme sets has a fallback.
-    expect([...Object.keys(expected)].filter((n) => !declared.has(n))).toEqual([])
+    // Every variable the theme sets has a fallback. The --fds-* tokens fall back to the package's
+    // own orbit theme (the same Ember palette), so they are checked against that instead.
+    expect(
+      [...Object.keys(expected)].filter((n) => !n.startsWith('--fds-') && !declared.has(n)),
+    ).toEqual([])
+  })
+
+  it('only sets --fds-* tokens that the @scttlnd/ui orbit theme defines', () => {
+    // Read from disk: vitest strips CSS that lives in node_modules from `?raw` imports.
+    const themePath = createRequire(import.meta.url).resolve('@scttlnd/ui/themes/orbit.css')
+    const fdsTheme = readFileSync(themePath, 'utf8')
+    const known = new Set([...fdsTheme.matchAll(/(--fds-[a-z0-9-]+):/g)].map((m) => m[1]!))
+    const unknown = Object.keys(themeToCssVars(ember)).filter(
+      (n) => n.startsWith('--fds-') && !known.has(n),
+    )
+    expect(unknown).toEqual([])
   })
 })

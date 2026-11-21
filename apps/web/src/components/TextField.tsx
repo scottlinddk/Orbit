@@ -1,5 +1,5 @@
-import { useId, type InputHTMLAttributes } from 'react'
-import styles from './TextField.module.css'
+import type { InputHTMLAttributes } from 'react'
+import { Field, Input } from '@scttlnd/ui'
 
 interface TextFieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'id'> {
   label: string
@@ -7,24 +7,9 @@ interface TextFieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'id
 }
 
 export function TextField({ label, hint, ...input }: TextFieldProps) {
-  const id = useId()
-  const hintId = `${id}-hint`
   return (
-    <div className={styles.field}>
-      <label htmlFor={id} className={styles.label}>
-        {label}
-      </label>
-      <input
-        id={id}
-        className={styles.input}
-        aria-describedby={hint ? hintId : undefined}
-        {...input}
-      />
-      {hint ? (
-        <p id={hintId} className={styles.hint}>
-          {hint}
-        </p>
-      ) : null}
-    </div>
+    <Field label={label} hint={hint}>
+      {(control) => <Input {...control} {...input} />}
+    </Field>
   )
 }
