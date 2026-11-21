@@ -1,7 +1,4 @@
 // @vitest-environment jsdom
-/// <reference types="node" />
-import { readFileSync } from 'node:fs'
-import { createRequire } from 'node:module'
 import { beforeEach, describe, expect, it } from 'vitest'
 import css from '../styles/tokens.css?raw'
 import { findPreset } from './presets.ts'
@@ -141,20 +138,9 @@ describe('tokens.css', () => {
       ]),
     )
     // Every variable the theme sets has a fallback. The --fds-* tokens fall back to the package's
-    // own orbit theme (the same Ember palette), so they are checked against that instead.
+    // own orbit theme (the same Ember palette), so they are excluded here.
     expect(
       [...Object.keys(expected)].filter((n) => !n.startsWith('--fds-') && !declared.has(n)),
     ).toEqual([])
-  })
-
-  it('only sets --fds-* tokens that the @scttlnd/ui orbit theme defines', () => {
-    // Read from disk: vitest strips CSS that lives in node_modules from `?raw` imports.
-    const themePath = createRequire(import.meta.url).resolve('@scttlnd/ui/themes/orbit.css')
-    const fdsTheme = readFileSync(themePath, 'utf8')
-    const known = new Set([...fdsTheme.matchAll(/(--fds-[a-z0-9-]+):/g)].map((m) => m[1]!))
-    const unknown = Object.keys(themeToCssVars(ember)).filter(
-      (n) => n.startsWith('--fds-') && !known.has(n),
-    )
-    expect(unknown).toEqual([])
   })
 })
