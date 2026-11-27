@@ -400,8 +400,8 @@ importers:
         specifier: workspace:*
         version: link:../../domain
       node-ical:
-        specifier: 0.27.3
-        version: 0.27.3
+        specifier: 0.27.7
+        version: 0.27.7
 
   packages/integrations/mealie:
     dependencies:
@@ -1916,8 +1916,8 @@ packages:
   natural-compare@1.4.0:
     resolution: {integrity: sha512-OWND8ei3VtNC9h7V60qff3SVobHr996CTwgxubgyQYEpg290h9J0buyECNNJexkFm5sOajh5G116RYA1c8ZMSw==}
 
-  node-ical@0.27.3:
-    resolution: {integrity: sha512-KT8DFQXcOlx4kXRUEr7XvEDa3SE7yury8ZKG6GB3JB20v9d0SKSSieThbXCI8kpTsyNeQkKqfJn/nbnmaRMpRw==}
+  node-ical@0.27.7:
+    resolution: {integrity: sha512-F7IVw0ba9N1+uuf6LTVbQwAmCkTtxEwEu3FOvB1LbmUbOEwqtQ4UrNofgTPvZ5V7v80Fy9k/CjVs3l/AQwI12g==}
     engines: {node: '>=22'}
 
   node-releases@2.0.59:
@@ -3719,7 +3719,7 @@ snapshots:
 
   natural-compare@1.4.0: {}
 
-  node-ical@0.27.3:
+  node-ical@0.27.7:
     dependencies:
       rrule-temporal: 2.2.8
       temporal-polyfill: 1.0.6
